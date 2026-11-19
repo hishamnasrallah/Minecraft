@@ -69,11 +69,12 @@ jobs:
 
       - name: Export the APK
         working-directory: godot
-        env:
-          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ env.HOME }}/debug.keystore
-          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
-          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
+          export GODOT_ANDROID_KEYSTORE_DEBUG_PATH="$HOME/debug.keystore"
+          export GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey
+          export GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android
+          echo "SDK: $ANDROID_SDK_ROOT"; ls "$ANDROID_SDK_ROOT/build-tools" | tail -3
+          ls "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable" | grep -i android
           mkdir -p build
           timeout 900 "$HOME/godot" --headless --path . --export-debug "Android" build/BlockWorld.apk < /dev/null
           ls -la build
