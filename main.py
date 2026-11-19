@@ -15,6 +15,7 @@ Controls:
   H              hollow box               Delete  clear selection   Q  deselect (Shift+Q: drop copy)
   C              copy                     hold V  preview, release to paste (Shift: include air)
   R / M          rotate / mirror copy     U  undo
+  L              schematics library: save the copy as a file, load one to paste
   Alt+1-9        load saved hotbar        Alt+Shift+1-9  save hotbar (also in the creative menu)
 
   python main.py --new        start a new world
@@ -42,6 +43,7 @@ from lighting import block_shader
 from animals import Wildlife
 from animal_models import AnimalView
 from building import Builder
+import schematics
 
 SAVE_FILE = Path(__file__).with_name("save.json")
 SURVIVAL_REACH, CREATIVE_REACH = 6, 10
@@ -916,6 +918,8 @@ def building_key(key):
         message = builder.mirror()
     elif key == "u":
         keys, message = builder.undo(world)
+    elif key == "l":
+        open_library()
     elif key == "q":
         builder.clear_selection()
         if shift:
@@ -951,6 +955,103 @@ def update_building():
         size = builder.clipboard_size()
         paste_preview.position = tuple(o + (s - 1) / 2 for o, s in zip(origin, size))
         paste_preview.scale = tuple(s + 0.02 for s in size)
+
+
+# ---------------------------------------------------------------- schematics library (L)
+library = Entity(parent=camera.ui, enabled=False)
+Entity(parent=library, model="quad", scale=(4, 2), color=Color(0, 0, 0, 0.45), z=0.2)
+Entity(parent=library, model="quad", scale=(0.9, 0.74), position=(0, 0.06), color=Color(0.15, 0.15, 0.18, 0.95), z=0.1)
+Text(parent=library, text="Schematics", position=(-0.42, 0.36), scale=1.4)
+Text(parent=library, text="saved in the schematics folder - share the .json files with friends",
+     position=(-0.42, 0.31), scale=0.75, color=color.light_gray)
+schem_name = InputField(parent=library, default_value="", position=(-0.13, 0.24), scale=(0.5, 0.045), character_limit=40)
+schem_hint = Text(parent=library, text="name for the current copy", position=(-0.37, 0.248), scale=0.8, color=color.gray)
+make_button("save copy", (0.3, 0.24), (0.2, 0.045), lambda: save_schematic(), library)
+LIBRARY_ROWS = 7
+library_rows = []
+for r in range(LIBRARY_ROWS):
+    y = 0.15 - r * 0.06
+    load_button = make_button(" ", (-0.06, y), (0.72, 0.05), (lambda k: lambda: load_schematic(k))(r), library)
+    delete_button = make_button("delete", (0.36, y), (0.1, 0.05), (lambda k: lambda: delete_schematic(k))(r), library)
+    library_rows.append((load_button, delete_button))
+library_page_text = Text(parent=library, text="", position=(0, -0.27), origin=(0, 0), scale=0.9)
+make_button("prev", (-0.2, -0.27), (0.08, 0.045), lambda: library_page_step(-1), library)
+make_button("next", (0.2, -0.27), (0.08, 0.045), lambda: library_page_step(1), library)
+library_entries, library_page = [], 0
+
+
+def refresh_library():
+    global library_entries, library_page
+    library_entries = schematics.list_saved()
+    pages = page_count(len(library_entries), LIBRARY_ROWS)
+    library_page = min(library_page, pages - 1)
+    shown = library_entries[library_page * LIBRARY_ROWS:(library_page + 1) * LIBRARY_ROWS]
+    for r, (load_button, delete_button) in enumerate(library_rows):
+        entry = shown[r] if r < len(shown) else None
+        load_button.enabled = delete_button.enabled = entry is not None
+        if entry:
+            _, name, (sx, sy, sz) = entry
+            load_button.text = f"{name}   ({sx} x {sy} x {sz})"
+    library_page_text.text = f"page {library_page + 1} / {pages}   ({len(library_entries)} saved)"
+    schem_hint.enabled = not schem_name.text
+
+
+def library_entry(row):
+    i = library_page * LIBRARY_ROWS + row
+    return library_entries[i] if i < len(library_entries) else None
+
+
+def library_page_step(step):
+    global library_page
+    library_page = max(0, library_page + step)
+    refresh_library()
+
+
+def save_schematic():
+    try:
+        path = schematics.save(builder.clipboard, schem_name.text)
+    except ValueError as e:
+        flash(str(e).capitalize())
+        return
+    flash(f"Saved {path.name}")
+    schem_name.text = ""
+    refresh_library()
+
+
+def load_schematic(row):
+    entry = library_entry(row)
+    if not entry:
+        return
+    try:
+        builder.clipboard = schematics.load(entry[0])
+    except (ValueError, KeyError, OSError):
+        flash(f"Could not read {entry[0].name}")
+        return
+    flash(f"Loaded {entry[1]} - hold V to place it")
+    close_library()
+
+
+def delete_schematic(row):
+    entry = library_entry(row)
+    if entry:
+        schematics.delete(entry[0])
+        flash(f"Deleted {entry[0].name}")
+        refresh_library()
+
+
+def open_library():
+    library.enabled = True
+    player.enabled = False
+    refresh_library()
+
+
+def close_library():
+    library.enabled = False
+    schem_name.active = False
+    player.enabled = not health.dead
+
+
+schem_name.on_value_changed = lambda: setattr(schem_hint, "enabled", not schem_name.text)
 
 
 def screen_click(right):
@@ -1021,6 +1122,16 @@ def input(key):
         elif key == "escape":
             save()
             application.quit()
+        return
+    if library.enabled:
+        if schem_name.active:
+            if key == "enter":
+                save_schematic()
+            elif key == "escape":
+                schem_name.active = False
+            return
+        if key in ("l", "escape"):
+            close_library()
         return
     if screen.enabled:
         if search.active:
