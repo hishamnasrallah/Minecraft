@@ -94,9 +94,8 @@ func _ready() -> void:
 	var pd := world.player_data
 	creative = "--creative" in args or pd.get("mode") == "creative"
 	inv = Inventory.from_data(pd.get("inventory"))
-	if creative and inv.count(0) == 0 and inv.slots.all(func(s): return s == null):
-		for item in [1, 22, 4, 7, 41, 12, 50, 48, 510]:
-			inv.add(item, Items.max_stack(item))
+	if not pd.has("inventory"):
+		_fill_starter(creative)
 	health = Survival.from_data(pd.get("survival"))
 	saved_hotbars = pd.get("hotbars", [])
 	saved_hotbars.resize(9)
@@ -146,6 +145,19 @@ func _ready() -> void:
 	add_child(player)
 	player.look(-_initial_look)
 
+	ghost = MeshInstance3D.new()
+	var gm := BoxMesh.new()
+	gm.size = Vector3.ONE * 0.98
+	ghost.mesh = gm
+	var gmat := StandardMaterial3D.new()
+	gmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	gmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	gmat.albedo_color = Color(1, 1, 1, 0.22)
+	gmat.no_depth_test = false
+	ghost.material_override = gmat
+	ghost.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ghost.visible = false
+	add_child(ghost)
 	highlight = _wire_cube(Color.BLACK)
 	selection_box = _wire_cube(Color(0.3, 0.9, 1.0))
 	paste_preview = _wire_cube(Color(1, 0.9, 0.2))
@@ -169,6 +181,12 @@ func _ready() -> void:
 	add_child(hud)
 	hud.respawn_pressed.connect(respawn)
 
+	hud.minimap.world = world
+	drops = Drops.new()
+	drops.world = world
+	drops.hud = hud
+	add_child(drops)
+
 	var layer := CanvasLayer.new()
 	layer.layer = 2
 	add_child(layer)
@@ -176,6 +194,7 @@ func _ready() -> void:
 	layer.add_child(touch)
 	touch.visible = use_touch
 	touch.place_pressed.connect(place_block)
+	touch.world_tapped.connect(tap_world)
 	touch.hotbar_tapped.connect(func(pos): _select(hud.slot_at(pos)))
 	touch.menu_pressed.connect(func(): save_game(); hud.flash(I18n.t("saved")))
 	touch.inventory_pressed.connect(open_screen)
@@ -204,12 +223,16 @@ func _ready() -> void:
 	screen.time_pressed.connect(func(v): world.time_of_day = v)
 	screen.freeze_pressed.connect(func(): time_speed = 0.0 if time_speed != 0.0 else 1.0; hud.flash(I18n.t("time_frozen") if time_speed == 0.0 else I18n.t("time_running")))
 	screen.message.connect(hud.flash)
+	screen.drop_stack.connect(func(st):
+		var f := player.forward()
+		drops.spawn(st, player.eye() + f * 0.5 - Vector3(0, 0.3, 0), f * 5.0 + Vector3(0, 2.0, 0), 1.5))
 	top.add_child(screen)
 	settings = SettingsScreen.new()
 	settings.in_game = true
 	settings.visible = false
 	settings.exit_pressed.connect(func(): save_game(); get_tree().change_scene_to_file("res://scenes/menu.tscn"))
 	settings.closed.connect(close_settings)
+	settings.touch_buttons_changed.connect(func(on): touch.set_classic(on))
 	settings.tutorial_pressed.connect(func(): close_settings(); start_tutorial())
 	settings.view_distance_changed.connect(func(v): chunks.render_distance = v; chunks.update_center(player.position, true))
 	settings.language_picked.connect(func(code):
@@ -294,8 +317,28 @@ func _refresh_mode() -> void:
 	hud.show_bars(health, creative)
 
 
+const CREATIVE_HOTBAR := [1, 22, 4, 7, 41, 12, 50, 48, 510]
+const STARTER_KIT := [[201, 1], [203, 1], [209, 1], [105, 6], [50, 8], [7, 16], [46, 1], [48, 1]]
+
+
+## A new world's first items: building blocks in creative, a small kit in survival.
+func _fill_starter(is_creative: bool) -> void:
+	for st in (CREATIVE_HOTBAR.map(func(i): return [i, Items.max_stack(i)]) if is_creative else STARTER_KIT):
+		inv.add(st[0], st[1])
+
+
+func _hotbar_empty() -> bool:
+	for i in 9:
+		if inv.slots[i] != null:
+			return false
+	return true
+
+
 func set_mode(to_creative: bool) -> void:
 	creative = to_creative
+	if creative and _hotbar_empty():
+		for i in 9:                          # an empty hand in creative: give a row of blocks
+			inv.slots[i] = [CREATIVE_HOTBAR[i], Items.max_stack(CREATIVE_HOTBAR[i])]
 	if not creative:
 		set_flying(false)
 	health.fall_top = null
@@ -356,13 +399,14 @@ func _update_tutorial() -> void:
 	_tut_last = now
 
 
-func open_screen(chest = null) -> void:
+func open_screen(chest = null, kind := "") -> void:
 	if health.dead:
 		return
 	chest_pos = chest
 	chest_inv = Inventory.from_data(world.containers.get(chest), 27) if chest != null else null
 	tutorial.report("items")
-	screen.open(inv, creative, chest_inv)
+	screen.hotbar_selected = selected
+	screen.open(inv, creative, chest_inv, kind)
 	player.set_physics_process(false)
 	touch.blocked = true
 	if not use_touch:
@@ -529,7 +573,7 @@ func _read_controls() -> void:
 
 func _breaking() -> bool:
 	return (Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)) \
-		or (use_touch and touch.break_held)
+		or (use_touch and (touch.break_held or touch.aiming))
 
 
 # ---------------------------------------------------------------- world interaction
@@ -537,8 +581,42 @@ func reach() -> float:
 	return 10.0 if creative else 6.0
 
 
+var _aim_screen = null            # touch: screen point being aimed at, null = screen centre
+
+
+## Where actions go: the screen centre, or the finger on a touch screen.
+func aim_dir() -> Vector3:
+	if _aim_screen != null:
+		return player.camera.project_ray_normal(_aim_screen)
+	return player.forward()
+
+
 func target(hit_water := false) -> Dictionary:
-	return world.raycast(player.eye(), player.forward(), reach(), hit_water)
+	return world.raycast(player.eye(), aim_dir(), reach(), hit_water)
+
+
+## A tap on the world (touch): use doors / chests / beds, place the held block, eat,
+## or else hit what is there (instant in creative and for soft blocks like flowers).
+func tap_world(pos: Vector2) -> void:
+	if health.dead or not spawned:
+		return
+	_aim_screen = pos
+	var animal = looked_at_animal()
+	var item := inv.item_at(selected)
+	var hit := target()
+	if animal != null:
+		attack(animal)
+	elif not hit.is_empty() and use_block(hit["pos"]):
+		pass
+	elif Items.placeable.has(item) or Items.food.has(item) or item in [int(Items.S["BUCKET"]), int(Items.S["WATER_BUCKET"])]:
+		place_block()
+	elif not hit.is_empty():
+		var id := world.get_block(hit["pos"].x, hit["pos"].y, hit["pos"].z)
+		if creative or Blocks.hardness[id] == 0:
+			break_at(hit["pos"])
+		else:
+			hud.flash(I18n.t("hold_to_break"))
+	_aim_screen = null
 
 
 ## The animal in the crosshair if it is closer than the block behind it.
@@ -546,7 +624,7 @@ func looked_at_animal():
 	var best = null
 	var best_d := reach()
 	for a in animal_views:
-		var d: float = animal_views[a].ray_hit(player.eye(), player.forward(), best_d)
+		var d: float = animal_views[a].ray_hit(player.eye(), aim_dir(), best_d)
 		if d >= 0 and d < best_d:
 			best = a
 			best_d = d
@@ -579,6 +657,7 @@ func break_at(pos: Vector3i) -> void:
 		edit(pos, 0, true)
 		return
 	Sfx.play(Sfx.dig_sound(id))
+	buzz(30)
 	tutorial.report("break")
 	var tool := inv.item_at(selected)
 	var m := Items.mining(id, tool)
@@ -596,8 +675,7 @@ func break_at(pos: Vector3i) -> void:
 			if s != null:
 				stacks.append(s.map(func(v): return int(v)))
 	for s in stacks:
-		if inv.give(s) != null:
-			hud.flash(I18n.t("inventory_full"))
+		drops.spawn(s, Vector3(pos))
 	if not m[1] and int(Blocks.defs[id]["level"]) > 0:
 		hud.flash(I18n.f("needs_tool", Items.name_of(id)))
 	if m[2] and inv.wear(selected):
@@ -648,6 +726,9 @@ func use_block(pos: Vector3i) -> bool:
 	if d.get("container", false):
 		open_screen(pos)
 		return true
+	if id == 47:
+		open_screen(null, "furnace")
+		return true
 	if id == 62:
 		spawn_point = Vector3(pos.x, pos.y + 1.5, pos.z)
 		if world.time_of_day > 0.5 and world.time_of_day < 0.97:
@@ -657,6 +738,12 @@ func use_block(pos: Vector3i) -> bool:
 			hud.flash(I18n.t("spawn_set"))
 		return true
 	return false
+
+
+## A short vibration on phones (can be turned off in the settings).
+func buzz(ms: int) -> void:
+	if use_touch and bool(I18n.settings.get("vibrate", true)):
+		Input.vibrate_handheld(ms)
 
 
 func _facing() -> int:
@@ -725,6 +812,8 @@ func place_block() -> void:
 			return
 	if edit(pos, id):
 		Sfx.play(Sfx.dig_sound(id) if Blocks.defs[id].get("shape") == "cross" else "place")
+		InventoryScreen.note_recent(item)
+		buzz(15)
 		tutorial.report("place")
 		if not creative:
 			inv.use_one(selected)
@@ -771,6 +860,8 @@ func _update_mining(delta: float) -> void:
 	var hit := target() if spawned and animal == null else {}
 	highlight.visible = not hit.is_empty()
 	if hit.is_empty():
+		ghost.visible = false
+		hud.show_target("")
 		mine_pos = null
 		crack.visible = false
 		return
@@ -778,6 +869,14 @@ func _update_mining(delta: float) -> void:
 	highlight.position = Vector3(pos)
 	highlight.scale = Vector3.ONE * 1.004
 	var id := world.get_block(pos.x, pos.y, pos.z)
+	hud.show_target(Items.name_of(id))
+	# ghost of the held block (with a crosshair; on touch the finger shows where it goes)
+	var held_item := inv.item_at(selected)
+	var ghost_pos: Vector3i = pos + hit["normal"]
+	ghost.visible = (not use_touch or touch.classic) and Items.placeable.has(held_item) and not held_item in [WorldData.WATER] \
+		and _replaceable(ghost_pos) and not _overlaps_player(ghost_pos, held_item)
+	if ghost.visible:
+		ghost.position = Vector3(ghost_pos)
 	if held and (Blocks.hardness[id] >= 0 or creative):
 		if creative:
 			if mine_pos != pos:
@@ -878,6 +977,8 @@ var _was_swimming := false
 var _last_step_pos = null
 var _ready_frames := 0
 var tutorial: Tutorial
+var drops: Drops
+var ghost: MeshInstance3D           # where the held block would go
 var _tut_last = null              # [yaw, pitch, position] last frame, for the tutorial
 
 
@@ -1021,13 +1122,24 @@ func _process(delta: float) -> void:
 		_read_controls()
 	touch.show_button("up", creative and player.flying)
 	touch.show_button("down", creative and player.flying)
+	_aim_screen = touch.aim_point if use_touch and touch.aiming else null
 	_update_mining(delta)
+	_aim_screen = null
 	_update_footsteps()
 	_update_building()
 	_update_sky(delta)
 	_update_animals(delta)
 	_update_health(delta)
 	_update_tutorial()
+	if spawned and hud.minimap.visible:
+		hud.minimap.update_map(player.position, player.forward(), spawn_point)
+	if spawned:
+		var got := drops.update(delta, player.position, inv, 1.0)
+		if not got.is_empty():
+			Sfx.play("pop", -10.0, randf_range(1.1, 1.5))
+			hud.show_hotbar(inv, selected, creative)
+			if screen.visible:
+				screen.refresh()
 	if "--selftest" in OS.get_cmdline_user_args() and spawned:
 		_selftest_step()
 	if "--gloomtest" in OS.get_cmdline_user_args() and spawned and not _st.has("gloom"):
@@ -1054,6 +1166,7 @@ func _process(delta: float) -> void:
 
 
 func save_game() -> void:
+	I18n.save_settings()
 	if chest_pos != null and chest_inv != null:
 		world.containers[chest_pos] = chest_inv.to_data()
 	var data: Dictionary = world.player_data.duplicate()
@@ -1125,11 +1238,20 @@ func _selftest_step() -> void:
 		70:
 			player.look(Vector2(0, 0.9))                       # look down at the ground
 			_st["ground"] = target()["pos"]
-			_press("break", 1, true)                             # survival: dig the block (dirt/grass/sand)
+			_st["ground_id"] = world.get_block(_st["ground"].x, _st["ground"].y, _st["ground"].z)
+			_touch(1, s / 2, true)                               # survival: hold a finger on the ground to dig
 		400:
-			_press("break", 1, false)
+			_touch(1, s / 2, false)
 			var g: Vector3i = _st["ground"]
-			print("SELFTEST dug a block by hand: ", world.get_block(g.x, g.y, g.z) == 0, ", got: ", inv.slots.filter(func(x): return x != null))
+			print("SELFTEST dug a block with a held finger: ", world.get_block(g.x, g.y, g.z) != _st["ground_id"], ", drops on the ground / picked up: ", drops.drops.size(), " / ", drops.picked_total)
+			_select(5)                                           # the planks of the starter kit
+			player.look(Vector2(0, -0.35))                       # aim a little ahead, not at our own feet
+			_st["planks"] = inv.count(7)
+			_touch(1, s / 2, true)                               # a short tap places the held block
+		402:
+			_touch(1, s / 2, false)
+		404:
+			print("SELFTEST tap placed a block: ", inv.count(7) == _st["planks"] - 1)
 		405:
 			inv.add(4, 2)                                        # two logs to craft with
 			_press("inventory", 2, true)
@@ -1137,14 +1259,22 @@ func _selftest_step() -> void:
 		410:
 			print("SELFTEST inventory open: ", screen.visible, ", touch blocked: ", touch.blocked)
 			var planks: Dictionary = Items.recipes[0]
-			screen._craft(planks)
-			print("SELFTEST crafted planks: ", inv.count(7) == 4)
+			var before := inv.count(7)
+			screen.recipe = planks
+			screen._craft(planks, 1)
+			screen.refresh()
+			print("SELFTEST crafted planks: ", inv.count(7) == before + 4)
 		412:
 			_st_shot("t2_crafting")
 			screen.closed.emit()
 			open_settings()
-		414:
+		413:
 			_st_shot("t5_settings")
+			settings._open_log()
+		414:
+			_st_shot("t6_log")
+			settings._log_panel.visible = false
+			settings._panel.visible = true
 			close_settings()
 		415:
 			print("SELFTEST inventory closed: ", not screen.visible)
@@ -1161,6 +1291,9 @@ func _selftest_step() -> void:
 			_press("build", 5, false)
 		452:
 			open_screen()
+		454:
+			screen._tap_palette(int(screen._families["concrete"][0]), "concrete")   # open a colour family
+			print("SELFTEST family opened: ", screen.expanded, ", slots shown: ", screen._grid.get_child_count())
 		456:
 			_st_shot("t3_creative_menu")
 			screen.closed.emit()

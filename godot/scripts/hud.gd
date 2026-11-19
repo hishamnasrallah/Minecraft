@@ -19,6 +19,8 @@ var fps: Label
 var message: Label
 var mode_label: Label
 var build_label: Label
+var target_label: Label
+var minimap: Minimap
 var _message_time := 0.0
 var hotbar_box: HBoxContainer
 var hearts := []
@@ -75,8 +77,13 @@ func _ready() -> void:
 	message = _label(20)
 	mode_label = _label(16)
 	mode_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
+	target_label = _label(17)
+	target_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
+	target_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	build_label = _label(16)
 	build_label.add_theme_color_override("font_color", Color(0.4, 0.9, 1.0))
+	minimap = Minimap.new()
+	root.add_child(minimap)
 	_make_death_screen()
 	_layout.call_deferred()
 	get_viewport().size_changed.connect(_layout)
@@ -188,10 +195,16 @@ func _layout() -> void:
 	item_label.size = Vector2(400, 30)
 	item_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	clock.position = Vector2(s.x / 2 - 40, 8)
-	fps.position = Vector2(12, 12)
-	message.position = Vector2(12, 40)
-	mode_label.position = Vector2(12, 70)
-	build_label.position = Vector2(12, 94)
+	target_label.position = Vector2(s.x / 2 - 200, s.y / 2 + 22)
+	target_label.size = Vector2(400, 26)
+	var y0 := 0.0
+	if minimap.visible:
+		minimap.position = Vector2(14, 14)
+		y0 = minimap.size.y + 16
+	fps.position = Vector2(12, 12 + y0)
+	message.position = Vector2(12, 40 + y0)
+	mode_label.position = Vector2(12, 70 + y0)
+	build_label.position = Vector2(12, 94 + y0)
 	var box: Control = death.get_child(0)
 	box.position = s / 2 - box.get_combined_minimum_size() / 2
 
@@ -211,9 +224,15 @@ func show_hotbar(inv: Inventory, selected: int, creative: bool) -> void:
 		show_stack([icons[i], counts[i], bars[i]], inv.slots[i], SLOT, not creative)
 		var style := StyleBoxFlat.new()
 		style.bg_color = Color(0, 0, 0, 0.45)
-		style.set_border_width_all(3 if i == selected else 1)
-		style.border_color = Color.WHITE if i == selected else Color(1, 1, 1, 0.25)
+		style.set_border_width_all(4 if i == selected else 1)
+		style.border_color = Color(1, 0.86, 0.3) if i == selected else Color(1, 1, 1, 0.25)
+		style.set_corner_radius_all(6)
+		if i == selected:
+			style.bg_color = Color(0.25, 0.2, 0.05, 0.6)
 		slots[i].add_theme_stylebox_override("panel", style)
+		slots[i].pivot_offset = Vector2(SLOT, SLOT) / 2
+		slots[i].scale = Vector2.ONE * (1.14 if i == selected else 1.0)
+		slots[i].z_index = 1 if i == selected else 0
 	var s = inv.slots[selected]
 	item_label.text = Items.name_of(s[0]) if s != null else ""
 	if s != null and s.size() == 3:
@@ -233,11 +252,32 @@ func show_bars(sv: Survival, creative: bool) -> void:
 		bubbles[i].visible = not creative and sv.air < max_air and i < ceili(sv.air / max_air * 10)
 
 
+static var _icons3d: Texture2D
+static var _icon_cache := {}
+
+
 func icon_for(item: int) -> AtlasTexture:
+	if _icon_cache.has(item):
+		return _icon_cache[item]
 	var t := AtlasTexture.new()
+	if Items.icons3d.has(item):
+		if _icons3d == null:
+			_icons3d = load("res://data/icons3d.png")
+		var n: int = Items.icons3d[item]
+		var sz := float(Items.icon3d_size)
+		t.atlas = _icons3d
+		t.region = Rect2((n % Items.icon3d_cols) * sz, (n / Items.icon3d_cols) * sz, sz, sz)
+		_icon_cache[item] = t
+		return t
 	t.atlas = atlas
 	t.region = Blocks.tile_region(Items.icons.get(item, 0))
+	_icon_cache[item] = t
 	return t
+
+
+func show_target(text: String) -> void:
+	if target_label.text != text:
+		target_label.text = text
 
 
 func flash(text: String) -> void:
@@ -257,6 +297,9 @@ func show_death(cause: String) -> void:
 
 func _process(delta: float) -> void:
 	fps.text = "%d fps" % Engine.get_frames_per_second()
+	if minimap.visible != bool(I18n.settings.get("show_map", true)):
+		minimap.visible = not minimap.visible
+		_layout()
 	if _message_time > 0:
 		_message_time -= delta
 		message.modulate.a = clampf(_message_time / 0.5, 0, 1)

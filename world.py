@@ -11,7 +11,8 @@ from pathlib import Path
 
 from blocks import (BLOCK_DEFS, BLOCKS, BLOCK_TILES, TRANSPARENT, TRANSLUCENT, NON_SOLID, LIGHT_EMIT,
                     UNBREAKABLE, PLANTS_NEED_SOIL, WATER, LAMP, GLASS, CUBE, CROSS, SLAB, STAIR, FENCE, LADDER,
-                    DOOR, BED, TORCH, DOORS)
+                    DOOR, BED, TORCH, CARPET, DOORS, WOODS, FLOWERS, SLATE, LIMESTONE, RUBY_ORE, SAPPHIRE_ORE,
+                    AMETHYST_ORE, QUARTZ_ORE, LEAFY_BUSH, BERRY_BUSH, DRY_BUSH)
 
 CHUNK_SIZE = 16
 MAX_HEIGHT = 64
@@ -24,7 +25,7 @@ CAVE_GRID = 4              # cave noise is sampled every N blocks and interpolat
 SNOW_LINE = 27             # mountain tops above this are snowy with pine trees
 
 # Texture atlas layout: ATLAS_COLS x ATLAS_COLS tiles, read left-to-right, top-to-bottom.
-ATLAS_COLS = 12
+ATLAS_COLS = 32
 _BASE_TILES = [
     "grass_top", "grass_side", "dirt", "stone",
     "log_side", "log_top", "leaves", "sand",
@@ -38,6 +39,7 @@ ITEM_TILES = [
     "iron_pickaxe", "diamond_pickaxe", "iron_axe", "diamond_axe",
     "wood_shovel", "stone_shovel", "iron_shovel", "diamond_shovel",
     "wood_sword", "stone_sword", "iron_sword", "diamond_sword",
+    "ruby", "sapphire", "amethyst", "quartz",
 ]
 TILES = list(_BASE_TILES)
 for _tiles in BLOCK_TILES.values():
@@ -309,14 +311,32 @@ class World:
         forest = fbm(x / 60, z / 60, seed + 41, 2)
         tree = (not desert and h > WATER_LEVEL
                 and _hash(x, z, seed + 777) < TREE_CHANCE * (0.6 + 1.6 * forest))
+        kind = "oak"
         if h >= SNOW_LINE - 3:
             kind = "pine"
-        else:
-            kind = "birch" if tree and fbm(x / 50, z / 50, seed + 43, 2) > 0.56 else "oak"
+        elif tree:
+            kind = self._tree_species(x, z, h, forest)
         if len(self._climate) > 400_000:
             self._climate.clear()
         result = self._climate[(x, z)] = (h, desert, tree, kind, forest)
         return result
+
+    def _tree_species(self, x, z, h, forest):
+        """Which broadleaf tree grows here: dry land near deserts gets ashwood, deep forests
+        ebony, and big patches of maple, cherry and birch are spread around the rest."""
+        seed = self.seed
+        if WATER_LEVEL + 1 < h < SNOW_LINE - 3 and fbm(x / 140, z / 140, seed + 31, 2) > 0.47:
+            return "ashwood"                     # savanna around the deserts
+        if forest > 0.6 and _hash(x, z, seed + 779) < 0.55:
+            return "ebony"
+        if fbm(x / 50, z / 50, seed + 43, 2) > 0.56:
+            return "birch"
+        patch = fbm(x / 64, z / 64, seed + 47, 2)
+        if patch > 0.58:
+            return "maple"
+        if patch < 0.4:
+            return "cherry"
+        return "oak"
 
     def has_tree(self, x, z):
         return self._column_climate(x, z)[2]
@@ -377,13 +397,15 @@ class World:
 
     # ores: (block, chance band, deepest y it can appear at)
     ORES = [(COAL_ORE, 0.050, 64), (26, 0.064, 36), (27, 0.074, 36), (25, 0.086, 28), (28, 0.091, 14),
-            (29, 0.094, 9), (14, 0.104, 64)]   # the last band is gravel pockets
+            (29, 0.094, 9), (14, 0.104, 64),   # gravel pockets
+            (RUBY_ORE, 0.107, 12), (SAPPHIRE_ORE, 0.110, 12), (AMETHYST_ORE, 0.115, 22), (QUARTZ_ORE, 0.121, 40)]
+    ORE_LIMIT = ORES[-1][1]
 
     def _rock(self, x, y, z):
         """Underground block: stone with patches of other rock, and ore clusters by depth."""
         seed = self.seed
         r = _hash3(x >> 1, y >> 1, z >> 1, seed + 55)          # 2x2x2 cells decide ore clusters
-        if r < 0.104:
+        if r < self.ORE_LIMIT:
             for block_id, band, max_y in self.ORES:
                 if r < band:
                     if y <= max_y and _hash3(x, y, z, seed + 56) < 0.6:
@@ -396,12 +418,16 @@ class World:
             return 19                                             # basalt, deeper down
         if v < 0.19:
             return 21                                             # marble
+        if v < 0.25 and y > 14:
+            return LIMESTONE                                      # pale limestone, nearer the surface
+        if y < 4 + int(_hash(x, z, seed + 81) * 3):
+            return SLATE                                          # a deep layer of dark slate
         return 3
 
     def _plants(self, key, surface):
         """Grass tufts, flowers, ferns, mushrooms, reeds by the water and cacti in deserts."""
         seed = self.seed
-        flowers = (53, 54, 55, 56)
+        flowers = FLOWERS
         for (x, z), (h, top_block, desert) in surface.items():
             y = h + 1
             if self.get(x, h, z) != top_block or self.get(x, y, z) or self.has_tree(x, z):
@@ -411,6 +437,8 @@ class World:
                 if r < 0.012:
                     for dy in range(1 + int(_hash(x, z, seed + 92) * 3)):
                         self._put((x, y + dy, z), 60)
+                elif r < 0.03:
+                    self._put((x, y, z), DRY_BUSH)
                 continue
             if top_block == 6 and h == WATER_LEVEL + 1 and r < 0.25:
                 near_water = any(self.height_at(x + dx, z + dz) <= WATER_LEVEL
@@ -424,12 +452,18 @@ class World:
             forest = self._column_climate(x, z)[4]
             if r < 0.10:
                 self._put((x, y, z), 51)
-            elif r < 0.12:
-                self._put((x, y, z), flowers[int(_hash(x, z, seed + 94) * 4)])
-            elif r < 0.12 + 0.05 * forest:
+            elif r < 0.135:
+                # flowers grow in patches of one kind, with a few strays of any kind
+                pick = _hash(x >> 3, z >> 3, seed + 96) if _hash(x, z, seed + 94) < 0.75 else _hash(x, z, seed + 97)
+                self._put((x, y, z), flowers[int(pick * len(flowers))])
+            elif r < 0.135 + 0.05 * forest:
                 self._put((x, y, z), 52)
-            elif r < 0.125 + 0.05 * forest and forest > 0.5:
+            elif r < 0.14 + 0.05 * forest and forest > 0.5:
                 self._put((x, y, z), 57 if _hash(x, z, seed + 95) < 0.4 else 58)
+            elif r < 0.155 + 0.05 * forest:
+                self._put((x, y, z), BERRY_BUSH if _hash(x, z, seed + 98) < 0.3 else LEAFY_BUSH)
+            elif r < 0.16 + 0.05 * forest and forest < 0.45:
+                self._put((x, y, z), 951 if _hash(x, z, seed + 99) < 0.5 else 952)   # wild pumpkins and melons
 
     def _carve_caves(self, key):
         """Hollow out tunnels. Noise is sampled on a coarse grid and interpolated, and
@@ -496,15 +530,26 @@ class World:
                         if abs(dx) + abs(dz) <= r + (1 if r == 2 else 0):
                             put((x + dx, y + dy, z + dz), 40)
             return
-        log, leaves, height = (35, 37, 5) if kind == "birch" else (4, 5, 4)
+        log, leaves = WOODS[kind]["log"], WOODS[kind]["leaves"]
+        height, layers = self.TREE_SHAPES[kind]
         for dy in range(height):
             put((x, y + dy, z), log)
-        top = height - 2
-        for dy, r in ((top, 2), (top + 1, 2), (top + 2, 1)):
+        for dy, r, reach in layers:         # leaf layer: height, radius, how far the corners reach
             for dx in range(-r, r + 1):
                 for dz in range(-r, r + 1):
-                    if abs(dx) + abs(dz) < r * 2:
+                    if abs(dx) + abs(dz) <= reach:
                         put((x + dx, y + dy, z + dz), leaves)
+
+    # broadleaf trees: (trunk height, [(layer height, radius, max |dx|+|dz|)]); radius <= 2 so a
+    # tree never reaches further than the 2-block border ensure_chunk scans for trunks
+    TREE_SHAPES = {
+        "oak": (4, [(2, 2, 3), (3, 2, 3), (4, 1, 1)]),
+        "birch": (5, [(3, 2, 3), (4, 2, 3), (5, 1, 1)]),
+        "maple": (5, [(2, 2, 2), (3, 2, 4), (4, 2, 3), (5, 1, 2), (6, 0, 0)]),
+        "cherry": (4, [(2, 2, 3), (3, 2, 4), (4, 2, 2)]),
+        "ashwood": (5, [(4, 2, 3), (5, 2, 2)]),
+        "ebony": (7, [(3, 1, 1), (4, 2, 2), (5, 2, 3), (6, 1, 2), (7, 1, 1), (8, 0, 0)]),
+    }
 
     def unload_chunk(self, key):
         for pos in self.chunks.pop(key, ()):
@@ -669,6 +714,8 @@ class World:
         shape = d["shape"]
         if shape == SLAB:
             return [(-.5, -.5, -.5, .5, 0, .5)]
+        if shape == CARPET:
+            return [(-.5, -.5, -.5, .5, -.4375, .5)]
         if shape == STAIR:
             upper = [(-.5, 0, 0, .5, .5, .5), (0, 0, -.5, .5, .5, .5),
                      (-.5, 0, -.5, .5, .5, 0), (-.5, 0, -.5, 0, .5, .5)][d["facing"]]
@@ -718,7 +765,7 @@ class World:
                         uvs.append(tile_uv(side, *quad_uv[i]))
                     colors.extend((col,) * 6)
             return
-        group = "plants" if d["shape"] in (LADDER, TORCH) else "solid"
+        group = "plants" if d["shape"] in (LADDER, TORCH, CARPET) else "solid"   # plants: no collision
         verts, colors, uvs = out[group]
         blocks = self.blocks
         for box in self.shape_boxes(block_id, x, y, z):

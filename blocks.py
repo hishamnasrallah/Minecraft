@@ -7,6 +7,7 @@ IDs are stable (they're stored in save files), so new blocks get new numbers.
 # block shapes
 CUBE, CROSS, SLAB, STAIR, FENCE, LADDER, DOOR, BED, TORCH = (
     "cube", "cross", "slab", "stair", "fence", "ladder", "door", "bed", "torch")
+CARPET = "carpet"           # a thin 1/16 layer lying on the block below
 
 # creative menu tabs (items and tools add "tools" / "food" / "materials" in inventory.py)
 NATURAL, BUILDING, COLORED, PLANTS, FUNCTIONAL = "natural", "building", "colored", "plants", "functional"
@@ -14,6 +15,7 @@ NATURAL, BUILDING, COLORED, PLANTS, FUNCTIONAL = "natural", "building", "colored
 WATER, LAMP, GLASS = 10, 11, 12
 
 BLOCK_DEFS = {}     # id -> dict
+FAMILIES = {}       # variant family ("wool", "planks", "slabs", ...) -> ids in menu order
 
 
 def block(id_, name, tiles, tab, hardness=1.0, tool=None, level=0, drop="self", shape=CUBE,
@@ -33,7 +35,17 @@ def block(id_, name, tiles, tab, hardness=1.0, tool=None, level=0, drop="self", 
     BLOCK_DEFS[id_] = dict(id=id_, name=name, tiles=tiles, tab=tab, hardness=hardness, tool=tool, level=level,
                            drop=drop, shape=shape, transparent=transparent or shape != CUBE or translucent,
                            translucent=translucent, solid=solid, emit=emit, creative=creative, **extra)
+    if extra.get("family"):
+        FAMILIES.setdefault(extra["family"], []).append(id_)
     return id_
+
+
+def family(name, ids):
+    """Put already registered blocks into a variant family (the UI shows one and expands the rest)."""
+    for i in ids:
+        BLOCK_DEFS[i]["family"] = name
+        FAMILIES.setdefault(name, []).append(i)
+    return list(ids)
 
 
 # ---------------------------------------------------------------- original blocks (ids 1-13 are in old saves)
@@ -132,18 +144,152 @@ WOOL = [block(70 + i, f"{name} wool", f"wool_{i}", COLORED, 0.8, dye=rgb) for i,
 STAINED_GLASS = [block(400 + i, f"{name} glass", f"glass_{i}", COLORED, 0.3, translucent=True, dye=rgb)
                  for i, (name, rgb) in enumerate(DYES)]
 
+# ================================================================ expanded catalogue (ids 600+)
+# ---------------------------------------------------------------- colour families
+CONCRETE = [block(600 + i, f"{name} concrete", f"concrete_{i}", COLORED, 1.8, "pickaxe", 1, dye=rgb,
+                  family="concrete") for i, (name, rgb) in enumerate(DYES)]
+TERRACOTTA_PLAIN = block(664, "terracotta", "terracotta", COLORED, 1.25, "pickaxe", 1, family="terracotta")
+TERRACOTTA = [block(616 + i, f"{name} terracotta", f"terracotta_{i}", COLORED, 1.25, "pickaxe", 1, dye=rgb,
+                    family="terracotta") for i, (name, rgb) in enumerate(DYES)]
+GLAZED = [block(632 + i, f"{name} glazed tile", f"glazed_{i}", COLORED, 1.4, "pickaxe", 1, dye=rgb,
+                family="glazed_tiles") for i, (name, rgb) in enumerate(DYES)]
+CARPETS = [block(648 + i, f"{name} carpet", f"wool_{i}", COLORED, 0.1, shape=CARPET, solid=False, dye=rgb,
+                 family="carpet") for i, (name, rgb) in enumerate(DYES)]
+
+# ---------------------------------------------------------------- wood: 4 new tree species + fences/saplings
+# each species: log, planks, leaves, fence, sapling at 700 + 10 * index
+WOOD_SPECIES = ["maple", "cherry", "ashwood", "ebony"]
+WOODS = {}          # species -> dict(log, planks, leaves, fence, sapling)
+for _s, _sp in enumerate(WOOD_SPECIES):
+    _b = 700 + 10 * _s
+    WOODS[_sp] = dict(
+        log=block(_b, f"{_sp} log", (f"{_sp}_log_top", f"{_sp}_log", f"{_sp}_log_top"), NATURAL, 2.0, "axe"),
+        planks=block(_b + 1, f"{_sp} planks", f"{_sp}_planks", BUILDING, 2.0, "axe"),
+        leaves=block(_b + 2, f"{_sp} leaves", f"{_sp}_leaves", NATURAL, 0.2, drop=None, leaves=True,
+                     sapling=_b + 4),
+        fence=block(_b + 3, f"{_sp} fence", f"{_sp}_planks", FUNCTIONAL, 2.0, "axe", shape=FENCE),
+        sapling=block(_b + 4, f"{_sp} sapling", f"{_sp}_sapling", PLANTS, 0.0, shape=CROSS, solid=False),
+    )
+WOODS = {"oak": dict(log=4, planks=7, leaves=5, fence=61, sapling=742),
+         "birch": dict(log=35, planks=36, leaves=37, fence=740, sapling=743),
+         "pine": dict(log=38, planks=39, leaves=40, fence=741, sapling=744), **WOODS}
+block(740, "birch fence", "birch_planks", FUNCTIONAL, 2.0, "axe", shape=FENCE)
+block(741, "pine fence", "pine_planks", FUNCTIONAL, 2.0, "axe", shape=FENCE)
+for _sp in ("oak", "birch", "pine"):
+    block(WOODS[_sp]["sapling"], f"{_sp} sapling", f"{_sp}_sapling", PLANTS, 0.0, shape=CROSS, solid=False)
+    BLOCK_DEFS[WOODS[_sp]["leaves"]]["sapling"] = WOODS[_sp]["sapling"]
+for _part, _fam in (("log", "logs"), ("planks", "planks"), ("leaves", "leaves"), ("fence", "fences"),
+                    ("sapling", "saplings")):
+    family(_fam, [w[_part] for w in WOODS.values()])
+
+# ---------------------------------------------------------------- stone families
+SLATE, COBBLED_SLATE, LIMESTONE = 800, 801, 802
+block(SLATE, "slate", "slate", NATURAL, 2.0, "pickaxe", 1, drop=COBBLED_SLATE)
+block(COBBLED_SLATE, "cobbled slate", "cobbled_slate", BUILDING, 2.2, "pickaxe", 1)
+block(LIMESTONE, "limestone", "limestone", NATURAL, 1.2, "pickaxe", 1)
+POLISHED = {}        # source rock -> polished id
+for _i, (_src, _name) in enumerate(((3, "polished stone"), (18, "polished granite"), (19, "polished basalt"),
+                                    (21, "polished marble"), (20, "smooth sandstone"), (SLATE, "polished slate"),
+                                    (LIMESTONE, "polished limestone"))):
+    POLISHED[_src] = block(803 + _i, _name, _name.replace(" ", "_"), BUILDING, 1.6, "pickaxe", 1,
+                           family="polished_stone")
+ROCK_BRICKS = {}     # source rock -> bricks id
+for _i, (_src, _name) in enumerate(((18, "granite bricks"), (19, "basalt bricks"), (21, "marble bricks"),
+                                    (SLATE, "slate bricks"), (LIMESTONE, "limestone bricks"))):
+    ROCK_BRICKS[_src] = block(810 + _i, _name, _name.replace(" ", "_"), BUILDING, 1.6, "pickaxe", 1)
+block(815, "cracked stone bricks", "cracked_stone_bricks", BUILDING, 1.5, "pickaxe", 1)
+block(816, "mossy stone bricks", "mossy_stone_bricks", BUILDING, 1.5, "pickaxe", 1)
+CHISELED = {}
+for _i, (_src, _name) in enumerate(((3, "chiseled stone"), (20, "chiseled sandstone"), (21, "chiseled marble"),
+                                    (LIMESTONE, "chiseled limestone"))):
+    CHISELED[_src] = block(817 + _i, _name, _name.replace(" ", "_"), BUILDING, 1.5, "pickaxe", 1,
+                           family="chiseled_stone")
+family("rocks", [3, 18, 19, 21, 20, SLATE, LIMESTONE])
+family("cobblestone", [22, 23, COBBLED_SLATE])
+family("stone_bricks", [41, 815, 816, 42, *ROCK_BRICKS.values()])
+family("sand", [6, 24])
+
+# ---------------------------------------------------------------- minerals
+RUBY_ORE, SAPPHIRE_ORE, AMETHYST_ORE, QUARTZ_ORE = 900, 901, 902, 903
+RUBY, SAPPHIRE, AMETHYST, QUARTZ = 114, 115, 116, 117          # gem items (registered in inventory.py)
+block(RUBY_ORE, "ruby ore", "ruby_ore", NATURAL, 3.0, "pickaxe", 3, drop=RUBY)
+block(SAPPHIRE_ORE, "sapphire ore", "sapphire_ore", NATURAL, 3.0, "pickaxe", 3, drop=SAPPHIRE)
+block(AMETHYST_ORE, "amethyst ore", "amethyst_ore", NATURAL, 3.0, "pickaxe", 2, drop=AMETHYST)
+block(QUARTZ_ORE, "quartz ore", "quartz_ore", NATURAL, 3.0, "pickaxe", 2, drop=QUARTZ)
+block(904, "ruby block", "ruby_block", BUILDING, 5.0, "pickaxe", 3)
+block(905, "sapphire block", "sapphire_block", BUILDING, 5.0, "pickaxe", 3)
+block(906, "amethyst block", "amethyst_block", BUILDING, 4.0, "pickaxe", 2)
+block(907, "quartz block", "quartz_block", BUILDING, 3.0, "pickaxe", 2)
+block(908, "tin block", "tin_block", BUILDING, 5.0, "pickaxe", 1)
+block(909, "coal block", "coal_block", BUILDING, 4.0, "pickaxe", 1)
+GLOW_CRYSTAL = block(910, "glow crystal", "glow_crystal", FUNCTIONAL, 0.6, "pickaxe", emit=15)
+family("ores", [13, 26, 27, 25, 28, 29, RUBY_ORE, SAPPHIRE_ORE, AMETHYST_ORE, QUARTZ_ORE])
+family("storage_blocks", [909, 30, 31, 908, 32, 33, 34, 904, 905, 906, 907])
+
+# ---------------------------------------------------------------- misc natural and farm blocks
+block(950, "hay bale", ("hay_top", "hay_side", "hay_top"), PLANTS, 0.5, family="farm_blocks")
+block(951, "pumpkin", ("pumpkin_top", "pumpkin_side", "pumpkin_top"), PLANTS, 1.0, "axe", family="farm_blocks")
+block(952, "melon", ("melon_top", "melon_side", "melon_top"), PLANTS, 1.0, "axe", family="farm_blocks")
+block(953, "mud", "mud", NATURAL, 0.5, "shovel")
+block(954, "mud bricks", "mud_bricks", BUILDING, 1.5, "pickaxe", 1)
+block(955, "moss block", "moss_block", NATURAL, 0.2)
+block(956, "sponge", "sponge", FUNCTIONAL, 0.6)
+block(957, "packed ice", "packed_ice", NATURAL, 0.6, "pickaxe")
+LAMP_COLORS = [("red", 5), ("orange", 6), ("yellow", 7), ("green", 8), ("cyan", 10), ("blue", 12),
+               ("purple", 13), ("pink", 15)]
+family("lamps", [LAMP])
+COLOR_LAMPS = [block(960 + i, f"{name} lamp", f"lamp_{name.replace(' ', '_')}", FUNCTIONAL, 0.3, emit=14,
+                     dye=DYES[d][1], family="lamps") for i, (name, d) in enumerate(LAMP_COLORS)]
+FAMILIES["lamps"].append(GLOW_CRYSTAL)
+BLOCK_DEFS[GLOW_CRYSTAL]["family"] = "lamps"
+
+# ---------------------------------------------------------------- plants
+NEW_FLOWERS = [block(1000 + i, name, name.replace(" ", "_"), PLANTS, 0.0, shape=CROSS, solid=False)
+               for i, name in enumerate(("lavender", "marigold", "pink tulip", "orchid", "daisy", "bluebell",
+                                         "dark iris", "sunflower"))]
+FLOWERS = family("flowers", [53, 54, 55, 56, *NEW_FLOWERS])
+LEAFY_BUSH, BERRY_BUSH, DRY_BUSH = 1010, 1011, 1012
+block(LEAFY_BUSH, "leafy bush", "leafy_bush", PLANTS, 0.0, shape=CROSS, solid=False, drop=None)
+block(BERRY_BUSH, "berry bush", "berry_bush", PLANTS, 0.0, shape=CROSS, solid=False)
+block(DRY_BUSH, "dry bush", "dry_bush", PLANTS, 0.0, shape=CROSS, solid=False, drop=None)
+family("grasses", [51, 52, LEAFY_BUSH, BERRY_BUSH, DRY_BUSH])
+family("mushrooms", [57, 58])
+family("wool", WOOL)
+family("stained_glass", STAINED_GLASS)
+
 # ---------------------------------------------------------------- slabs and stairs
 SHAPE_MATERIALS = [3, 22, 7, 36, 39, 8, 41, 20, 21]   # stone, cobble, 3 planks, brick, stone bricks, sandstone, marble
 SLABS, STAIRS = {}, {}
-for i, material in enumerate(SHAPE_MATERIALS):
+
+
+def _slab_and_stairs(material, slab_id, stair_id):
     m = BLOCK_DEFS[material]
-    SLABS[material] = block(300 + i, f"{m['name']} slab", m["tiles"], BUILDING, m["hardness"], m["tool"],
-                            m["level"], shape=SLAB, material=material)
+    SLABS[material] = block(slab_id, f"{m['name']} slab", m["tiles"], BUILDING, m["hardness"], m["tool"],
+                            m["level"], shape=SLAB, material=material, family="slabs")
     STAIRS[material] = []
     for f in range(4):                                   # facing: the side the high step is on
-        STAIRS[material].append(block(320 + i * 4 + f, f"{m['name']} stairs", m["tiles"], BUILDING, m["hardness"],
+        STAIRS[material].append(block(stair_id + f, f"{m['name']} stairs", m["tiles"], BUILDING, m["hardness"],
                                       m["tool"], m["level"], shape=STAIR, material=material, facing=f,
-                                      creative=f == 0, drop=320 + i * 4))
+                                      creative=f == 0, drop=stair_id, family="stairs" if f == 0 else None))
+
+
+for i, material in enumerate(SHAPE_MATERIALS):
+    _slab_and_stairs(material, 300 + i, 320 + i * 4)
+# newer materials: slabs at 1100+, stairs at 1200+ (4 facings each)
+NEW_SHAPE_MATERIALS = [WOODS[s]["planks"] for s in WOOD_SPECIES] + [
+    COBBLED_SLATE, POLISHED[SLATE], 18, 19, LIMESTONE, *[POLISHED[r] for r in (3, 18, 19, 21, 20)],
+    *ROCK_BRICKS.values(), 23, 954, 816]
+for i, material in enumerate(NEW_SHAPE_MATERIALS):
+    _slab_and_stairs(material, 1100 + i, 1200 + i * 4)
+SHAPE_MATERIALS = SHAPE_MATERIALS + NEW_SHAPE_MATERIALS
+
+# walls: stone fences (same shape as fences, joining neighbouring walls and solid blocks)
+WALL_MATERIALS = [22, 23, COBBLED_SLATE, 41, 816, 8, 18, 19, 21, 20, LIMESTONE, ROCK_BRICKS[SLATE], 954]
+WALLS = {}
+for i, material in enumerate(WALL_MATERIALS):
+    m = BLOCK_DEFS[material]
+    WALLS[material] = block(1400 + i, f"{m['name']} wall", m["tiles"], BUILDING, m["hardness"], m["tool"],
+                            m["level"], shape=FENCE, material=material, family="walls")
 
 
 # ---------------------------------------------------------------- derived lookups
@@ -155,7 +301,7 @@ NON_SOLID = {0} | {i for i, d in BLOCK_DEFS.items() if not d["solid"]}
 LIGHT_EMIT = {i: d["emit"] for i, d in BLOCK_DEFS.items() if d["emit"]}
 UNBREAKABLE = {i for i, d in BLOCK_DEFS.items() if d["hardness"] < 0}
 LEAVES = {i for i, d in BLOCK_DEFS.items() if d.get("leaves")}
-PLANTS_NEED_SOIL = {51, 52, 53, 54, 55, 56, 57, 58, 59}
+PLANTS_NEED_SOIL = {i for i, d in BLOCK_DEFS.items() if d["shape"] in (CROSS, CARPET)}   # fall without ground
 SHAPED = {i for i, d in BLOCK_DEFS.items() if d["shape"] != CUBE}
 
 

@@ -2,12 +2,14 @@ class_name TouchControls
 extends Control
 ## Phone controls, all multi-touch:
 ##  - left side: a joystick appears where the finger lands (move)
-##  - right side: drag to look around
-##  - buttons: jump, break (hold), place / use
+##  - right side: drag to look around; tap a block to place / use / break it, press and hold
+##    on a block to break it (aimed at the finger, not the screen centre)
+##  - buttons: jump, items, ...; the old break / place buttons are an option in the settings
 ##  - taps on the hotbar are passed to the HUD
 ## Every finger is tracked by its index, so you can walk, look and press buttons at once.
 
 signal place_pressed
+signal world_tapped(position: Vector2)
 signal hotbar_tapped(position: Vector2)
 signal menu_pressed
 signal inventory_pressed
@@ -17,6 +19,8 @@ signal settings_pressed
 
 const JOY_RADIUS := 90.0
 const LOOK_SENSITIVITY := 0.006
+const HOLD_TIME := 0.28               # seconds a still finger needs to start breaking
+const TAP_SLOP := 16.0                # pixels a finger may wander and still count as a tap
 
 var move := Vector2.ZERO
 var look_delta := Vector2.ZERO        # accumulated, read and cleared by the game every frame
@@ -25,6 +29,12 @@ var break_held := false
 var up_held := false
 var down_held := false
 var hotbar_rect := Rect2()            # set by the HUD so taps there select a slot
+var aim_point := Vector2.ZERO         # where a held finger points (valid while aiming)
+var aiming := false                   # a finger is held on the world: break there
+var classic := false                  # show the break / place buttons instead of tap-to-act
+var _look_start := Vector2.ZERO
+var _look_time := 0.0
+var _look_moved := false
 
 var _joy_finger := -1
 var _joy_center := Vector2.ZERO
@@ -55,6 +65,7 @@ func _ready() -> void:
 	_add_button("build", "build", "btn_build", Vector2(-80, 230), 72, true)
 	show_button("up", false)
 	show_button("down", false)
+	set_classic(bool(I18n.settings.get("touch_buttons", false)))
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 
@@ -103,6 +114,26 @@ func _layout() -> void:
 
 func show_button(name: String, on: bool) -> void:
 	_buttons[name].visible = on
+
+
+func set_classic(on: bool) -> void:
+	classic = on
+	show_button("break", on)
+	show_button("place", on)
+
+
+func _process(delta: float) -> void:
+	if _look_finger == -1:
+		return
+	_look_time += delta
+	if not classic and not _look_moved and not aiming and _look_time >= HOLD_TIME:
+		aiming = true
+		aim_point = _look_start
+
+
+func _end_look() -> void:
+	_look_finger = -1
+	aiming = false
 
 
 func _button_at(pos: Vector2) -> String:
@@ -175,6 +206,10 @@ func _input(event: InputEvent) -> void:
 				_joy_knob.visible = true
 			elif _look_finger == -1:
 				_look_finger = event.index
+				_look_start = pos
+				_look_time = 0.0
+				_look_moved = false
+				aiming = false
 		else:
 			if _button_fingers.has(event.index):
 				_set_button(_button_fingers[event.index], false)
@@ -185,7 +220,9 @@ func _input(event: InputEvent) -> void:
 				_joy_base.visible = false
 				_joy_knob.visible = false
 			if event.index == _look_finger:
-				_look_finger = -1
+				if not classic and not aiming and not _look_moved and _look_time < HOLD_TIME:
+					world_tapped.emit(pos)
+				_end_look()
 		get_viewport().set_input_as_handled()
 	elif event is InputEventScreenDrag:
 		if event.index == _joy_finger:
@@ -193,7 +230,13 @@ func _input(event: InputEvent) -> void:
 			_joy_knob.position = _joy_center + offset - _joy_knob.size / 2
 			move = Vector2(offset.x, -offset.y) / JOY_RADIUS
 		elif event.index == _look_finger:
-			look_delta += event.relative * LOOK_SENSITIVITY
+			if aiming:
+				aim_point = event.position          # a held finger slides the aim, not the view
+			else:
+				if event.position.distance_to(_look_start) > TAP_SLOP:
+					_look_moved = true
+				if _look_moved:
+					look_delta += event.relative * LOOK_SENSITIVITY
 		get_viewport().set_input_as_handled()
 
 

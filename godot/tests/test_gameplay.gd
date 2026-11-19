@@ -75,13 +75,55 @@ func test_mining_rules() -> String:
 
 func test_creative_menu() -> String:
 	var all := Items.creative_items()
-	if all.size() < 130:
+	if all.size() < 340:
 		return "only %d creative items" % all.size()
 	var stairs := Items.creative_items("plants", "stairs")
-	if stairs.size() != 9:
+	if stairs.size() != Items.families["stairs"].size():
 		return "search should cover every tab: %d" % stairs.size()
-	if Items.creative_items("colored").size() != 32:
-		return "colours"
+	if Items.creative_items("colored").size() != 6 * 16 + 1:
+		return "colours: %d" % Items.creative_items("colored").size()
+	return ""
+
+
+func test_variant_families() -> String:
+	var creative := {}
+	for c in Items.creative:
+		creative[c[0]] = true
+	for f in ["wool", "concrete", "terracotta", "glazed_tiles", "carpet", "planks", "logs", "leaves", "slabs",
+			"stairs", "fences", "walls", "flowers", "ores", "stone_bricks", "gems"]:
+		if not Items.families.has(f) or Items.families[f].size() < 2:
+			return "missing family %s" % f
+		for item in Items.families[f]:
+			if not creative.has(item) or Items.family_of[item] != f:
+				return "family %s has a bad member %d" % [f, item]
+		if Items.family_name(f) == "" or Items.family_names[f]["ar"] == "":
+			return "family %s has no name" % f
+	var shown := Items.collapsed(Items.creative_items())
+	if shown.size() >= Items.creative_items().size() - 100 or not 70 in shown or 71 in shown:
+		return "collapsing families: %d" % shown.size()
+	if Items.family_members(70).size() != 16 or Items.family_members(1) != [1]:
+		return "family members"
+	return ""
+
+
+func test_carpet_shape_and_new_blocks() -> String:
+	var w := _flat()
+	var carpet: int = Items.families["carpet"][3]
+	w._put(2, 4, 2, carpet)
+	var m := Mesher.new(w)
+	var boxes := m.shape_boxes(carpet, 2, 4, 2)
+	if boxes.size() != 1 or absf(boxes[0][1].y - (-0.4375)) > 1e-6 or Blocks.solid[carpet]:
+		return "carpet box %s" % [boxes]
+	if not Blocks.plants_need_soil.has(carpet):
+		return "carpets should drop when the floor goes"
+	w.set_block(2, 3, 2, 0)
+	if w.get_block(2, 4, 2) != 0:
+		return "carpet left floating"
+	for id in [910, 960]:
+		if Blocks.emit[id] < 14:
+			return "lamp %d does not glow" % id
+	if Blocks.atlas_cols * Blocks.atlas_cols < Blocks.tiles.size():
+		return "atlas too small"
 	return ""
 
 

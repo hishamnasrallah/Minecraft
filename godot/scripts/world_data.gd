@@ -35,6 +35,11 @@ var SNOW_LINE: int
 var TREE_CHANCE: float
 var CAVE_THRESHOLD: float
 var CAVE_GRID: int
+var TREE_KINDS: Array          # kind index -> name ("oak", "birch", "pine", "maple", ...)
+var TREES: Array               # kind index -> [log, leaves, trunk height, [[dy, radius, reach], ...]]
+var FLOWERS: Array
+var ORE_LIMIT: float
+var G := {}                    # generation block ids (SLATE, LIMESTONE, bushes, ...)
 
 
 func _init(world_seed: int = -1) -> void:
@@ -44,6 +49,18 @@ func _init(world_seed: int = -1) -> void:
 	TREE_CHANCE = float(Blocks.C["TREE_CHANCE"])
 	CAVE_THRESHOLD = float(Blocks.C["CAVE_THRESHOLD"])
 	CAVE_GRID = int(Blocks.C["CAVE_GRID"])
+	TREE_KINDS = Blocks.C["TREE_KINDS"]
+	TREES = []
+	for kind in TREE_KINDS:
+		var t = Blocks.C["TREES"][kind]
+		var layers := []
+		for l in t[3]:
+			layers.append([int(l[0]), int(l[1]), int(l[2])])
+		TREES.append([int(t[0]), int(t[1]), int(t[2]), layers])
+	FLOWERS = Blocks.C["FLOWERS"].map(func(v): return int(v))
+	ORE_LIMIT = float(Blocks.ores[Blocks.ores.size() - 1][1])
+	for k in Blocks.C["GEN_IDS"]:
+		G[k] = int(Blocks.C["GEN_IDS"][k])
 
 
 # ---------------------------------------------------------------- access
@@ -184,16 +201,32 @@ func _column_climate(x: int, z: int) -> Array:
 	var desert := h > WATER_LEVEL + 1 and h < SNOW_LINE - 3 and VNoise.fbm(x / 140.0, z / 140.0, seed + 31, 2) > 0.6
 	var forest := VNoise.fbm(x / 60.0, z / 60.0, seed + 41, 2)
 	var tree := not desert and h > WATER_LEVEL and VNoise.hash2(x, z, seed + 777) < TREE_CHANCE * (0.6 + 1.6 * forest)
-	var kind := 0                                   # 0 oak, 1 birch, 2 pine
+	var kind := 0                                   # index into TREE_KINDS: 0 oak, 1 birch, 2 pine, ...
 	if h >= SNOW_LINE - 3:
 		kind = 2
-	elif tree and VNoise.fbm(x / 50.0, z / 50.0, seed + 43, 2) > 0.56:
-		kind = 1
+	elif tree:
+		kind = TREE_KINDS.find(_tree_species(x, z, h, forest))
 	if _climate.size() > 400000:
 		_climate.clear()
 	var result := [h, desert, tree, kind, forest]
 	_climate[key] = result
 	return result
+
+
+## Which broadleaf tree grows here (port of World._tree_species).
+func _tree_species(x: int, z: int, h: int, forest: float) -> String:
+	if h > WATER_LEVEL + 1 and h < SNOW_LINE - 3 and VNoise.fbm(x / 140.0, z / 140.0, seed + 31, 2) > 0.47:
+		return "ashwood"
+	if forest > 0.6 and VNoise.hash2(x, z, seed + 779) < 0.55:
+		return "ebony"
+	if VNoise.fbm(x / 50.0, z / 50.0, seed + 43, 2) > 0.56:
+		return "birch"
+	var patch := VNoise.fbm(x / 64.0, z / 64.0, seed + 47, 2)
+	if patch > 0.58:
+		return "maple"
+	if patch < 0.4:
+		return "cherry"
+	return "oak"
 
 
 func height_at(x: int, z: int) -> int:
@@ -263,7 +296,7 @@ func ensure_chunk(key: Vector2i) -> bool:
 ## Underground block: stone with patches of other rock, and ore clusters by depth.
 func _rock(x: int, y: int, z: int) -> int:
 	var r := VNoise.hash3(x >> 1, y >> 1, z >> 1, seed + 55)
-	if r < 0.104:
+	if r < ORE_LIMIT:
 		for ore in Blocks.ores:
 			if r < float(ore[1]):
 				if y <= int(ore[2]) and VNoise.hash3(x, y, z, seed + 56) < 0.6:
@@ -276,6 +309,10 @@ func _rock(x: int, y: int, z: int) -> int:
 		return 19
 	if v < 0.19:
 		return 21
+	if v < 0.25 and y > 14:
+		return G["LIMESTONE"]
+	if y < 4 + int(VNoise.hash2(x, z, seed + 81) * 3):
+		return G["SLATE"]
 	return 3
 
 
@@ -347,7 +384,7 @@ func _carve_caves(key: Vector2i) -> void:
 
 ## Grass tufts, flowers, ferns, mushrooms, reeds by the water and cacti in deserts.
 func _plants(surface: Array) -> void:
-	var flowers := [53, 54, 55, 56]
+	var flowers := FLOWERS
 	for s in surface:
 		var x: int = s[0]
 		var z: int = s[1]
@@ -362,6 +399,8 @@ func _plants(surface: Array) -> void:
 			if r < 0.012:
 				for dy in 1 + int(VNoise.hash2(x, z, seed + 92) * 3):
 					_put(x, y + dy, z, 60)
+			elif r < 0.03:
+				_put(x, y, z, G["DRY_BUSH"])
 			continue
 		if top_block == 6 and h == WATER_LEVEL + 1 and r < 0.25:
 			var near_water := false
@@ -377,12 +416,18 @@ func _plants(surface: Array) -> void:
 		var forest: float = _column_climate(x, z)[4]
 		if r < 0.10:
 			_put(x, y, z, 51)
-		elif r < 0.12:
-			_put(x, y, z, flowers[int(VNoise.hash2(x, z, seed + 94) * 4)])
-		elif r < 0.12 + 0.05 * forest:
+		elif r < 0.135:
+			# flowers grow in patches of one kind, with a few strays of any kind
+			var pick := VNoise.hash2(x >> 3, z >> 3, seed + 96) if VNoise.hash2(x, z, seed + 94) < 0.75 else VNoise.hash2(x, z, seed + 97)
+			_put(x, y, z, flowers[int(pick * flowers.size())])
+		elif r < 0.135 + 0.05 * forest:
 			_put(x, y, z, 52)
-		elif r < 0.125 + 0.05 * forest and forest > 0.5:
+		elif r < 0.14 + 0.05 * forest and forest > 0.5:
 			_put(x, y, z, 57 if VNoise.hash2(x, z, seed + 95) < 0.4 else 58)
+		elif r < 0.155 + 0.05 * forest:
+			_put(x, y, z, G["BERRY_BUSH"] if VNoise.hash2(x, z, seed + 98) < 0.3 else G["LEAFY_BUSH"])
+		elif r < 0.16 + 0.05 * forest and forest < 0.45:
+			_put(x, y, z, G["PUMPKIN"] if VNoise.hash2(x, z, seed + 99) < 0.5 else G["MELON"])
 
 
 func _tree(x: int, y: int, z: int, key: Vector2i, kind: int) -> void:
@@ -396,17 +441,16 @@ func _tree(x: int, y: int, z: int, key: Vector2i, kind: int) -> void:
 					if absi(dx) + absi(dz) <= r + (1 if r == 2 else 0):
 						_tree_put(x + dx, y + layer[0], z + dz, 40, key)
 		return
-	var log_id := 35 if kind == 1 else 4
-	var leaves := 37 if kind == 1 else 5
-	var height := 5 if kind == 1 else 4
-	for dy in height:
+	var t: Array = TREES[kind]
+	var log_id: int = t[0]
+	var leaves: int = t[1]
+	for dy in int(t[2]):
 		_tree_put(x, y + dy, z, log_id, key)
-	var top := height - 2
-	for layer in [[top, 2], [top + 1, 2], [top + 2, 1]]:
+	for layer in t[3]:                               # [height, radius, max |dx| + |dz|]
 		var r: int = layer[1]
 		for dx in range(-r, r + 1):
 			for dz in range(-r, r + 1):
-				if absi(dx) + absi(dz) < r * 2:
+				if absi(dx) + absi(dz) <= layer[2]:
 					_tree_put(x + dx, y + layer[0], z + dz, leaves, key)
 
 

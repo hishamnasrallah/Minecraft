@@ -14,6 +14,12 @@ var placeable := {}
 var survival := {}
 var S := {}                 # special ids and sizes (STICK, BUCKET, STACK_SIZE, ...)
 var STACK_SIZE := 64
+var families := {}          # "wool" -> [creative item ids in menu order]; the first one represents the family
+var family_of := {}         # item id -> family name (only items that belong to a family)
+var icons3d := {}           # block id -> index in data/icons3d.png (little 3D cubes)
+var icon3d_size := 48
+var icon3d_cols := 32
+var family_names := {}      # family -> {"en": ..., "ar": ...}
 
 
 func _init() -> void:
@@ -32,7 +38,12 @@ func _init() -> void:
 		var ins := {}
 		for k in r["in"]:
 			ins[k if groups.has(k) else int(k)] = int(r["in"][k])
-		recipes.append({"in": ins, "out": [int(r["out"][0]), int(r["out"][1])]})
+		recipes.append({"in": ins, "out": [int(r["out"][0]), int(r["out"][1])], "station": str(r.get("station", ""))})
+	if d.has("icons3d"):
+		icon3d_size = int(d["icons3d"]["size"])
+		icon3d_cols = int(d["icons3d"]["cols"])
+		for k in d["icons3d"]["map"]:
+			icons3d[int(k)] = int(d["icons3d"]["map"][k])
 	tabs = d["tabs"]
 	for c in d["creative_items"]:
 		creative.append([int(c[0]), c[1]])
@@ -41,6 +52,11 @@ func _init() -> void:
 	survival = d["survival"]
 	S = d["special"]
 	STACK_SIZE = int(S["STACK_SIZE"])
+	for f in d.get("families", {}):
+		families[f] = d["families"][f].map(func(v): return int(v))
+		for item in families[f]:
+			family_of[item] = f
+	family_names = d.get("family_names", {})
 
 
 ## The item's name in the current language.
@@ -91,6 +107,8 @@ func drop_for(block: int) -> int:
 		return 0
 	if d.get("leaves", false):
 		var roll := randf()
+		if roll >= 0.94:
+			return int(d.get("sapling", 0))
 		if roll < 0.2:
 			return int(S["STICK"])
 		return int(S["APPLE"]) if roll < 0.28 and block == 5 else 0
@@ -106,6 +124,34 @@ func recipe_text(r: Dictionary) -> String:
 	for k in r["in"]:
 		parts.append("%d %s" % [r["in"][k], ingredient_name(k)])
 	return "%d %s  =  %s" % [r["out"][1], name_of(r["out"][0]), " + ".join(parts)]
+
+
+## The name of a variant family ("wool", "planks", "slabs", ...) in the current language.
+func family_name(f: String) -> String:
+	var n: Dictionary = family_names.get(f, {})
+	return n.get(I18n.lang, n.get("en", f))
+
+
+## The family's items for a creative list: the representative first, then its variants.
+## Items without a family return [item].
+func family_members(item: int) -> Array:
+	var f = family_of.get(item)
+	return [item] if f == null else families[f]
+
+
+## Creative items with every family collapsed to its first member (the UI shows "+" on those
+## where families[family_of[item]].size() > 1 and expands to family_members(item)).
+func collapsed(items: Array) -> Array:
+	var seen := {}
+	var out := []
+	for item in items:
+		var f = family_of.get(item)
+		if f == null:
+			out.append(item)
+		elif not seen.has(f):
+			seen[f] = true
+			out.append(item)
+	return out
 
 
 ## Items for a creative tab; a search text searches every tab.

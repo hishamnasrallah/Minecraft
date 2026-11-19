@@ -2,7 +2,9 @@
 import random
 
 from blocks import (BLOCK_DEFS, BLOCKS, BLOCK_TILES, LEAVES, WATER, GLASS, LAMP, WOOL, STAINED_GLASS, SLABS,
-                    STAIRS, SHAPE_MATERIALS)
+                    STAIRS, SHAPE_MATERIALS, FAMILIES, CONCRETE, TERRACOTTA, TERRACOTTA_PLAIN, GLAZED, CARPETS,
+                    WOODS, POLISHED, ROCK_BRICKS, CHISELED, WALLS, COLOR_LAMPS, LAMP_COLORS, SLATE, COBBLED_SLATE,
+                    LIMESTONE, RUBY, SAPPHIRE, AMETHYST, QUARTZ, GLOW_CRYSTAL)
 from world import COAL_ORE
 
 STACK_SIZE = 64
@@ -19,7 +21,8 @@ MATERIAL_ITEMS = {
     STICK: ("stick", "stick"), COAL: ("coal", "coal"), IRON_INGOT: ("iron ingot", "iron_ingot"),
     COPPER_INGOT: ("copper ingot", "copper_ingot"), TIN_INGOT: ("tin ingot", "tin_ingot"),
     GOLD_INGOT: ("gold ingot", "gold_ingot"), BRONZE_INGOT: ("bronze ingot", "bronze_ingot"),
-    DIAMOND: ("diamond", "diamond"),
+    DIAMOND: ("diamond", "diamond"), RUBY: ("ruby", "ruby"), SAPPHIRE: ("sapphire", "sapphire"),
+    AMETHYST: ("amethyst shard", "amethyst"), QUARTZ: ("quartz", "quartz"),
 }
 FOOD_ITEMS = {RAW_MEAT: ("raw meat", "raw_meat"), COOKED_MEAT: ("cooked meat", "cooked_meat"),
               APPLE: ("apple", "apple")}
@@ -54,6 +57,12 @@ ITEM_ICONS = {**{b: tiles[1] for b, tiles in BLOCK_TILES.items()},
               **{t: v[4] for t, v in TOOLS.items()}}
 PLACEABLE = {i for i, d in BLOCK_DEFS.items() if d["creative"]} - {WATER}
 
+# variant families for the creative menu: one item stands for the family and expands to the rest
+ITEM_FAMILIES = {
+    "ingots": [IRON_INGOT, COPPER_INGOT, TIN_INGOT, GOLD_INGOT, BRONZE_INGOT],
+    "gems": [DIAMOND, RUBY, SAPPHIRE, AMETHYST, QUARTZ],
+    **{kind + "s": list(ids) for kind, ids in _TOOL_IDS.items()},
+}
 # ---------------------------------------------------------------- creative menu
 TABS = ["all", "natural", "building", "colored", "plants", "functional", "tools", "food", "materials"]
 
@@ -73,6 +82,13 @@ CREATIVE_ITEMS = sorted(
     [i for i, d in BLOCK_DEFS.items() if d["creative"]] + list(MATERIAL_ITEMS) + list(FOOD_ITEMS)
     + list(OTHER_ITEMS) + list(TOOLS),
     key=lambda i: (TABS.index(item_tab(i)), i))
+
+
+def creative_families():
+    """Variant family -> its creative item ids, in menu order (the first one represents the family)."""
+    creative = set(CREATIVE_ITEMS)
+    families = {f: [i for i in ids if i in creative] for f, ids in {**FAMILIES, **ITEM_FAMILIES}.items()}
+    return {f: ids for f, ids in families.items() if ids}
 
 
 def creative_items(tab="all", search=""):
@@ -128,8 +144,10 @@ def drop_for(block_id, rng=random):
     d = BLOCK_DEFS.get(block_id)
     if d is None:
         return None
-    if block_id in LEAVES:            # leaves sometimes drop a stick, oak leaves sometimes an apple
+    if block_id in LEAVES:            # leaves sometimes drop a stick or a sapling, oak leaves an apple
         roll = rng.random()
+        if roll >= 0.94:
+            return d.get("sapling")
         return STICK if roll < 0.2 else APPLE if roll < 0.28 and block_id == 5 else None
     drop = d["drop"]
     return block_id if drop == "self" else drop
@@ -138,10 +156,13 @@ def drop_for(block_id, rng=random):
 # ---------------------------------------------------------------- crafting
 # ingredient keys are item ids, or a group name meaning "any of these"
 GROUPS = {
-    "planks": [7, 36, 39],
-    "rock": [22, 3, 18, 19, 21],
+    "planks": [w["planks"] for w in WOODS.values()],
+    "rock": [22, 3, 18, 19, 21, COBBLED_SLATE, SLATE, LIMESTONE],
     "wool": list(WOOL),
+    "logs": [w["log"] for w in WOODS.values()],
+    "flowers": list(FAMILIES["flowers"]),
 }
+GROUPS["fuel"] = [COAL, 909] + GROUPS["planks"] + GROUPS["logs"]   # burns in a furnace
 COBBLE_ETC = "rock"
 
 
@@ -158,6 +179,62 @@ def _tool_recipes():
 
 
 # (ingredients, (result, count)) — shapeless: only the amounts matter
+def _expanded_recipes():
+    """Recipes for the expanded catalogue (colour families, woods, stone variants, gems...)."""
+    out = []
+    for i, wool in enumerate(WOOL):
+        out += [({6: 4, 14: 4, wool: 1}, (CONCRETE[i], 8)),           # sand + gravel, coloured with wool
+                ({TERRACOTTA_PLAIN: 8, wool: 1}, (TERRACOTTA[i], 8)),
+                ({TERRACOTTA[i]: 1, COAL: 1}, (GLAZED[i], 1)),          # fire it again for a glaze
+                ({wool: 2}, (CARPETS[i], 3))]
+    out.append(({15: 1, COAL: 1}, (TERRACOTTA_PLAIN, 1)))
+    for species, w in WOODS.items():
+        if species not in ("oak", "birch", "pine"):
+            out.append(({w["log"]: 1}, (w["planks"], 4)))
+        if species != "oak":
+            out.append(({STICK: 4, w["planks"]: 2}, (w["fence"], 3)))
+    for src, polished in POLISHED.items():
+        out.append(({src: 4}, (polished, 4)))
+    for src, brick in ROCK_BRICKS.items():
+        out.append(({POLISHED[src]: 4}, (brick, 4)))
+    for src, chiseled in CHISELED.items():
+        out.append(({SLABS[src] if src in SLABS else src: 2}, (chiseled, 1)))
+    out += [
+        ({COBBLED_SLATE: 1, COAL: 1}, (SLATE, 1)),
+        ({41: 1, COAL: 1}, (815, 1)),                  # cracked stone bricks
+        ({41: 1, 52: 1}, (816, 1)),                    # mossy stone bricks
+        ({2: 3, 15: 1}, (953, 4)),                     # mud: dirt mixed with clay
+        ({953: 4, 51: 1}, (954, 4)),                   # mud bricks
+        ({51: 9}, (950, 1)),                           # hay bale from tall grass
+        ({52: 4, 2: 1}, (955, 2)),                     # moss block
+        ({"wool": 1, 54: 1}, (956, 1)),                # sponge
+        ({17: 9}, (957, 1)),                           # packed ice
+        ({AMETHYST: 2, QUARTZ: 2, LAMP: 1}, (GLOW_CRYSTAL, 2)),
+        ({QUARTZ: 4}, (907, 1)),
+        ({AMETHYST: 4}, (906, 1)),
+        ({TIN_INGOT: 9}, (908, 1)), ({908: 1}, (TIN_INGOT, 9)),
+        ({COAL: 9}, (909, 1)), ({909: 1}, (COAL, 9)),
+        ({RUBY: 9}, (904, 1)), ({904: 1}, (RUBY, 9)),
+        ({SAPPHIRE: 9}, (905, 1)), ({905: 1}, (SAPPHIRE, 9)),
+        ({1001: 1, 70: 1}, (76, 1)),                   # marigold -> orange wool
+        ({1000: 1, 70: 1}, (83, 1)),                   # lavender -> purple wool
+        ({1002: 1, 70: 1}, (85, 1)),                   # pink tulip -> pink wool
+        ({1003: 1, 70: 1}, (84, 1)),                   # orchid -> magenta wool
+        ({1005: 1, 70: 1}, (81, 1)),                   # bluebell -> light blue wool
+        ({1006: 1, 70: 1}, (73, 1)),                   # dark iris -> black wool
+        ({1007: 1, 70: 1}, (77, 1)),                   # sunflower -> yellow wool
+        ({52: 1, 70: 1}, (79, 1)),                     # fern -> green wool
+        ({1011: 1, 70: 1}, (75, 1)),                   # berries -> red wool
+    ]
+    for lamp, (color, dye) in zip(COLOR_LAMPS, LAMP_COLORS):
+        out.append(({LAMP: 1, STAINED_GLASS[dye]: 1}, (lamp, 1)))
+    for material, wall in WALLS.items():
+        out.append(({material: 6}, (wall, 6)))
+    for ore, gem in ((900, RUBY), (901, SAPPHIRE), (902, AMETHYST), (903, QUARTZ)):
+        out.append(({ore: 1, COAL: 1}, (gem, 1)))      # smelting an ore block you picked up in creative
+    return out
+
+
 RECIPES = [
     ({4: 1}, (7, 4)),                          # logs -> planks
     ({35: 1}, (36, 4)),
@@ -207,6 +284,17 @@ RECIPES = [
     # slabs and stairs
     *[r for m in SHAPE_MATERIALS for r in (({m: 3}, (SLABS[m], 6)), ({m: 6}, (STAIRS[m][0], 4)))],
     *_tool_recipes(),
+    *_expanded_recipes(),
+]
+
+
+# the furnace: one piece of fuel (coal, a coal block, planks or a log) per item
+SMELTING = [
+    ({25: 1, "fuel": 1}, (IRON_INGOT, 1)), ({26: 1, "fuel": 1}, (COPPER_INGOT, 1)),
+    ({27: 1, "fuel": 1}, (TIN_INGOT, 1)), ({28: 1, "fuel": 1}, (GOLD_INGOT, 1)),
+    ({6: 1, "fuel": 1}, (GLASS, 1)), ({22: 1, "fuel": 1}, (3, 1)), ({RAW_MEAT: 1, "fuel": 1}, (COOKED_MEAT, 1)),
+    ({15: 1, "fuel": 1}, (664, 1)), ({COBBLED_SLATE: 1, "fuel": 1}, (SLATE, 1)),
+    ({"logs": 1, "fuel": 1}, (COAL, 1)), ({24: 1, "fuel": 1}, (GLASS, 1)),
 ]
 
 

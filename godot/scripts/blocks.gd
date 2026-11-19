@@ -2,7 +2,7 @@ extends Node
 ## Block registry (autoload "Blocks"), loaded from data/blocks.json which is exported
 ## from the Python version (tools/export_godot.py). Lookups are arrays indexed by id.
 
-const MAX_ID := 600
+const MAX_ID := 2048
 const WATER := 10
 const CUBE := "cube"
 

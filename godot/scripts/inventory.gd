@@ -151,6 +151,16 @@ func give(stack):
 	return [stack[0], left] if left > 0 else null
 
 
+## True if at least part of the stack fits.
+func can_take(stack: Array) -> bool:
+	for s in slots:
+		if s == null:
+			return true
+		if s[0] == stack[0] and s.size() < 3 and stack.size() < 3 and s[1] < Items.max_stack(s[0]):
+			return true
+	return false
+
+
 func can_craft(r: Dictionary) -> bool:
 	for k in r["in"]:
 		if count(k) < r["in"][k]:

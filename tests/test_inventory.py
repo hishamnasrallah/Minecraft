@@ -106,8 +106,9 @@ def test_drops():
     assert drop_for(3, rng) == 22                # stone -> cobblestone
     assert drop_for(8, rng) == 8
     leaves = [drop_for(5, rng) for _ in range(1000)]
-    assert set(leaves) == {None, STICK, APPLE}
-    assert 100 < leaves.count(STICK) < 300 and 40 < leaves.count(APPLE) < 130
+    assert set(leaves) == {None, STICK, APPLE, 742}          # 742: oak sapling
+    assert 100 < leaves.count(STICK) < 300 and 40 < leaves.count(APPLE) < 130 and 20 < leaves.count(742) < 110
+    assert {drop_for(712, rng) for _ in range(300)} == {None, STICK, 714}   # cherry leaves: no apples
 
 
 def test_every_item_has_an_icon_and_recipes_read_well():

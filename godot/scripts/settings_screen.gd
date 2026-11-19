@@ -7,6 +7,7 @@ signal language_picked(code: String)
 signal view_distance_changed(value: int)
 signal exit_pressed
 signal tutorial_pressed
+signal touch_buttons_changed(on: bool)
 
 var in_game := false             # shows "save and go to the menu"
 
@@ -14,6 +15,10 @@ var _dim: ColorRect
 var _panel: PanelContainer
 var _sens_label: Label
 var _dist_label: Label
+var _scroll: ScrollContainer
+var _box: VBoxContainer
+var _log_panel: PanelContainer
+var _log_text: TextEdit
 
 
 func _ready() -> void:
@@ -22,12 +27,18 @@ func _ready() -> void:
 	add_child(_dim)
 	_panel = PanelContainer.new()
 	_panel.custom_minimum_size = Vector2(560, 0)
+	_panel.add_theme_stylebox_override("panel", _style())
 	add_child(_panel)
+	_scroll = ScrollContainer.new()
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_panel.add_child(_scroll)
 	var box := VBoxContainer.new()
+	_box = box
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_theme_constant_override("separation", 8)
 	if I18n.is_arabic():
 		box.layout_direction = Control.LAYOUT_DIRECTION_RTL    # only the content: our own positions stay put
-	_panel.add_child(box)
+	_scroll.add_child(box)
 	var title := Label.new()
 	title.text = I18n.t("settings")
 	title.add_theme_font_size_override("font_size", 26)
@@ -87,6 +98,24 @@ func _ready() -> void:
 	monsters.toggled.connect(func(on): I18n.settings["monsters"] = on)
 	box.add_child(monsters)
 
+	var buttons := CheckBox.new()
+	buttons.text = I18n.t("touch_buttons")
+	buttons.button_pressed = bool(I18n.settings.get("touch_buttons", false))
+	buttons.toggled.connect(func(on): I18n.settings["touch_buttons"] = on; touch_buttons_changed.emit(on))
+	box.add_child(buttons)
+
+	var vib := CheckBox.new()
+	vib.text = I18n.t("vibrate")
+	vib.button_pressed = bool(I18n.settings.get("vibrate", true))
+	vib.toggled.connect(func(on): I18n.settings["vibrate"] = on)
+	box.add_child(vib)
+
+	var map := CheckBox.new()
+	map.text = I18n.t("show_map")
+	map.button_pressed = bool(I18n.settings.get("show_map", true))
+	map.toggled.connect(func(on): I18n.settings["show_map"] = on)
+	box.add_child(map)
+
 	var fps := CheckBox.new()
 	fps.text = I18n.t("show_fps")
 	fps.button_pressed = bool(I18n.settings["show_fps"])
@@ -115,14 +144,32 @@ func _ready() -> void:
 		exit.pressed.connect(func(): I18n.save_settings(); exit_pressed.emit())
 		box.add_child(exit)
 
+	var log_button := Button.new()
+	log_button.text = I18n.t("show_log")
+	log_button.icon = load("res://data/ui/library.png")
+	log_button.add_theme_constant_override("icon_max_width", 26)
+	log_button.custom_minimum_size = Vector2(0, 50)
+	log_button.pressed.connect(_open_log)
+	box.add_child(log_button)
+
 	var done := Button.new()
 	done.text = I18n.t("done")
 	done.custom_minimum_size = Vector2(0, 50)
 	done.pressed.connect(func(): I18n.save_settings(); closed.emit())
 	box.add_child(done)
 	_update_labels()
+	_build_log_panel()
 	get_viewport().size_changed.connect(_layout)
 	_layout()
+
+
+func _style() -> StyleBoxFlat:
+	var st := StyleBoxFlat.new()
+	st.bg_color = Color(0.1, 0.11, 0.13, 0.97)
+	st.set_corner_radius_all(10)
+	for side in [SIDE_LEFT, SIDE_RIGHT, SIDE_TOP, SIDE_BOTTOM]:
+		st.set_content_margin(side, 14)
+	return st
 
 
 func _caption(text: String, icon: String) -> Label:
@@ -142,4 +189,78 @@ func _layout() -> void:
 	var s := get_viewport_rect().size
 	size = s
 	_dim.size = s
-	_panel.position = s / 2 - _panel.get_combined_minimum_size() / 2
+	var want := _box.get_combined_minimum_size()
+	_scroll.custom_minimum_size = Vector2(want.x + 12, minf(want.y, s.y - 60))
+	_panel.size = Vector2.ZERO
+	_panel.position = (s - _panel.get_combined_minimum_size()) / 2
+	if _log_panel:
+		_log_panel.position = Vector2(20, 20)
+		_log_panel.size = s - Vector2(40, 40)
+
+
+# ---------------------------------------------------------------- the log, to send to the developer
+## The game's log (user://logs/godot.log) plus the startup black box, in a box you can copy.
+func _build_log_panel() -> void:
+	_log_panel = PanelContainer.new()
+	_log_panel.visible = false
+	_log_panel.add_theme_stylebox_override("panel", _style())
+	add_child(_log_panel)
+	var v := VBoxContainer.new()
+	_log_panel.add_child(v)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	v.add_child(row)
+	var title := Label.new()
+	title.text = I18n.t("show_log")
+	title.add_theme_font_size_override("font_size", 22)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(title)
+	var copy := Button.new()
+	copy.text = I18n.t("copy_log")
+	copy.icon = load("res://data/ui/copy.png")
+	copy.add_theme_constant_override("icon_max_width", 24)
+	copy.custom_minimum_size = Vector2(150, 48)
+	copy.pressed.connect(func(): DisplayServer.clipboard_set(_log_text.text); copy.text = I18n.t("log_copied"))
+	row.add_child(copy)
+	var back := Button.new()
+	back.text = I18n.t("done")
+	back.custom_minimum_size = Vector2(110, 48)
+	back.pressed.connect(func(): _log_panel.visible = false; _panel.visible = true)
+	row.add_child(back)
+	_log_text = TextEdit.new()
+	_log_text.editable = false
+	_log_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_log_text.add_theme_font_size_override("font_size", 14)
+	_log_text.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+	_log_text.layout_direction = Control.LAYOUT_DIRECTION_LTR
+	v.add_child(_log_text)
+
+
+func _open_log() -> void:
+	_log_text.text = SettingsScreen.log_report()
+	_panel.visible = false
+	_log_panel.visible = true
+	_layout()
+	_log_text.set_caret_line(_log_text.get_line_count())
+	_log_text.scroll_vertical = _log_text.get_line_count()
+
+
+static func log_report() -> String:
+	var out := "BlockWorld | %s %s | %s | %s | cores %d | %s\n" % [OS.get_name(), OS.get_version(), OS.get_model_name(),
+		RenderingServer.get_video_adapter_name(), OS.get_processor_count(), Time.get_datetime_string_from_system()]
+	out += "boot: last stage '%s', crashed last time: %s, safe mode: %s\n" % [Boot.last_stage, Boot.crashed_last_time, Boot.safe_mode]
+	var lines := []
+	var dir := DirAccess.open("user://logs")
+	if dir:
+		var files := Array(dir.get_files()).filter(func(f): return f.ends_with(".log"))
+		files.sort()
+		# the newest log is godot.log; the previous runs are kept with a date in their name
+		var order := files.filter(func(f): return f != "godot.log")
+		if files.has("godot.log"):
+			order.append("godot.log")
+		for f in order.slice(maxi(0, order.size() - 2)):
+			lines.append("===== " + f)
+			lines.append_array(FileAccess.get_file_as_string("user://logs/" + f).split("\n"))
+	else:
+		lines.append("(no log files)")
+	return out + "\n".join(lines.slice(maxi(0, lines.size() - 400)))

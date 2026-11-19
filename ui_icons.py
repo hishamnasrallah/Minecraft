@@ -325,6 +325,87 @@ def globe():
     return img
 
 
+def star():
+    img, d = _canvas()
+    pts = []
+    for k in range(10):
+        r = 112 if k % 2 == 0 else 46
+        a = -math.pi / 2 + k * math.pi / 5
+        pts.append((128 + r * math.cos(a), 136 + r * math.sin(a)))
+    d.polygon(pts, fill=W)
+    return img
+
+
+def clock():
+    img, d = _canvas()
+    d.ellipse([30, 30, 226, 226], outline=W, width=20)
+    d.line([(128, 128), (128, 66)], fill=W, width=20)
+    d.line([(128, 128), (174, 156)], fill=W, width=20)
+    return img
+
+
+def sort():
+    img, d = _canvas()
+    for i, w in enumerate((176, 128, 80)):
+        y = 60 + i * 64
+        d.rounded_rectangle([40, y, 40 + w, y + 30], radius=10, fill=W)
+    _small = [(196, 60), (196, 196)]
+    d.line(_small, fill=W, width=16)
+    d.polygon([(196, 220), (166, 176), (226, 176)], fill=W)
+    return img
+
+
+def grid():
+    img, d = _canvas()
+    for x in (40, 140):
+        for y in (40, 140):
+            d.rounded_rectangle([x, y, x + 76, y + 76], radius=12, fill=W)
+    return img
+
+
+def plus():
+    img, d = _canvas()
+    d.rounded_rectangle([108, 40, 148, 216], radius=12, fill=W)
+    d.rounded_rectangle([40, 108, 216, 148], radius=12, fill=W)
+    return img
+
+
+def check():
+    img, d = _canvas()
+    d.line([(46, 136), (106, 196), (214, 70)], fill=W, width=30, joint="curve")
+    return img
+
+
+def house():
+    img, d = _canvas()
+    d.polygon([(128, 34), (24, 130), (232, 130)], fill=W)
+    d.rectangle([56, 124, 200, 224], fill=W)
+    d.rectangle([108, 160, 148, 224], fill=(0, 0, 0, 0))
+    return img
+
+
+def log_lines():
+    img, d = _canvas()
+    d.rounded_rectangle([46, 26, 210, 230], radius=16, outline=W, width=16)
+    for y in (76, 116, 156, 190):
+        d.line([(80, y), (176 if y != 190 else 140, y)], fill=W, width=14)
+    return img
+
+
+def flame():
+    img, d = _canvas()
+    d.polygon([(128, 28), (196, 120), (204, 176), (170, 222), (86, 222), (52, 176), (64, 120), (100, 150)], fill=W)
+    d.ellipse([100, 150, 156, 214], fill=(0, 0, 0, 0))
+    return img
+
+
+def drop_item():
+    img, d = _canvas()
+    _arrow(d, False, y0=24, y1=170)
+    d.rectangle([40, 200, 216, 226], fill=W)
+    return img
+
+
 ICONS = {
     "jump": jump, "break": pickaxe, "place": place, "items": bag, "fly": wing, "build": hammer, "up": up,
     "down": down, "save": floppy, "settings": gear, "close": cross, "half": half, "quick": bolt, "trash": trash,
@@ -332,6 +413,8 @@ ICONS = {
     "freeze": pause, "corner1": corner(1), "corner2": corner(2), "fill": fill_box, "hollow": hollow_box,
     "replace": swap, "clear": eraser, "copy": copy, "paste": clipboard, "rotate": rotate, "mirror": mirror,
     "undo": undo, "deselect": deselect, "library": book, "language": globe, "save_hotbar": floppy,
+    "star": star, "recent": clock, "sort": sort, "all": grid, "plus": plus, "check": check, "home": house,
+    "log": log_lines, "furnace": flame, "drop": drop_item,
 }
 
 

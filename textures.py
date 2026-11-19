@@ -871,6 +871,431 @@ for _metal, _head in METALS.items():
     EXTRA_GENERATORS.setdefault(f"{_metal}_axe", (lambda h: lambda rng: _axe(rng, h))(_head))
 
 
+
+# ================================================================ second expansion (colour families, woods, stones...)
+def _mix(a, b, t):
+    return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+
+def concrete(rgb):
+    """Smooth, flat colour with the faintest grain."""
+    def gen(rng):
+        img = _noise(rng, rgb, 0.025)
+        for _ in range(6):
+            _px(img, rng.randrange(TILE), rng.randrange(TILE), _shade(rgb, 0.9))
+        return img
+    return gen
+
+
+def terracotta(rgb):
+    """Fired clay: the colour pulled towards earthy brown, with a soft mottled grain."""
+    base = _mix(rgb, (150, 96, 70), 0.35)
+
+    def gen(rng):
+        img = _noise(rng, base, 0.05)
+        for _ in range(10):
+            x, y = rng.randrange(TILE), rng.randrange(TILE)
+            for dx in range(rng.randint(2, 4)):
+                _px(img, (x + dx) % TILE, y, _shade(base, 0.9))
+        return img
+    return gen
+
+
+def glazed(rgb, index):
+    """A shiny patterned tile: dark rim, a diamond motif in a light tint and an accent dot.
+    The motif turns with the colour index so neighbouring colours don't look alike."""
+    light = _mix(rgb, (255, 255, 255), 0.45)
+    dark = _shade(rgb, 0.55)
+    accent = _mix(rgb, (255, 220, 120) if sum(rgb) < 380 else (40, 40, 60), 0.6)
+
+    def gen(rng):
+        img = Image.new("RGB", (TILE, TILE))
+        for x in range(TILE):
+            for y in range(TILE):
+                u, v = (x, y) if index % 2 == 0 else (y, TILE - 1 - x)
+                rim = min(u, v, TILE - 1 - u, TILE - 1 - v) == 0
+                d = abs(u - 7.5) + abs(v - 7.5)
+                if rim:
+                    c = dark
+                elif d < 2.5:
+                    c = accent
+                elif 4.5 < d < 6.5:
+                    c = light
+                elif (u + v) % 6 == 0 and d > 7:
+                    c = light
+                else:
+                    c = rgb
+                img.putpixel((x, y), _shade(c, 1.1 if (x < 3 and y < 3) else 1 + rng.uniform(-0.03, 0.03)))
+        return img
+    return gen
+
+
+def sapling(leaf, stem=(100, 70, 40)):
+    def gen(rng):
+        img = _blank()
+        for y in range(8, TILE):
+            _px(img, 8, y, stem)
+        for cx, cy, r in ((8, 6, 3.2), (5, 9, 2.2), (11, 9, 2.2)):
+            for x in range(TILE):
+                for y in range(TILE):
+                    if (x - cx) ** 2 + (y - cy) ** 2 < r * r:
+                        _px(img, x, y, _shade(leaf, 1 + rng.uniform(-0.18, 0.15)))
+        return img
+    return gen
+
+
+def stone_variant(base, dark=None):
+    """A stone in a different colour (stone(), recoloured)."""
+    def gen(rng):
+        img = _noise(rng, base, 0.08)
+        for _ in range(5):
+            cx, cy = rng.randrange(TILE), rng.randrange(TILE)
+            for dx, dy in ((0, 0), (1, 0), (0, 1), (-1, 0)):
+                img.putpixel(((cx + dx) % TILE, (cy + dy) % TILE), dark or _shade(base, 0.8))
+        return img
+    return gen
+
+
+def slate(rng):
+    img = Image.new("RGB", (TILE, TILE))
+    for y in range(TILE):
+        band = 1 + 0.07 * ((y * 7) % 3 - 1)
+        for x in range(TILE):
+            seam = (y + (x // 5)) % 5 == 0 and rng.random() < 0.7
+            img.putpixel((x, y), _shade((72, 76, 88), (0.78 if seam else band) * (1 + rng.uniform(-0.05, 0.05))))
+    return img
+
+
+def limestone(rng):
+    img = _noise(rng, (212, 202, 168), 0.05)
+    for _ in range(3):                                # little shell fossils
+        cx, cy = rng.randrange(2, TILE - 2), rng.randrange(2, TILE - 2)
+        for dx, dy in ((0, 0), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0)):
+            _px(img, cx + dx, cy + dy, (182, 170, 136))
+    return _speckle(img, rng, (226, 218, 190), 10)
+
+
+def polished(base):
+    """Ground smooth: a bevelled frame (light top-left, dark bottom-right) around a calm face."""
+    def gen(rng):
+        img = Image.new("RGB", (TILE, TILE))
+        for x in range(TILE):
+            for y in range(TILE):
+                if x == 0 or y == 0:
+                    f = 1.22
+                elif x == TILE - 1 or y == TILE - 1:
+                    f = 0.7
+                elif x in (1, TILE - 2) or y in (1, TILE - 2):
+                    f = 0.92
+                else:
+                    f = 1.03
+                img.putpixel((x, y), _shade(base, f * (1 + rng.uniform(-0.03, 0.03))))
+        return img
+    return gen
+
+
+def chiseled(base):
+    """A carved block: frame, an inner square and a carved cross in the middle."""
+    def gen(rng):
+        img = polished(base)(rng)
+        for i in range(3, 13):
+            for j in (3, 12):
+                _px(img, i, j, _shade(base, 0.68))
+                _px(img, j, i, _shade(base, 0.68))
+        for i in range(5, 11):
+            _px(img, i, 7, _shade(base, 0.75))
+            _px(img, 7, i, _shade(base, 0.75))
+            _px(img, i, 8, _shade(base, 1.18))
+            _px(img, 8, i, _shade(base, 1.18))
+        return img
+    return gen
+
+
+def cracked_bricks(rng):
+    img = bricks((128, 128, 132), (96, 96, 100), rows=2, length=16)(rng)
+    for _ in range(3):
+        x, y = rng.randrange(TILE), rng.randrange(TILE)
+        for _ in range(8):
+            _px(img, x, y, (58, 58, 62))
+            x = max(0, min(TILE - 1, x + rng.choice((-1, 0, 1))))
+            y = max(0, min(TILE - 1, y + 1))
+    return img
+
+
+def mossy_bricks(rng):
+    img = bricks((124, 128, 124), (92, 96, 92), rows=2, length=16)(rng)
+    for x in range(TILE):
+        for y in range(TILE):
+            if rng.random() < 0.38 * (1.2 - y / TILE):
+                _px(img, x, y, _shade((78, 124, 58), 1 + rng.uniform(-0.15, 0.12)))
+    return img
+
+
+def gem_item(color):
+    def gen(rng):
+        img = _blank()
+        for y in range(3, 14):
+            half = 6 - abs(y - 6) if y <= 6 else max(0, 6 - (y - 6))
+            for x in range(8 - half, 8 + half):
+                f = 1.4 if x < 8 and y < 7 else 0.75 if x >= 8 and y > 6 else 1.0
+                _px(img, x, y, _shade(color, f))
+        return img
+    return gen
+
+
+def shard(color):
+    def gen(rng):
+        img = _blank()
+        for i in range(10):
+            for w in range(-1, 2):
+                _px(img, 4 + i // 2 + w, 13 - i, _shade(color, 1.3 if w < 0 else 0.8 if w > 0 else 1.0))
+                _px(img, 9 + i // 3 + w, 13 - i // 1 if i < 7 else 7, _shade(color, 1.15 if w < 0 else 0.85))
+        return img
+    return gen
+
+
+def gem_block(color):
+    """Cut-gem block: diagonal facets in light and dark tones of the gem colour."""
+    def gen(rng):
+        img = Image.new("RGB", (TILE, TILE))
+        for x in range(TILE):
+            for y in range(TILE):
+                u, v = x % 8, y % 8
+                f = 1.3 if u + v < 4 else 0.72 if u + v > 11 else 1.12 if u > v else 0.92
+                if min(x, y, TILE - 1 - x, TILE - 1 - y) == 0:
+                    f = 0.62
+                img.putpixel((x, y), _shade(color, f * (1 + rng.uniform(-0.03, 0.03))))
+        return img
+    return gen
+
+
+def quartz_block(rng):
+    img = _noise(rng, (236, 230, 222), 0.025)
+    for x in range(TILE):
+        _px(img, x, 0, (250, 248, 244))
+        _px(img, x, TILE - 1, (196, 190, 182))
+    for y in range(TILE):
+        _px(img, 0, y, (250, 248, 244))
+        _px(img, TILE - 1, y, (196, 190, 182))
+    return img
+
+
+def glow_crystal(rng):
+    img = _noise(rng, (60, 50, 90), 0.1)
+    for cx, cy, color in ((4, 5, (255, 236, 140)), (11, 4, (170, 250, 255)), (8, 11, (255, 210, 120)),
+                          (13, 12, (220, 255, 200)), (3, 12, (255, 250, 210))):
+        for dy in range(-3, 3):
+            w = 1 if dy < -1 else 2
+            for dx in range(-w + 1, w):
+                _px(img, cx + dx, cy + dy, _shade(color, 1.0 - 0.06 * dy))
+    return img
+
+
+def hay_side(rng):
+    img = Image.new("RGB", (TILE, TILE))
+    for x in range(TILE):
+        tone = 1 + rng.uniform(-0.12, 0.12)
+        for y in range(TILE):
+            band = y in (3, 4, 11, 12)
+            img.putpixel((x, y), _shade((150, 100, 40) if band else (214, 180, 70), tone * (1 + rng.uniform(-0.05, 0.05))))
+    return img
+
+
+def hay_top(rng):
+    img = _noise(rng, (206, 172, 64), 0.12)
+    for _ in range(30):
+        x, y = rng.randrange(TILE), rng.randrange(TILE)
+        for d in range(3):
+            _px(img, x + d, y + (d if rng.random() < 0.5 else 0), (236, 206, 100))
+    return img
+
+
+def ribbed(base, rib, rib_every=4, stripe=None):
+    def gen(rng):
+        img = Image.new("RGB", (TILE, TILE))
+        for x in range(TILE):
+            for y in range(TILE):
+                c = rib if x % rib_every == 0 else base
+                if stripe and (x // 2) % 3 == 0:
+                    c = stripe
+                img.putpixel((x, y), _shade(c, 1 + rng.uniform(-0.06, 0.06)))
+        return img
+    return gen
+
+
+def fruit_top(base, stem=(90, 120, 40)):
+    def gen(rng):
+        img = _noise(rng, base, 0.06)
+        for x in range(TILE):
+            for y in range(TILE):
+                d = max(abs(x - 7.5), abs(y - 7.5))
+                if d > 6.5:
+                    _px(img, x, y, _shade(base, 0.82))
+        for x in range(6, 10):
+            for y in range(6, 10):
+                _px(img, x, y, _shade(stem, 1 + rng.uniform(-0.1, 0.1)))
+        return img
+    return gen
+
+
+def sponge(rng):
+    img = _noise(rng, (214, 196, 72), 0.06)
+    for _ in range(18):
+        x, y = rng.randrange(TILE), rng.randrange(TILE)
+        _px(img, x, y, (150, 128, 30))
+        _px(img, x + 1, y, (170, 148, 40))
+    return img
+
+
+def color_lamp(rgb):
+    glow = _mix(rgb, (255, 255, 230), 0.4)
+    frame = _shade(rgb, 0.4)
+
+    def gen(rng):
+        img = Image.new("RGB", (TILE, TILE))
+        for x in range(TILE):
+            for y in range(TILE):
+                edge = min(x, y, TILE - 1 - x, TILE - 1 - y)
+                if edge == 0:
+                    c = frame
+                elif x in (5, 10) or y in (5, 10):
+                    c = _shade(rgb, 0.75)
+                else:
+                    c = glow
+                img.putpixel((x, y), _shade(c, 1 + rng.uniform(-0.05, 0.05)))
+        return img
+    return gen
+
+
+def tulip(petal):
+    def gen(rng):
+        def head(img):
+            for y in range(3, 8):
+                for x in range(6, 11):
+                    if not (y == 3 and x in (7, 9)) and not (y == 7 and x in (6, 10)):
+                        _px(img, x, y, _shade(petal, 1.15 if x == 7 else 1 + rng.uniform(-0.08, 0.05)))
+        img = _plant(rng, [(8, 9, 0)], head)
+        for x, y in ((6, 12), (7, 11), (10, 12), (9, 11)):
+            _px(img, x, y, (70, 140, 50))
+        return img
+    return gen
+
+
+def lavender(rng):
+    img = _plant(rng, [(5, 10, 0.1), (8, 13, 0), (11, 10, -0.1)])
+    for x0, top in ((5, 6), (8, 3), (11, 6)):
+        for y in range(top, top + 5):
+            _px(img, x0 + (y % 2), y, _shade((150, 110, 220), 1 + rng.uniform(-0.15, 0.1)))
+    return img
+
+
+def bell_flower(petal):
+    def gen(rng):
+        img = _plant(rng, [(7, 12, 0.08)])
+        for cx, cy in ((5, 7), (9, 5), (11, 9)):
+            for dx, dy in ((0, 0), (1, 0), (0, 1), (1, 1), (-1, 1), (2, 1)):
+                _px(img, cx + dx, cy + dy, _shade(petal, 1 + rng.uniform(-0.1, 0.1)))
+            _px(img, cx, cy - 1, (70, 140, 50))
+        return img
+    return gen
+
+
+def sunflower(rng):
+    img = _plant(rng, [(8, 12, 0)])
+    for x in range(TILE):
+        for y in range(TILE):
+            d = (x - 8) ** 2 + (y - 5) ** 2
+            if d < 5:
+                _px(img, x, y, (110, 70, 30))
+            elif d < 15:
+                _px(img, x, y, _shade((250, 204, 40), 1 + rng.uniform(-0.1, 0.08)))
+    for x, y in ((6, 12), (10, 11)):
+        _px(img, x, y, (70, 140, 50))
+        _px(img, x + 1, y, (70, 140, 50))
+    return img
+
+
+def bush(leaf, berries=None, dry=False):
+    def gen(rng):
+        img = _blank()
+        if dry:
+            for _ in range(6):
+                x, y = 8.0, 15.0
+                dx = rng.uniform(-0.8, 0.8)
+                for _ in range(rng.randint(6, 11)):
+                    _px(img, int(x), int(y), _shade(leaf, 1 + rng.uniform(-0.2, 0.2)))
+                    x += dx
+                    y -= 1
+            return img
+        for x in range(TILE):
+            for y in range(4, TILE):
+                if (x - 7.5) ** 2 / 56 + (y - 10.5) ** 2 / 36 < 1 and rng.random() < 0.88:
+                    _px(img, x, y, _shade(leaf, 1 + rng.uniform(-0.25, 0.2)))
+        if berries:
+            for _ in range(7):
+                _px(img, rng.randrange(3, 13), rng.randrange(7, 15), berries)
+        return img
+    return gen
+
+
+WOOD_COLORS = {          # species: (bark, bark stripes, ring light, ring dark, planks, leaves, sapling leaves)
+    "maple": ((112, 74, 58), (86, 54, 40), (204, 150, 104), (178, 122, 84), (182, 104, 66), (206, 74, 34), (210, 90, 40)),
+    "cherry": ((84, 46, 52), (140, 96, 96), (234, 176, 164), (212, 148, 140), (222, 158, 148), (242, 160, 196), (240, 150, 190)),
+    "ashwood": ((138, 128, 114), (100, 92, 82), (222, 150, 92), (196, 124, 72), (206, 120, 62), (150, 162, 54), (140, 160, 60)),
+    "ebony": ((44, 36, 34), (64, 54, 50), (90, 64, 50), (64, 44, 36), (62, 44, 38), (78, 92, 34), (70, 96, 40)),
+}
+for _sp, (_bark, _stripe, _rl, _rd, _pl, _lv, _sap) in WOOD_COLORS.items():
+    EXTRA_GENERATORS[f"{_sp}_log"] = bark(_bark, stripes=_stripe)
+    EXTRA_GENERATORS[f"{_sp}_log_top"] = rings(_rl, _rd, _bark)
+    EXTRA_GENERATORS[f"{_sp}_planks"] = boards(_pl)
+    EXTRA_GENERATORS[f"{_sp}_leaves"] = foliage(_lv)
+    EXTRA_GENERATORS[f"{_sp}_sapling"] = sapling(_sap)
+EXTRA_GENERATORS.update({
+    "oak_sapling": sapling((60, 130, 50)), "birch_sapling": sapling((120, 170, 80), (220, 218, 208)),
+    "pine_sapling": sapling((44, 96, 66)),
+    "terracotta": terracotta((168, 100, 72)),
+    "slate": slate, "cobbled_slate": cobble((74, 78, 90)), "limestone": limestone,
+    "polished_stone": polished((140, 140, 144)), "polished_granite": polished((176, 112, 94)),
+    "polished_basalt": polished((66, 66, 74)), "polished_marble": polished((236, 234, 230)),
+    "smooth_sandstone": polished((218, 200, 146)), "polished_slate": polished((78, 82, 96)),
+    "polished_limestone": polished((216, 206, 172)),
+    "granite_bricks": bricks((170, 108, 92), (120, 80, 70), rows=4, length=8),
+    "basalt_bricks": bricks((64, 64, 72), (36, 36, 42), rows=4, length=8),
+    "marble_bricks": bricks((234, 232, 228), (176, 176, 182), rows=2, length=8),
+    "slate_bricks": bricks((76, 80, 94), (48, 50, 60), rows=4, length=4),
+    "limestone_bricks": bricks((214, 204, 170), (170, 160, 128), rows=2, length=16),
+    "cracked_stone_bricks": cracked_bricks, "mossy_stone_bricks": mossy_bricks,
+    "chiseled_stone": chiseled((132, 132, 136)), "chiseled_sandstone": chiseled((214, 196, 140)),
+    "chiseled_marble": chiseled((232, 230, 226)), "chiseled_limestone": chiseled((212, 202, 168)),
+    "ruby_ore": ore([(220, 30, 60), (180, 20, 44)]), "sapphire_ore": ore([(40, 80, 220), (70, 120, 240)]),
+    "amethyst_ore": ore([(160, 90, 220), (200, 140, 240)]), "quartz_ore": ore([(244, 240, 232), (220, 214, 206)]),
+    "ruby_block": gem_block((200, 30, 56)), "sapphire_block": gem_block((44, 84, 210)),
+    "amethyst_block": gem_block((150, 92, 210)), "quartz_block": quartz_block,
+    "tin_block": metal_block((190, 194, 206)), "coal_block": metal_block((44, 44, 50)),
+    "ruby": gem_item((220, 36, 64)), "sapphire": gem_item((50, 90, 225)), "amethyst": shard((170, 110, 230)),
+    "quartz": shard((240, 236, 228)),
+    "glow_crystal": glow_crystal,
+    "hay_side": hay_side, "hay_top": hay_top,
+    "pumpkin_side": ribbed((224, 130, 30), (180, 96, 20)), "pumpkin_top": fruit_top((216, 124, 30)),
+    "melon_side": ribbed((96, 160, 50), (60, 110, 34), 5, (150, 196, 70)),
+    "melon_top": fruit_top((110, 168, 56), (120, 110, 50)),
+    "mud": noise_tile((70, 56, 48), 0.1, (((52, 42, 36), 24), ((90, 74, 62), 10))),
+    "mud_bricks": bricks((150, 116, 84), (104, 84, 64), rows=4, length=8),
+    "moss_block": foliage((86, 128, 52), 30), "sponge": sponge,
+    "packed_ice": noise_tile((150, 184, 236), 0.05, (((190, 214, 250), 20), ((128, 164, 220), 12))),
+    "lavender": lavender, "marigold": flower((240, 140, 30), (180, 80, 20)), "pink_tulip": tulip((240, 140, 180)),
+    "orchid": flower((200, 80, 200), (250, 230, 250)), "daisy": flower((250, 250, 250), (250, 200, 40)),
+    "bluebell": bell_flower((100, 140, 240)), "dark_iris": tulip((70, 40, 110)), "sunflower": sunflower,
+    "leafy_bush": bush((60, 130, 50)), "berry_bush": bush((50, 116, 50), (200, 30, 50)),
+    "dry_bush": bush((130, 96, 60), dry=True),
+})
+for _i, (_name, _rgb) in enumerate(__import__("blocks").DYES):
+    EXTRA_GENERATORS[f"concrete_{_i}"] = concrete(_rgb)
+    EXTRA_GENERATORS[f"terracotta_{_i}"] = terracotta(_rgb)
+    EXTRA_GENERATORS[f"glazed_{_i}"] = glazed(_rgb, _i)
+for _name, _dye in __import__("blocks").LAMP_COLORS:
+    EXTRA_GENERATORS[f"lamp_{_name.replace(' ', '_')}"] = color_lamp(__import__("blocks").DYES[_dye][1])
+
 GENERATORS = {name: EXTRA_GENERATORS.get(name) or globals()[name] for name in TILES}
 
 

@@ -6,7 +6,7 @@ Names are built from patterns where possible (colours, slabs, stairs, tool tiers
 variants get an Arabic name automatically; the rest are listed by hand below.
 """
 import inventory as inv
-from blocks import BLOCK_DEFS, DYES, WOOL, STAINED_GLASS, SLABS, STAIRS
+from blocks import BLOCK_DEFS, DYES, WOOL, STAINED_GLASS, SLABS, STAIRS, WALLS
 
 NAMES_AR = {
     "apple": "تفاحة", "basalt": "بازلت", "bed": "تخت", "bedrock": "صخر الأساس",
@@ -31,9 +31,61 @@ NAMES_AR = {
 }
 COLORS_AR = ["أبيض", "رمادي فاتح", "رمادي", "أسود", "بني", "أحمر", "برتقالي", "أصفر", "ليموني", "أخضر",
              "سماوي", "أزرق فاتح", "أزرق", "بنفسجي", "أرجواني", "زهري"]
+# ---------------------------------------------------------------- expanded catalogue
+_WOODS_AR = {"oak": "بلوط", "birch": "بتولا", "pine": "صنوبر", "maple": "قيقب", "cherry": "كرز",
+             "ashwood": "دردار", "ebony": "أبنوس"}
+for _sp, _ar in _WOODS_AR.items():
+    NAMES_AR.update({f"{_sp} log": "جذع " + _ar, f"{_sp} planks": "ألواح " + _ar, f"{_sp} leaves": "ورق " + _ar,
+                     f"{_sp} fence": "سياج " + _ar, f"{_sp} sapling": "شتلة " + _ar})
+NAMES_AR.update({
+    "slate": "أردواز", "cobbled slate": "أردواز مرصوف", "limestone": "حجر كلسي",
+    "polished stone": "حجر مصقول", "polished granite": "غرانيت مصقول", "polished basalt": "بازلت مصقول",
+    "polished marble": "رخام مصقول", "smooth sandstone": "حجر رملي ناعم", "polished slate": "أردواز مصقول",
+    "polished limestone": "حجر كلسي مصقول", "granite bricks": "طوب غرانيت", "basalt bricks": "طوب بازلت",
+    "marble bricks": "طوب رخام", "slate bricks": "طوب أردواز", "limestone bricks": "طوب كلسي",
+    "cracked stone bricks": "طوب حجري مشقّق", "mossy stone bricks": "طوب حجري بطحلب",
+    "chiseled stone": "حجر منقوش", "chiseled sandstone": "حجر رملي منقوش", "chiseled marble": "رخام منقوش",
+    "chiseled limestone": "حجر كلسي منقوش",
+    "ruby": "ياقوت أحمر", "sapphire": "ياقوت أزرق", "amethyst shard": "شظية جمشت", "quartz": "كوارتز",
+    "ruby ore": "خام ياقوت أحمر", "sapphire ore": "خام ياقوت أزرق", "amethyst ore": "خام جمشت",
+    "quartz ore": "خام كوارتز", "ruby block": "بلوك ياقوت أحمر", "sapphire block": "بلوك ياقوت أزرق",
+    "amethyst block": "بلوك جمشت", "quartz block": "بلوك كوارتز", "tin block": "بلوك قصدير",
+    "coal block": "بلوك فحم", "glow crystal": "بلورة مضيئة",
+    "hay bale": "رزمة قش", "pumpkin": "يقطين", "melon": "بطيخ", "mud": "وحل", "mud bricks": "طوب طيني",
+    "moss block": "بلوك طحلب", "sponge": "إسفنج", "packed ice": "جليد مضغوط", "terracotta": "فخار",
+    "lavender": "خزامى", "marigold": "قطيفة", "pink tulip": "توليب زهري", "orchid": "سحلبية", "daisy": "أقحوان",
+    "bluebell": "جريس", "dark iris": "سوسن داكن", "sunflower": "دوّار الشمس",
+    "leafy bush": "شجيرة", "berry bush": "شجيرة توت", "dry bush": "شجيرة يابسة",
+})
+# colour families: "<family word> <colour>"
+DYED_AR = {"concrete": "خرسانة", "terracotta": "فخار", "glazed_tiles": "بلاط مزجّج", "carpet": "سجادة",
+           "lamps": "لمبة"}
+DYED_FEMININE = {"concrete", "carpet", "lamps"}          # these words take the feminine colour adjective
+COLORS_F_AR = ["بيضاء", "رمادية فاتحة", "رمادية", "سوداء", "بنية", "حمراء", "برتقالية", "صفراء", "ليمونية",
+               "خضراء", "سماوية", "زرقاء فاتحة", "زرقاء", "بنفسجية", "أرجوانية", "زهرية"]
+# variant families shown collapsed in the creative menu: family -> (English, Arabic)
+FAMILIES = {
+    "concrete": ("Concrete", "خرسانة"), "terracotta": ("Terracotta", "فخار"),
+    "glazed_tiles": ("Glazed tiles", "بلاط مزجّج"), "carpet": ("Carpets", "سجاد"), "wool": ("Wool", "صوف"),
+    "stained_glass": ("Stained glass", "زجاج ملوّن"), "logs": ("Logs", "جذوع"), "planks": ("Planks", "ألواح"),
+    "leaves": ("Leaves", "أوراق"), "fences": ("Fences", "أسيجة"), "saplings": ("Saplings", "شتلات"),
+    "rocks": ("Rocks", "صخور"), "cobblestone": ("Cobblestone", "حجر مرصوف"),
+    "polished_stone": ("Polished stone", "حجر مصقول"), "stone_bricks": ("Bricks", "طوب"),
+    "chiseled_stone": ("Chiseled stone", "حجر منقوش"), "sand": ("Sand", "رمل"), "ores": ("Ores", "خامات"),
+    "storage_blocks": ("Storage blocks", "بلوكات معادن وجواهر"), "farm_blocks": ("Farm blocks", "محاصيل"),
+    "lamps": ("Lamps", "لمبات"), "flowers": ("Flowers", "ورود"), "grasses": ("Grass and bushes", "عشب وشجيرات"),
+    "mushrooms": ("Mushrooms", "فطر"), "slabs": ("Slabs", "بلاطات"), "stairs": ("Stairs", "أدراج"),
+    "walls": ("Walls", "أسوار"), "ingots": ("Ingots", "سبائك"), "gems": ("Gems", "جواهر"),
+    "pickaxes": ("Pickaxes", "معاول"), "axes": ("Axes", "فؤوس"), "shovels": ("Shovels", "مجارف"),
+    "swords": ("Swords", "سيوف"),
+}
+FAMILIES_EN = {f: en for f, (en, _ar) in FAMILIES.items()}
+FAMILIES_AR = {f: ar for f, (_en, ar) in FAMILIES.items()}
+_DYE_INDEX = {tuple(rgb): i for i, (_name, rgb) in enumerate(DYES)}
+
 TOOL_KINDS_AR = {"pickaxe": "معول", "axe": "فأس", "shovel": "مجرفة", "sword": "سيف"}
 TIERS_AR = {"wooden": "خشبي", "stone": "حجري", "iron": "حديدي", "diamond": "ألماسي"}
-GROUPS_AR = {"planks": "ألواح", "rock": "صخر", "wool": "صوف"}
+GROUPS_AR = {"planks": "ألواح", "rock": "صخر", "wool": "صوف", "logs": "جذوع", "flowers": "ورود", "fuel": "وقود"}
 TABS_AR = {"all": "الكل", "natural": "طبيعي", "building": "بناء", "colored": "ملوّن", "plants": "نباتات",
            "functional": "مفيد", "tools": "أدوات", "food": "أكل", "materials": "مواد"}
 
@@ -116,6 +168,33 @@ UI = {
     "sound": ("Sound", "الصوت"),
     "monsters": ("Night monsters (glooms)", "وحوش الليل (الظلال)"),
     "cause_gloom": ("A gloom got you.", "ظلّ قتلك."),
+    # touch actions, log, items screen
+    "show_map": ("Mini map", "خريطة صغيرة"), "vibrate": ("Vibrate", "اهتزاز"),
+    "hold_to_break": ("Hold your finger on a block to break it", "اضغط مطوّل على البلوك لتكسره"),
+    "touch_buttons": ("Separate break / place buttons", "أزرار منفصلة للكسر والوضع"),
+    "show_log": ("Game log (for bug reports)", "سجل اللعبة (لإرسال الأخطاء)"),
+    "copy_log": ("Copy", "نسخ"), "log_copied": ("Copied!", "انْسخ!"),
+    "craftable_only": ("Can make", "اللي بقدر أصنعه"), "sort": ("Sort", "ترتيب"),
+    "tab_favorites": ("Favourites", "المفضلة"), "tab_recent": ("Recent", "الأخيرة"),
+    "quick_move": ("Move", "نقل سريع"), "split": ("Half", "نص"),
+    "pick_first": ("Tap a slot first", "اختار خانة أول"), "cant_split": ("Only one - can't split", "وحدة بس - ما بتنقسم"),
+    "furnace_title": ("Furnace", "فرن"),
+    "items_hint_title": ("Your items", "أغراضك"),
+    "items_hint": ("Tap a slot, then another to move it - or drag it. Double tap = quick move.",
+                   "اكبس خانة وبعدين خانة تانية لتنقلها - أو اسحبها. كبستين = نقل سريع."),
+    "items_hint_creative": ("Tap a block to put it in your hotbar. + opens colours and kinds. Hold to add to favourites.",
+                            "اكبس بلوك ليصير بالشريط. علامة + بتفتح الألوان والأنواع. اضغط مطوّل ليصير بالمفضلة."),
+    "info_tool": ("Tool, %d uses", "أداة، بتتحمل %d استعمال"), "info_food": ("Food, +%d hunger", "أكل، بيشبّع %d"),
+    "info_light": ("Gives light", "بيضوّي"), "info_container": ("Stores items", "بيخزّن أغراض"),
+    "info_mine_with": ("Faster with a %s", "أسرع بـ %s"), "info_variants": ("%d kinds", "%d أنواع"),
+    "info_recipe": ("Made from:", "بينصنع من:"),
+    "tool_pickaxe": ("pickaxe", "معول"), "tool_axe": ("axe", "فأس"), "tool_shovel": ("shovel", "مجرفة"),
+    "tool_sword": ("sword", "سيف"),
+    "no_favorites": ("Hold any block to add it here", "اضغط مطوّل على أي بلوك ليصير هون"),
+    "nothing_found": ("Nothing here", "ما في شي هون"),
+    "favorited": ("★ %s", "★ %s"), "unfavorited": ("Removed %s", "انشال %s"),
+    "craft_n": ("Make %d (= %d)", "اصنع %d (= %d)"), "craft_all": ("Make all (%d)", "اصنع الكل (%d)"),
+    "crafted": ("Made %d %s", "انصنع %d %s"),
     # first-time tutorial (_t = touch screen, _d = desktop)
     "tut_skip": ("Skip", "تخطي"), "tut_again": ("Show the tutorial again", "إعادة التعليم"),
     "tut_look_t": ("Drag on the right side of the screen to look around", "اسحب على يمين الشاشة لتتطلع حواليك"),
@@ -125,11 +204,11 @@ UI = {
     "tut_jump_t": ("Tap the jump button", "اكبس زر القفز"), "tut_jump_d": ("Press Space to jump", "اكبس Space لتنط"),
     "tut_fly_t": ("Tap the wing button to fly, then Up and Down", "اكبس زر الجناح لتطير، وبعدين فوق وتحت"),
     "tut_fly_d": ("Press Space twice quickly to fly", "اكبس Space مرتين بسرعة لتطير"),
-    "tut_break_t": ("Aim at a block and hold the pickaxe button", "أشّر على بلوك واضغط مطوّل على زر المعول"),
+    "tut_break_t": ("Press and hold your finger on a block to break it", "اضغط بإصبعك مطوّل على بلوك لتكسره"),
     "tut_break_d": ("Aim at a block and hold the left mouse button", "أشّر على بلوك واضغط مطوّل كليك يسار"),
-    "tut_place_t": ("Pick a block on the hotbar and tap the cube button to place it", "اختار بلوك من الشريط واكبس زر المكعب لتحطه"),
+    "tut_place_t": ("Pick a block on the hotbar, then tap where you want it", "اختار بلوك من الشريط، وبعدين اكبس المكان اللي بدك تحطه فيه"),
     "tut_place_d": ("Pick a block on the hotbar and right click to place it", "اختار بلوك من الشريط واكبس كليك يمين لتحطه"),
-    "tut_items_t": ("Open your items with the grid button", "افتح الأغراض من زر الشبكة"),
+    "tut_items_t": ("Open your items with the bag button", "افتح الأغراض من زر الحقيبة"),
     "tut_items_d": ("Open your items with E", "افتح الأغراض بـ E"),
     "tut_done_survival": ("Well done! Glooms come out at night - place torches and build a shelter.",
                           "ممتاز! بالليل بيطلع الظلّ - حط شعلات وابنِ بيت لتحمي حالك."),
@@ -148,6 +227,13 @@ def arabic_name(item):
         return "صوف " + COLORS_AR[WOOL.index(item)]
     if item in STAINED_GLASS:
         return "زجاج " + COLORS_AR[STAINED_GLASS.index(item)]
+    d = BLOCK_DEFS.get(item, {})
+    if d.get("family") in DYED_AR and tuple(d.get("dye", ())) in _DYE_INDEX:
+        colors = COLORS_F_AR if d["family"] in DYED_FEMININE else COLORS_AR
+        return DYED_AR[d["family"]] + " " + colors[_DYE_INDEX[tuple(d["dye"])]]
+    for material, wall in WALLS.items():
+        if item == wall:
+            return "سور " + arabic_name(material)
     for material, slab in SLABS.items():
         if item == slab:
             return "بلاطة " + arabic_name(material)
@@ -172,5 +258,6 @@ def export():
         "ui": {k: {"en": en, "ar": ar} for k, (en, ar) in UI.items()},
         "names_ar": {str(i): arabic_name(i) for i in inv.ITEMS},
         "groups_ar": GROUPS_AR,
+        "families_ar": FAMILIES_AR,
         "tabs_ar": TABS_AR,
     }

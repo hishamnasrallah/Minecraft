@@ -24,11 +24,12 @@ def test_every_block_and_item_has_a_real_texture():
 
 
 def test_creative_menu_lists_everything_once_with_tabs_and_search():
-    assert len(CREATIVE_ITEMS) == len(set(CREATIVE_ITEMS)) > 130
+    assert len(CREATIVE_ITEMS) == len(set(CREATIVE_ITEMS)) > 340
     assert all(item_tab(i) in TABS for i in CREATIVE_ITEMS)
     assert creative_items("all") == CREATIVE_ITEMS
     colored = creative_items("colored")
-    assert len(colored) == 2 * len(DYES) and set(WOOL) <= set(colored)
+    # wool, stained glass, concrete, terracotta (+ plain), glazed tiles, carpets
+    assert len(colored) == 6 * len(DYES) + 1 and set(WOOL) <= set(colored)
     stairs = creative_items("plants", "stairs")          # search ignores the tab
     assert len(stairs) == len(STAIRS) and all("stairs" in ITEMS[i] for i in stairs)
     assert creative_items("all", "RED wool") == [WOOL[5]]
