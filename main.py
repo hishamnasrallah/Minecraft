@@ -10,6 +10,13 @@ Controls:
   T              fast-forward time      F1           hide the HUD
   F5             save                   Esc          close screen / save and quit
 
+  Creative building tools (look at a block):
+  Z / X          selection corner 1 / 2   F  fill with held block (Shift+F: replace looked-at type)
+  H              hollow box               Delete  clear selection   Q  deselect (Shift+Q: drop copy)
+  C              copy                     hold V  preview, release to paste (Shift: include air)
+  R / M          rotate / mirror copy     U  undo
+  Alt+1-9        load saved hotbar        Alt+Shift+1-9  save hotbar (also in the creative menu)
+
   python main.py --new        start a new world
   python main.py --creative   start in creative mode
 """
@@ -34,6 +41,7 @@ from survival import Survival, icons as bar_icons
 from lighting import block_shader
 from animals import Wildlife
 from animal_models import AnimalView
+from building import Builder
 
 SAVE_FILE = Path(__file__).with_name("save.json")
 SURVIVAL_REACH, CREATIVE_REACH = 6, 10
@@ -205,6 +213,7 @@ hotbar_views = [SlotView(hud, ((i - (HOTBAR_SIZE - 1) / 2) * 0.07, -0.44)) for i
 label = Text(parent=camera.ui, position=(0, -0.345), origin=(0, 0), scale=1.1)
 status = Text(parent=camera.ui, position=(-0.85, 0.47), text="", scale=1)
 mode_text = Text(parent=camera.ui, position=(-0.85, 0.43), text="", scale=0.9, color=color.light_gray)
+build_text = Text(parent=camera.ui, position=(-0.85, 0.395), text="", scale=0.9, color=color.cyan)
 
 # ---- inventory screen (E): your inventory on the left, a panel on the right that is
 # crafting (survival), the creative menu (creative) or a chest's contents
@@ -253,6 +262,11 @@ trash = Entity(parent=creative_root, model="quad", scale=0.06, position=(0.76, -
 trash.trash = True
 Text(parent=creative_root, text="X", position=(0.76, -0.255, -0.01), origin=(0, 0), scale=1.2)
 make_button("clear inventory", (0.1, -0.31), (0.16, 0.04), lambda: clear_inventory(), creative_root)
+Text(parent=creative_root, text="hotbars:", position=(0.02, -0.17), origin=(-0.5, 0), scale=0.8)
+hotbar_buttons = [make_button(str(n + 1), (0.165 + n * 0.062, -0.17), (0.055, 0.04),
+                              (lambda k: lambda: hotbar_button(k))(n), creative_root) for n in range(9)]
+Text(parent=creative_root, text="click: load   shift+click: save", position=(0.02, -0.205), origin=(-0.5, 0),
+     scale=0.7, color=color.light_gray)
 for i, (name, value) in enumerate((("sunrise", 0.0), ("noon", 0.25), ("sunset", 0.5), ("midnight", 0.75))):
     make_button(name, (0.24 + i * 0.1, -0.31), (0.095, 0.04), (lambda v: lambda: set_time(v))(value), creative_root)
 freeze_button = make_button("freeze time", (0.7, -0.31), (0.13, 0.04), lambda: toggle_freeze(), creative_root)
@@ -322,6 +336,8 @@ def refresh_screen():
         for name, b in tab_buttons.items():
             b.color = Color(0.3, 0.5, 0.75, 1) if name == tab else Color(0.25, 0.25, 0.3, 1)
         freeze_button.text = "unfreeze" if time_speed == 0 else "freeze time"
+        for n, b in enumerate(hotbar_buttons):
+            b.color = Color(0.25, 0.45, 0.65, 1) if saved_hotbars[n] else Color(0.22, 0.22, 0.26, 1)
     else:
         recipes = visible_recipes()
         pages = page_count(len(recipes), RECIPE_ROWS)
@@ -360,6 +376,29 @@ def refresh_items():
     if screen.enabled:
         refresh_screen()
     cursor_view.show(cursor_stack, not creative)
+
+
+saved_hotbars = list(world.player_data.get("hotbars") or [None] * 9)
+
+
+def save_hotbar(n):
+    saved_hotbars[n] = [list(s) if s else None for s in inventory.slots[:HOTBAR_SIZE]]
+    flash(f"Saved hotbar {n + 1}")
+    refresh_items()
+
+
+def load_hotbar(n):
+    if not saved_hotbars[n]:
+        flash(f"Hotbar {n + 1} is empty (Alt+Shift+{n + 1} or shift+click to save it)")
+        return
+    for i, s in enumerate(saved_hotbars[n]):
+        inventory.slots[i] = tuple(s) if s else None
+    flash(f"Loaded hotbar {n + 1}")
+    refresh_items()
+
+
+def hotbar_button(n):
+    save_hotbar(n) if held_keys["shift"] else load_hotbar(n)
 
 
 def set_tab(name):
@@ -452,6 +491,7 @@ def save():
         "position": [player.x, player.y + 0.1, player.z],
         "spawn": list(spawn_point),
         "mode": "creative" if creative else "survival",
+        "hotbars": saved_hotbars,
     })
 
 
@@ -804,6 +844,115 @@ def pick_block():
     refresh_items()
 
 
+# ---------------------------------------------------------------- creative building tools
+builder = Builder()
+selection_box = Entity(model="wireframe_cube", color=color.cyan, enabled=False)
+paste_preview = Entity(model="wireframe_cube", color=color.yellow, enabled=False)
+previewing_paste = False
+
+
+def rebuild(keys):
+    for key in keys:
+        if key in chunk_entities:
+            build_chunk(key)
+    for key in {(k[0] + dx, k[1] + dz) for k in keys for dx in (-1, 0, 1) for dz in (-1, 0, 1)} - set(keys):
+        if key in chunk_entities and key not in relight_queue:
+            relight_queue.append(key)
+
+
+def paste_origin():
+    _, outside = target()
+    return outside
+
+
+def building_key(key):
+    """Creative building shortcuts. Returns True if the key was one of them."""
+    global previewing_paste
+    shift = held_keys["shift"] or held_keys["left shift"] or held_keys["right shift"]
+    inside, _ = target()
+    message, keys = None, set()
+    if key in ("z", "x"):
+        if inside is None:
+            return True
+        if key == "z":
+            builder.corner1 = inside
+        else:
+            builder.corner2 = inside
+        message = f"Corner {1 if key == 'z' else 2} at {inside}"
+    elif key == "f":
+        item = inventory.item_at(selected)
+        if shift:
+            if inside is None:
+                return True
+            if item not in PLACEABLE:
+                message = "Hold the block to replace with"
+            else:
+                keys, message = builder.fill(world, item, replace=world.get(*inside))
+        elif item not in PLACEABLE or BLOCK_DEFS[item]["shape"] == "door":
+            message = "Hold a block to fill with"
+        else:
+            keys, message = builder.fill(world, item)
+    elif key == "h":
+        item = inventory.item_at(selected)
+        if item not in PLACEABLE or BLOCK_DEFS[item]["shape"] == "door":
+            message = "Hold a block to build the walls with"
+        else:
+            keys, message = builder.fill(world, item, hollow=True)
+    elif key in ("delete", "backspace"):
+        keys, message = builder.fill(world, 0)
+    elif key == "c":
+        message = builder.copy(world)
+    elif key == "v":
+        previewing_paste = bool(builder.clipboard)
+        if not builder.clipboard:
+            message = "Nothing copied yet (C)"
+    elif key == "v up":
+        if previewing_paste and paste_origin() is not None:
+            keys, message = builder.paste(world, paste_origin(), include_air=shift)
+        previewing_paste = False
+    elif key == "r":
+        message = builder.rotate()
+    elif key == "m":
+        message = builder.mirror()
+    elif key == "u":
+        keys, message = builder.undo(world)
+    elif key == "q":
+        builder.clear_selection()
+        if shift:
+            builder.clipboard = None
+        message = "Selection cleared" + (" and copy dropped" if shift else "")
+    else:
+        return False
+    rebuild(keys)
+    if message:
+        flash(message)
+    return True
+
+
+def update_building():
+    bounds = builder.bounds() if creative else None
+    selection_box.enabled = bounds is not None
+    parts = []
+    if bounds:
+        lo, hi = bounds
+        selection_box.position = tuple((a + b) / 2 for a, b in zip(lo, hi))
+        selection_box.scale = tuple(b - a + 1.02 for a, b in zip(lo, hi))
+        sx, sy, sz = builder.size()
+        parts.append(f"selection {sx}x{sy}x{sz} ({builder.volume()})")
+    elif creative and (builder.corner1 or builder.corner2):
+        parts.append("selection: set the other corner")
+    if creative and builder.clipboard:
+        cx, cy, cz = builder.clipboard_size()
+        parts.append(f"copy {cx}x{cy}x{cz}")
+    build_text.text = "   |   ".join(parts)
+    origin = paste_origin() if previewing_paste and creative else None
+    paste_preview.enabled = origin is not None
+    if origin is not None:
+        size = builder.clipboard_size()
+        paste_preview.position = tuple(o + (s - 1) / 2 for o, s in zip(origin, size))
+        paste_preview.scale = tuple(s + 0.02 for s in size)
+
+
 def screen_click(right):
     """Clicks inside the inventory screen (inventory slots, creative palette, recipes, chest)."""
     global cursor_stack
@@ -893,6 +1042,13 @@ def input(key):
             last_space = time.time()
             if player.grounded and not creative:
                 health.exert(sv.JUMP)
+    alt = held_keys["alt"] or held_keys["left alt"] or held_keys["right alt"]
+    if creative and alt and key in [str(i + 1) for i in range(HOTBAR_SIZE)]:
+        n = int(key) - 1
+        save_hotbar(n) if held_keys["shift"] or held_keys["left shift"] else load_hotbar(n)
+        return
+    if creative and building_key(key):
+        return
     if key == "left mouse down" and looked_at_animal():
         attack(looked_at_animal())
     elif key == "left mouse down" and creative:
@@ -996,6 +1152,7 @@ def update():
     update_sky()
     update_animals()
     update_mining()
+    update_building()
     if screen.enabled:
         cursor_view.icon.position = (mouse.x, mouse.y, -0.2)
         cursor_view.count.position = (mouse.x + 0.028, mouse.y - 0.012, -0.21)

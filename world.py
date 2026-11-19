@@ -246,6 +246,27 @@ class World:
                 for k in (self.chunk_key(tx + dx, tz + dz) for dx, dz in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)))
                 if k in self.chunks}
 
+    def bulk_set(self, changes):
+        """Apply many edits at once (creative building tools). Cells in unloaded chunks or
+        outside the height range are skipped. Returns (chunk keys to rebuild, {pos: previous id})."""
+        previous = {}
+        for pos, block_id in changes.items():
+            x, y, z = pos
+            if not 0 <= y < MAX_HEIGHT or self.chunk_key(x, z) not in self.chunks:
+                continue
+            old = self.blocks.get(pos, 0)
+            if old == block_id:
+                continue
+            previous[pos] = old
+            self._edit(pos, block_id)
+        keys = set()
+        for x, _, z in previous:
+            for dx, dz in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)):
+                k = self.chunk_key(x + dx, z + dz)
+                if k in self.chunks:
+                    keys.add(k)
+        return keys, previous
+
     def _edit(self, pos, block_id):
         self._put(pos, block_id)
         self._columns.pop(self.chunk_key(pos[0], pos[2]), None)
