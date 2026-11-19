@@ -512,6 +512,78 @@
    "en": "A gloom got you.",
    "ar": "ظلّ قتلك."
   },
+  "tut_skip": {
+   "en": "Skip",
+   "ar": "تخطي"
+  },
+  "tut_again": {
+   "en": "Show the tutorial again",
+   "ar": "إعادة التعليم"
+  },
+  "tut_look_t": {
+   "en": "Drag on the right side of the screen to look around",
+   "ar": "اسحب على يمين الشاشة لتتطلع حواليك"
+  },
+  "tut_look_d": {
+   "en": "Move the mouse to look around (click the screen first)",
+   "ar": "حرّك الماوس لتتطلع حواليك (اكبس على الشاشة أول)"
+  },
+  "tut_walk_t": {
+   "en": "Move the joystick on the left to walk",
+   "ar": "حرّك العصا على يسار الشاشة لتمشي"
+  },
+  "tut_walk_d": {
+   "en": "Walk with W A S D",
+   "ar": "امشي بـ W A S D"
+  },
+  "tut_jump_t": {
+   "en": "Tap the jump button",
+   "ar": "اكبس زر القفز"
+  },
+  "tut_jump_d": {
+   "en": "Press Space to jump",
+   "ar": "اكبس Space لتنط"
+  },
+  "tut_fly_t": {
+   "en": "Tap the wing button to fly, then Up and Down",
+   "ar": "اكبس زر الجناح لتطير، وبعدين فوق وتحت"
+  },
+  "tut_fly_d": {
+   "en": "Press Space twice quickly to fly",
+   "ar": "اكبس Space مرتين بسرعة لتطير"
+  },
+  "tut_break_t": {
+   "en": "Aim at a block and hold the pickaxe button",
+   "ar": "أشّر على بلوك واضغط مطوّل على زر المعول"
+  },
+  "tut_break_d": {
+   "en": "Aim at a block and hold the left mouse button",
+   "ar": "أشّر على بلوك واضغط مطوّل كليك يسار"
+  },
+  "tut_place_t": {
+   "en": "Pick a block on the hotbar and tap the cube button to place it",
+   "ar": "اختار بلوك من الشريط واكبس زر المكعب لتحطه"
+  },
+  "tut_place_d": {
+   "en": "Pick a block on the hotbar and right click to place it",
+   "ar": "اختار بلوك من الشريط واكبس كليك يمين لتحطه"
+  },
+  "tut_items_t": {
+   "en": "Open your items with the grid button",
+   "ar": "افتح الأغراض من زر الشبكة"
+  },
+  "tut_items_d": {
+   "en": "Open your items with E",
+   "ar": "افتح الأغراض بـ E"
+  },
+  "tut_done_survival": {
+   "en": "Well done! Glooms come out at night - place torches and build a shelter.",
+   "ar": "ممتاز! بالليل بيطلع الظلّ - حط شعلات وابنِ بيت لتحمي حالك."
+  },
+  "tut_done_creative": {
+   "en": "Well done! Try the hammer button for big building tools.",
+   "ar": "ممتاز! جرّب زر الشاكوش لأدوات البناء الكبيرة."
+  },
   "creative_label": {
    "en": "creative",
    "ar": "إبداع"

@@ -119,6 +119,12 @@ func _ready() -> void:
 	env = Environment.new()
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = DAY_SKY
+	# distance fog in the sky's colour hides the edge of the loaded world
+	env.fog_enabled = true
+	env.fog_mode = Environment.FOG_MODE_DEPTH
+	env.fog_density = 1.0
+	env.fog_sky_affect = 0.0
+	env.fog_depth_curve = 1.6
 	we.environment = env
 	add_child(we)
 	sun = _sky_quad(Color(1, 0.95, 0.7), 40)
@@ -176,6 +182,10 @@ func _ready() -> void:
 	touch.fly_pressed.connect(func(): set_flying(not player.flying))
 	touch.build_pressed.connect(toggle_build_panel)
 	touch.settings_pressed.connect(open_settings)
+	tutorial = Tutorial.new()
+	tutorial.visible = false
+	tutorial.finished.connect(_update_touch_rects)
+	layer.add_child(tutorial)
 	build_panel = BuildPanel.new()
 	build_panel.builder = builder
 	build_panel.visible = false
@@ -200,6 +210,7 @@ func _ready() -> void:
 	settings.visible = false
 	settings.exit_pressed.connect(func(): save_game(); get_tree().change_scene_to_file("res://scenes/menu.tscn"))
 	settings.closed.connect(close_settings)
+	settings.tutorial_pressed.connect(func(): close_settings(); start_tutorial())
 	settings.view_distance_changed.connect(func(v): chunks.render_distance = v; chunks.update_center(player.position, true))
 	settings.language_picked.connect(func(code):
 		save_game()
@@ -313,6 +324,36 @@ func _update_touch_rects() -> void:
 	if build_panel.visible:
 		var grid: Control = build_panel.get_child(0)
 		touch.ui_rects.append(Rect2(grid.position, grid.size + Vector2(10, 10)))
+	if tutorial.visible:
+		touch.ui_rects.append(tutorial.get_rect().grow(6))
+
+
+## First-time hints. Test runs skip it unless --tutorial is given.
+func start_tutorial() -> void:
+	tutorial.start(creative, use_touch)
+	hud.message.text = ""                       # the tutorial replaces the short welcome line
+	_tut_last = null
+
+
+func _update_tutorial() -> void:
+	if not tutorial.visible:
+		return
+	var vp := get_viewport().get_visible_rect().size
+	tutorial.position = Vector2(roundf((vp.x - tutorial.size.x) / 2), 58)
+	_update_touch_rects()
+	if not spawned or screen.visible or settings.visible:
+		return
+	var now := [player.yaw, player.pitch, player.position]
+	if _tut_last != null:
+		tutorial.report("look", absf(now[0] - _tut_last[0]) + absf(now[1] - _tut_last[1]))
+		var step: Vector3 = now[2] - _tut_last[2]
+		if not player.flying:
+			tutorial.report("walk", minf(Vector2(step.x, step.z).length(), 1.0))
+		if player.velocity.y > 3.0 and not player.flying:
+			tutorial.report("jump")
+	if player.flying:
+		tutorial.report("fly")
+	_tut_last = now
 
 
 func open_screen(chest = null) -> void:
@@ -320,6 +361,7 @@ func open_screen(chest = null) -> void:
 		return
 	chest_pos = chest
 	chest_inv = Inventory.from_data(world.containers.get(chest), 27) if chest != null else null
+	tutorial.report("items")
 	screen.open(inv, creative, chest_inv)
 	player.set_physics_process(false)
 	touch.blocked = true
@@ -537,6 +579,7 @@ func break_at(pos: Vector3i) -> void:
 		edit(pos, 0, true)
 		return
 	Sfx.play(Sfx.dig_sound(id))
+	tutorial.report("break")
 	var tool := inv.item_at(selected)
 	var m := Items.mining(id, tool)
 	var contents = world.containers.get(pos)
@@ -682,6 +725,7 @@ func place_block() -> void:
 			return
 	if edit(pos, id):
 		Sfx.play(Sfx.dig_sound(id) if Blocks.defs[id].get("shape") == "cross" else "place")
+		tutorial.report("place")
 		if not creative:
 			inv.use_one(selected)
 			_refresh_mode()
@@ -833,6 +877,8 @@ var _step_distance := 0.0
 var _was_swimming := false
 var _last_step_pos = null
 var _ready_frames := 0
+var tutorial: Tutorial
+var _tut_last = null              # [yaw, pitch, position] last frame, for the tutorial
 
 
 func _update_footsteps() -> void:
@@ -939,7 +985,12 @@ func _update_sky(delta: float) -> void:
 	var sun_height := sin(angle)
 	var day := clampf((sun_height + 0.15) / 0.45, 0, 1)
 	var dusk := clampf(1 - absf(sun_height) / 0.35, 0, 1)
-	env.background_color = NIGHT_SKY.lerp(DAY_SKY, day).lerp(DUSK_SKY, dusk * 0.7 * maxf(day, 0.5))
+	var sky_color := NIGHT_SKY.lerp(DAY_SKY, day).lerp(DUSK_SKY, dusk * 0.7 * maxf(day, 0.5))
+	env.background_color = sky_color
+	env.fog_light_color = sky_color
+	var reach_m := chunks.render_distance * 16.0
+	env.fog_depth_begin = reach_m * 0.55
+	env.fog_depth_end = reach_m * 0.95
 	daylight = 0.16 + 0.84 * day
 	var tint := Vector3(0.65, 0.75, 1.0).lerp(Vector3.ONE, day).lerp(Vector3(1.0, 0.78, 0.6), dusk * 0.5)
 	for m in materials.values():
@@ -960,6 +1011,10 @@ func _process(delta: float) -> void:
 		if _ready_frames >= 3:                     # give the physics engine the new ground first
 			spawned = true
 			Boot.stage("playing")
+			var args := Array(OS.get_cmdline_user_args())
+			var testing := args.any(func(a): return a.begins_with("--shot") or a in ["--selftest", "--gloomtest", "--menutest"])
+			if "--tutorial" in args or (not testing and not I18n.settings.get("tutorial_done", false)):
+				start_tutorial()
 			player.set_physics_process(not screen.visible and not health.dead)
 	touch.hotbar_rect = hud.hotbar_rect()
 	if not screen.visible and not settings.visible:
@@ -972,6 +1027,7 @@ func _process(delta: float) -> void:
 	_update_sky(delta)
 	_update_animals(delta)
 	_update_health(delta)
+	_update_tutorial()
 	if "--selftest" in OS.get_cmdline_user_args() and spawned:
 		_selftest_step()
 	if "--gloomtest" in OS.get_cmdline_user_args() and spawned and not _st.has("gloom"):

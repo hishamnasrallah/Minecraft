@@ -6,6 +6,7 @@ signal closed
 signal language_picked(code: String)
 signal view_distance_changed(value: int)
 signal exit_pressed
+signal tutorial_pressed
 
 var in_game := false             # shows "save and go to the menu"
 
@@ -99,6 +100,13 @@ func _ready() -> void:
 	box.add_child(safe)
 
 	if in_game:
+		var tut := Button.new()
+		tut.text = I18n.t("tut_again")
+		tut.icon = load("res://data/ui/items.png")
+		tut.add_theme_constant_override("icon_max_width", 26)
+		tut.custom_minimum_size = Vector2(0, 50)
+		tut.pressed.connect(func(): I18n.save_settings(); tutorial_pressed.emit())
+		box.add_child(tut)
 		var exit := Button.new()
 		exit.text = I18n.t("exit_to_menu")
 		exit.icon = load("res://data/ui/save.png")
