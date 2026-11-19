@@ -670,6 +670,17 @@
   "collector_side",
   "smelter_top",
   "smelter_front",
+  "sky_stone",
+  "sky_soil",
+  "sky_grass_top",
+  "sky_grass_side",
+  "cloud",
+  "star_ore",
+  "star_block",
+  "portal",
+  "storm_crystal",
+  "pillar_stone",
+  "storm_heart",
   "iron_ingot",
   "copper_ingot",
   "tin_ingot",
@@ -702,6 +713,9 @@
   "wheat",
   "bread",
   "carrot",
+  "star_shard",
+  "sky_key",
+  "storm_core",
   "egg",
   "feather",
   "raw_fish",
@@ -14060,6 +14074,196 @@
     398,
     399,
     392
+   ]
+  },
+  "1800": {
+   "name": "sky stone",
+   "tab": "natural",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 1800,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    400,
+    400,
+    400
+   ]
+  },
+  "1809": {
+   "name": "sky soil",
+   "tab": "natural",
+   "hardness": 0.5,
+   "tool": "shovel",
+   "level": 0,
+   "drop": 1809,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    401,
+    401,
+    401
+   ]
+  },
+  "1801": {
+   "name": "sky grass",
+   "tab": "natural",
+   "hardness": 0.6,
+   "tool": "shovel",
+   "level": 0,
+   "drop": 1809,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    402,
+    403,
+    401
+   ]
+  },
+  "1802": {
+   "name": "cloud",
+   "tab": "natural",
+   "hardness": 0.3,
+   "tool": null,
+   "level": 0,
+   "drop": 1802,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    404,
+    404,
+    404
+   ]
+  },
+  "1803": {
+   "name": "star ore",
+   "tab": "natural",
+   "hardness": 4.0,
+   "tool": "pickaxe",
+   "level": 3,
+   "drop": 130,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    405,
+    405,
+    405
+   ]
+  },
+  "1804": {
+   "name": "star block",
+   "tab": "building",
+   "hardness": 5.0,
+   "tool": "pickaxe",
+   "level": 3,
+   "drop": 1804,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 10,
+   "creative": true,
+   "tiles": [
+    406,
+    406,
+    406
+   ]
+  },
+  "1805": {
+   "name": "portal",
+   "tab": "functional",
+   "hardness": -1,
+   "tool": null,
+   "level": 0,
+   "drop": null,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": true,
+   "solid": false,
+   "emit": 11,
+   "creative": false,
+   "tiles": [
+    407,
+    407,
+    407
+   ]
+  },
+  "1806": {
+   "name": "storm crystal",
+   "tab": "functional",
+   "hardness": 1.0,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": null,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 15,
+   "creative": true,
+   "tiles": [
+    408,
+    408,
+    408
+   ]
+  },
+  "1807": {
+   "name": "pillar stone",
+   "tab": "building",
+   "hardness": 12.0,
+   "tool": "pickaxe",
+   "level": 3,
+   "drop": 1807,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    409,
+    409,
+    409
+   ]
+  },
+  "1808": {
+   "name": "storm heart",
+   "tab": "functional",
+   "hardness": 3.0,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1808,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 13,
+   "creative": true,
+   "tiles": [
+    410,
+    410,
+    410
    ]
   }
  }

@@ -164,3 +164,40 @@ func test_ambient_occlusion() -> String:
 	if ao.min() != 2 or ao.max() != 3 or ao.count(2) != 2:
 		return "the two corners next to the wall should be darker: %s" % [ao]
 	return ""
+
+
+## Breaking blocks without stopping: every few changes must show up while still breaking
+## (before, each result was thrown away as out of date and nothing showed until you stopped).
+func test_continuous_edits_show_while_editing() -> String:
+	var w := WorldData.new(424242)
+	var cm := ChunkManager.new()
+	var mats := {}
+	for n in ["solid", "translucent", "water", "plants"]:
+		mats[n] = StandardMaterial3D.new()
+	cm.setup(w, mats, 1)
+	var pos := Vector3(8, 200, 8)
+	cm.update_center(pos, true)
+	for i in 600:                                # load the area
+		cm._process(0.016)
+		OS.delay_msec(2)
+		if cm.is_ready_at(Vector3(8, w.top_y(8, 8) + 1, 8)):
+			break
+	var top := w.top_y(8, 8)
+	var sk := ChunkManager.section_key(Vector2i(0, 0), top / ChunkManager.SEC)
+	var before: int = cm.shown_version.get(sk, 0)
+	var updates := 0
+	var last := before
+	for i in 120:                                 # dig a column: one block every 3 frames
+		if i % 3 == 0:
+			var y := top - i / 3
+			var keys := w.set_block(8, y, 8, 0, false, false)
+			cm.rebuild(keys, maxi(y - 16, 0), y + 16)
+		cm._process(0.016)
+		OS.delay_msec(4)
+		var now: int = cm.shown_version.get(sk, 0)
+		if now != last:
+			updates += 1
+			last = now
+	cm._exit_tree()
+	cm.free()
+	return "" if updates >= 5 else "the view only changed %d times while digging 40 blocks" % updates

@@ -543,6 +543,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		match event.button_index:
 			MOUSE_BUTTON_RIGHT:
 				place_block()
+				_place_timer = PLACE_EVERY * 1.5       # a click places once; holding repeats after a moment
 			MOUSE_BUTTON_MIDDLE:
 				pick_block()
 			MOUSE_BUTTON_WHEEL_UP:
@@ -970,6 +971,7 @@ var _paste_total := 0
 var _paste_done := 0
 var _paste_prev := {}               # what was there before (one undo step for the whole paste)
 var _clip_from_library := false     # library buildings replace the ground they stand in
+var _paste_box := AABB()            # where the building goes: the player is moved out of it
 const PASTE_PER_FRAME := 3000
 
 
@@ -992,11 +994,40 @@ func _start_paste(origin: Vector3i, include_air: bool) -> void:
 	var keys: Array = by_chunk.keys()
 	keys.sort_custom(func(a, b): return (a - me).length_squared() < (b - me).length_squared())
 	_paste_batches = keys.map(func(k): return [k, by_chunk[k]])
+	var size: Vector3i = builder.clipboard_size()
+	_paste_box = AABB(Vector3(origin) - Vector3(0.5, 0.5, 0.5), Vector3(size))
 	_paste_total = 0
 	for k in keys:
 		_paste_total += by_chunk[k].size()
 	_paste_done = 0
 	_paste_prev = {}
+
+
+## After pasting a building on top of the player: move them just outside its nearest side,
+## onto the ground there, instead of leaving them stuck in the walls.
+func _step_out_of(box: AABB) -> void:
+	var p := player.position
+	# blocks are centred on whole numbers: the cell the feet are in is y + 0.5 (+ a little)
+	var feet := Vector3i(floori(p.x + 0.5), floori(p.y + 0.6), floori(p.z + 0.5))
+	var stuck := false
+	for dy in [0, 1]:
+		var b := world.get_block(feet.x, feet.y + dy, feet.z)
+		if b != 0 and Blocks.solid[b] == 1:
+			stuck = true
+	if not stuck:
+		return                                       # in free space (even inside a room): fine
+	# the nearest side of the building, a step beyond it
+	var lo := box.position
+	var hi := box.end
+	var options := [Vector3(lo.x - 1.0, 0, p.z), Vector3(hi.x + 1.0, 0, p.z), Vector3(p.x, 0, lo.z - 1.0), Vector3(p.x, 0, hi.z + 1.0)]
+	options.sort_custom(func(a, b): return Vector2(a.x - p.x, a.z - p.z).length() < Vector2(b.x - p.x, b.z - p.z).length())
+	var to: Vector3 = options[0]
+	var cx := floori(to.x + 0.5)
+	var cz := floori(to.z + 0.5)
+	if world.is_loaded(cx, cz):
+		player.position = Vector3(to.x, world.top_y(cx, cz) + 0.6, to.z)
+		player.velocity = Vector3.ZERO
+		hud.flash(I18n.t("moved_out"))
 
 
 func _update_paste() -> void:
@@ -1022,6 +1053,7 @@ func _update_paste() -> void:
 		_paste_done += batch.size()
 		budget -= batch.size()
 	if _paste_batches.is_empty():
+		_step_out_of(_paste_box)
 		builder.undo_stack.append(_paste_prev)
 		if builder.undo_stack.size() > Builder.UNDO_STEPS:
 			builder.undo_stack.pop_front()
@@ -1282,8 +1314,30 @@ func pick_block() -> void:
 	_refresh_mode()
 
 
+var _place_timer := 0.0
+const PLACE_EVERY := 0.2             # holding with a block in hand: one block every 0.2 s
+
+
+## Holding the finger (or the right mouse button) with a block in hand keeps placing where
+## the crosshair points, so you can walk and build a line, a bridge or a wall in one go.
+func _update_placing(delta: float) -> bool:
+	var item := inv.item_at(selected)
+	var hold_touch: bool = use_touch and not touch.classic and touch.aiming
+	var hold_mouse: bool = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+	var placing: bool = (hold_touch or hold_mouse) and Items.placeable.has(item) and not screen.visible and not health.dead
+	if not placing:
+		_place_timer = 0.0
+		return false
+	_place_timer -= delta
+	if _place_timer <= 0.0:
+		_place_timer = PLACE_EVERY
+		place_block()
+	return hold_touch                       # a held finger with a block does not break
+
+
 func _update_mining(delta: float) -> void:
-	var held := _breaking() and not screen.visible and not health.dead
+	var placing := _update_placing(delta)
+	var held := _breaking() and not screen.visible and not health.dead and not placing
 	var animal = looked_at_animal() if spawned else null
 	if held and not _break_was_held and animal != null:
 		attack(animal)
@@ -1703,6 +1757,35 @@ func _process(delta: float) -> void:
 				bd = player.position.distance_to(a.pos)
 		if best != null:
 			attack(best)
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--pastehere=") and spawned and not _st.has("pastehere"):
+			_st["pastehere"] = true                      # testing: a building right on top of us
+			builder.clipboard = Schematics.load_file("res://data/schematics/%s.json" % a.substr(12))
+			_clip_from_library = true
+			var at := Vector3i(floori(player.position.x + 0.5), floori(player.position.y), floori(player.position.z + 0.5) - 2)   # a wall on us
+			_st["before"] = player.position
+			_start_paste(at, true)
+		if a.begins_with("--pastehere=") and _st.has("pastehere") and _paste_batches.is_empty() and not _st.has("pastecheck") and Engine.get_process_frames() % 30 == 0:
+			_st["pastecheck"] = true
+			var w0 := Vector3i(floori(player.position.x + 0.5), floori(player.position.y + 0.6), floori(player.position.z + 0.5))
+			edit(w0, 41, true, false)                   # a wall block right where we stand
+			edit(w0 + Vector3i(0, 1, 0), 41, true, false)
+			_step_out_of(_paste_box)
+			var f := Vector3i(floori(player.position.x + 0.5), floori(player.position.y + 0.6), floori(player.position.z + 0.5))
+			var b := world.get_block(f.x, f.y, f.z)
+			print("PASTEHERE player moved from ", _st["before"], " to ", player.position, ", stuck in a block: ", b != 0 and Blocks.solid[b] == 1, " block ", b, " ", Items.name_of(b), " top_y ", world.top_y(f.x, f.z))
+	if "--holdplace" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: hold a finger with planks in hand
+		if _st_frame == 10:
+			_select(5)
+			player.look(Vector2(0, 0.6))
+			_st["planks"] = inv.count(7)
+			_touch(1, get_viewport().get_visible_rect().size / 2, true)
+		if _st_frame > 10 and _st_frame < 130:
+			player.position.x += 0.04                   # walk while holding
+		if _st_frame == 130:
+			_touch(1, get_viewport().get_visible_rect().size / 2, false)
+			print("HOLDPLACE placed ", _st["planks"] - inv.count(7), " planks while holding for 2 s")
 	if "--debristest" in OS.get_cmdline_user_args() and spawned and Engine.get_process_frames() % 12 == 0:
 		debris.burst(player.eye() + player.forward() * 3.0, 1)        # testing: pieces in front of the camera
 	if "--machines" in OS.get_cmdline_user_args() and spawned and not _st.has("machines"):

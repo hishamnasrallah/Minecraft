@@ -22,7 +22,10 @@ var render_distance := 4
 var materials := {}                 # group name -> Material
 var views := {}                     # Vector2i -> Node3D (the chunk's section nodes)
 var sections := {}                  # Vector3i(cx, section, cz) -> Node3D (meshes + collision)
-var version := {}                   # Vector3i section -> newest mesh request (older results are dropped)
+var version := {}                   # Vector3i section -> newest mesh request
+var shown_version := {}             # Vector3i section -> version on screen now. A result newer than
+                                    # that is shown even if a later one is on its way: when you keep
+                                    # breaking blocks, every change still appears at once
 var max_jobs := 1
 var last_usec := 0                  # main-thread time this manager took last frame
 
@@ -214,7 +217,8 @@ func _process(_delta: float) -> void:
 		var shown := false
 		for s in r[2]:
 			var sk := section_key(key, s)
-			if r[3][s] == version.get(sk, 0):
+			if r[3][s] > shown_version.get(sk, 0):
+				shown_version[sk] = r[3][s]
 				_apply(key, s, r[2][s])
 				shown = true
 		if shown:
@@ -298,8 +302,8 @@ func _schedule() -> void:
 	for key in _sorted_dirty():
 		if _jobs() >= max_jobs and not _urgent.has(key):
 			return
-		if _meshing.has(key):
-			continue
+		if _meshing.has(key) and not _urgent.has(key):
+			continue                                # an edited chunk may start again at once
 		var missing := _missing_around(key)
 		if missing.is_empty():
 			var secs := _sections_for(key)
@@ -332,6 +336,7 @@ func _schedule_inline() -> void:
 	for s in result:
 		var sk := section_key(key, s)
 		version[sk] = version.get(sk, 0) + 1
+		shown_version[sk] = version[sk]
 		_apply(key, s, result[s])
 	chunk_ready.emit(key)
 
@@ -364,7 +369,7 @@ func _generate_job(g: WorldData, key: Vector2i, transparent: PackedByteArray) ->
 
 
 func _start_mesh(key: Vector2i, secs: Array) -> void:
-	_meshing[key] = true
+	_meshing[key] = int(_meshing.get(key, 0)) + 1     # how many jobs for it are running
 	_dirty.erase(key)
 	_urgent.erase(key)
 	var versions := {}
@@ -414,7 +419,9 @@ func _collect() -> void:
 				if not r[3].is_empty():
 					world.emitters[key] = r[3]
 		else:
-			_meshing.erase(key)
+			_meshing[key] = int(_meshing.get(key, 1)) - 1
+			if _meshing[key] <= 0:
+				_meshing.erase(key)
 			# near chunks first (you see your own block at once), the rest a few per frame
 			if _dist(key, _center) <= COLLISION_RANGE:
 				_pending.push_front(r)

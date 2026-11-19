@@ -4,6 +4,7 @@ Run `python textures.py` to export the atlas to textures/atlas.png. Edit that
 file in any image editor (keep the grid layout from world.TILES) and the
 game will use your version instead of the generated one.
 """
+import math
 import random
 from pathlib import Path
 
@@ -1754,6 +1755,138 @@ for _m, _base, _work in (("pusher", (150, 112, 70), "push"), ("breaker", (110, 1
             EXTRA_GENERATORS[f"{_m}_top_{_f}"] = machine_face(_base, _work if up else None)
             EXTRA_GENERATORS[f"{_m}_side_{_f}"] = machine_face(_base, "up", vertical="up" if up else "down")
             EXTRA_GENERATORS[f"{_m}_bottom_{_f}"] = machine_face(_base, None if up else _work)
+
+
+# ================================================================ the sky realm
+def _sparkle(img, rng, colors, count):
+    for _ in range(count):
+        x, y = rng.randrange(1, TILE - 1), rng.randrange(1, TILE - 1)
+        c = rng.choice(colors)
+        img.putpixel((x, y), c + (255,) if img.mode == "RGBA" else c)
+
+
+def sky_stone(rng):
+    img = _noise(rng, (176, 168, 206), 0.07)
+    _speckle(img, rng, (150, 140, 186), 18)
+    return img
+
+
+def sky_soil(rng):
+    return _noise(rng, (126, 108, 150), 0.1)
+
+
+def sky_grass_top(rng):
+    img = _noise(rng, (86, 206, 196), 0.1)
+    _speckle(img, rng, (140, 236, 220), 14)
+    return img
+
+
+def sky_grass_side(rng):
+    img = sky_soil(rng)
+    for x in range(TILE):
+        for y in range(0, 3 + (x * 7 % 3)):
+            img.putpixel((x, y), _shade((86, 206, 196), 1 + rng.uniform(-0.08, 0.08)))
+    return img
+
+
+def cloud(rng):
+    img = _noise(rng, (240, 242, 250), 0.03)
+    _speckle(img, rng, (224, 228, 242), 20)
+    return img
+
+
+def star_ore(rng):
+    img = sky_stone(rng)
+    for _ in range(5):
+        cx, cy = rng.randrange(3, 13), rng.randrange(3, 13)
+        for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)):
+            img.putpixel((cx + dx, cy + dy), (255, 236, 140) if (dx, dy) == (0, 0) else (240, 200, 90))
+    return img
+
+
+def star_block(rng):
+    img = _noise(rng, (60, 50, 110), 0.08)
+    for _ in range(14):
+        x, y = rng.randrange(TILE), rng.randrange(TILE)
+        img.putpixel((x, y), (255, 240, 160))
+    return img
+
+
+def portal(rng):
+    img = Image.new("RGBA", (TILE, TILE))
+    for x in range(TILE):
+        for y in range(TILE):
+            v = 0.5 + 0.5 * math.sin((x + y) * 0.7 + rng.uniform(-0.6, 0.6))
+            img.putpixel((x, y), (int(120 + 80 * v), int(50 + 40 * v), int(200 + 50 * v), 170))
+    return img
+
+
+def storm_crystal(rng):
+    img = _noise(rng, (60, 110, 200), 0.06).convert("RGBA")
+    for i in range(TILE):
+        for x in (i, TILE - 1 - i):
+            img.putpixel((x, i), (200, 240, 255, 255))
+    return img
+
+
+def pillar_stone(rng):
+    img = _noise(rng, (40, 34, 56), 0.08)
+    for y in range(0, TILE, 5):
+        for x in range(TILE):
+            img.putpixel((x, y), (28, 24, 40))
+    return img
+
+
+def storm_heart(rng):
+    img = _noise(rng, (30, 40, 80), 0.06).convert("RGBA")
+    for x in range(TILE):
+        for y in range(TILE):
+            d = ((x - 7.5) ** 2 + (y - 7.5) ** 2) ** 0.5
+            if d < 6:
+                img.putpixel((x, y), _shade((120, 220, 255), 1.3 - d / 7) + (255,))
+    return img
+
+
+def star_shard(rng):
+    img = _blank()
+    pts = [(8, 1), (10, 6), (15, 7), (11, 10), (12, 15), (8, 12), (4, 15), (5, 10), (1, 7), (6, 6)]
+    from PIL import ImageDraw
+    ImageDraw.Draw(img).polygon(pts, fill=(255, 226, 120, 255), outline=(200, 150, 40, 255))
+    return img
+
+
+def sky_key(rng):
+    img = _blank()
+    for x in range(3, 9):
+        for y in range(3, 9):
+            if 4 <= ((x - 5.5) ** 2 + (y - 5.5) ** 2) <= 9:
+                _px(img, x, y, (170, 110, 230))
+    for i in range(7):
+        _px(img, 8 + i, 8 + i, (220, 200, 120))
+    _px(img, 12, 14, (220, 200, 120))
+    _px(img, 14, 12, (220, 200, 120))
+    _px(img, 5, 5, (255, 240, 160))
+    return img
+
+
+def storm_core(rng):
+    img = _blank()
+    for x in range(TILE):
+        for y in range(TILE):
+            d = ((x - 7.5) ** 2 + (y - 7.5) ** 2) ** 0.5
+            if d < 6.5:
+                _px(img, x, y, _shade((90, 180, 255), 1.4 - d / 6))
+    for x, y in ((7, 3), (8, 5), (7, 7), (8, 9), (7, 11)):
+        _px(img, x, y, (255, 255, 200))
+    return img
+
+
+EXTRA_GENERATORS.update({
+    "sky_stone": sky_stone, "sky_soil": sky_soil, "sky_grass_top": sky_grass_top, "sky_grass_side": sky_grass_side,
+    "cloud": cloud, "star_ore": star_ore, "star_block": star_block, "portal": portal, "storm_crystal": storm_crystal,
+    "pillar_stone": pillar_stone, "storm_heart": storm_heart, "star_shard": star_shard, "sky_key": sky_key,
+    "storm_core": storm_core,
+})
 
 
 GENERATORS = {name: EXTRA_GENERATORS.get(name) or globals()[name] for name in TILES}

@@ -5,7 +5,7 @@ from blocks import (BLOCK_DEFS, BLOCKS, BLOCK_TILES, LEAVES, WATER, GLASS, LAMP,
                     STAIRS, SHAPE_MATERIALS, FAMILIES, CONCRETE, TERRACOTTA, TERRACOTTA_PLAIN, GLAZED, CARPETS,
                     WOODS, POLISHED, ROCK_BRICKS, CHISELED, WALLS, COLOR_LAMPS, LAMP_COLORS, SLATE, COBBLED_SLATE,
                     LIMESTONE, RUBY, SAPPHIRE, AMETHYST, QUARTZ, GLOW_CRYSTAL, SEEDS, WHEAT_ITEM, BREAD, CARROT,
-                    PLANT_ON_FARMLAND)
+                    PLANT_ON_FARMLAND, STAR_SHARD, SKY_KEY, STORM_CORE)
 from world import COAL_ORE
 
 STACK_SIZE = 64
@@ -26,12 +26,14 @@ MATERIAL_ITEMS = {
     DIAMOND: ("diamond", "diamond"), RUBY: ("ruby", "ruby"), SAPPHIRE: ("sapphire", "sapphire"),
     AMETHYST: ("amethyst shard", "amethyst"), QUARTZ: ("quartz", "quartz"),
     SEEDS: ("seeds", "seeds"), WHEAT_ITEM: ("wheat", "wheat"),
+    STAR_SHARD: ("star shard", "star_shard"), STORM_CORE: ("storm core", "storm_core"),
     EGG: ("egg", "egg"), FEATHER: ("feather", "feather"),
 }
 FOOD_ITEMS = {RAW_MEAT: ("raw meat", "raw_meat"), COOKED_MEAT: ("cooked meat", "cooked_meat"),
               APPLE: ("apple", "apple"), BREAD: ("bread", "bread"), CARROT: ("carrot", "carrot"),
               RAW_FISH: ("raw fish", "raw_fish"), COOKED_FISH: ("cooked fish", "cooked_fish")}
-OTHER_ITEMS = {BUCKET: ("bucket", "bucket"), WATER_BUCKET: ("water bucket", "water_bucket")}
+OTHER_ITEMS = {BUCKET: ("bucket", "bucket"), WATER_BUCKET: ("water bucket", "water_bucket"),
+               SKY_KEY: ("sky key", "sky_key")}
 
 # ---------------------------------------------------------------- tools
 WOOD_PICKAXE, STONE_PICKAXE, WOOD_AXE, STONE_AXE = 201, 202, 203, 204
@@ -287,6 +289,9 @@ RECIPES = [
     ({"rock": 6, IRON_INGOT: 2, COPPER_INGOT: 1}, (1736, 1)),
     ({IRON_INGOT: 1, "planks": 3, COPPER_INGOT: 1}, (1742, 4)), ({IRON_INGOT: 5, 48: 1}, (1746, 1)),
     ({47: 1, COPPER_INGOT: 4, IRON_INGOT: 2}, (1747, 1)),
+    ({116: 4, 910: 1, DIAMOND: 1}, (SKY_KEY, 1)),            # amethyst x4, glow crystal, diamond
+    ({STAR_SHARD: 9}, (1804, 1)), ({1804: 1}, (STAR_SHARD, 9)),
+    ({STAR_SHARD: 4, STORM_CORE: 1}, (1808, 1)),
     ({WHEAT_ITEM: 3}, (BREAD, 1)), ({WHEAT_ITEM: 9}, (950, 1)), ({950: 1}, (WHEAT_ITEM, 9)),
     ({EGG: 1, WHEAT_ITEM: 2}, (BREAD, 2)),     # egg bread
     ({RAW_FISH: 2, COAL: 1}, (COOKED_FISH, 2)),

@@ -388,6 +388,24 @@ for _kind, _ids in (("gates", [1710 + g * 4 for g in range(len(GATES))]), ("powe
     family(_kind, _ids)
 
 
+# ---------------------------------------------------------------- the sky realm (second world)
+# Floating islands reached through a portal: a frame of amethyst blocks opened with a sky key.
+SKY_STONE, SKY_GRASS, CLOUD, STAR_ORE, STAR_BLOCK, PORTAL = 1800, 1801, 1802, 1803, 1804, 1805
+STORM_CRYSTAL, PILLAR_STONE, STORM_HEART, SKY_DIRT = 1806, 1807, 1808, 1809
+STAR_SHARD, SKY_KEY, STORM_CORE = 130, 131, 132              # items (registered in inventory.py)
+PORTAL_FRAME = 906                                            # amethyst block
+block(SKY_STONE, "sky stone", "sky_stone", NATURAL, 1.5, "pickaxe", 1)
+block(SKY_DIRT, "sky soil", "sky_soil", NATURAL, 0.5, "shovel")
+block(SKY_GRASS, "sky grass", ("sky_grass_top", "sky_grass_side", "sky_soil"), NATURAL, 0.6, "shovel", drop=SKY_DIRT)
+block(CLOUD, "cloud", "cloud", NATURAL, 0.3)
+block(STAR_ORE, "star ore", "star_ore", NATURAL, 4.0, "pickaxe", 3, drop=STAR_SHARD)
+block(STAR_BLOCK, "star block", "star_block", BUILDING, 5.0, "pickaxe", 3, emit=10)
+block(PORTAL, "portal", "portal", FUNCTIONAL, -1, translucent=True, solid=False, emit=11, creative=False, drop=None)
+block(STORM_CRYSTAL, "storm crystal", "storm_crystal", FUNCTIONAL, 1.0, "pickaxe", emit=15, drop=None)
+block(PILLAR_STONE, "pillar stone", "pillar_stone", BUILDING, 12.0, "pickaxe", 3)
+block(STORM_HEART, "storm heart", "storm_heart", FUNCTIONAL, 3.0, "pickaxe", emit=13)
+
+
 # ---------------------------------------------------------------- derived lookups
 BLOCKS = {i: d["name"] for i, d in BLOCK_DEFS.items()}
 BLOCK_TILES = {i: d["tiles"] for i, d in BLOCK_DEFS.items()}
