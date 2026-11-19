@@ -509,8 +509,8 @@
    "ar": "وحوش الليل (الظلال)"
   },
   "cause_gloom": {
-   "en": "A gloom got you.",
-   "ar": "ظلّ قتلك."
+   "en": "A night creature got you.",
+   "ar": "وحش ليلي قتلك."
   },
   "show_map": {
    "en": "Mini map",

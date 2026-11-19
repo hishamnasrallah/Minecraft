@@ -704,7 +704,10 @@ func break_at(pos: Vector3i) -> void:
 
 func attack(animal) -> void:
 	var item := inv.item_at(selected)
+	var feeding: bool = animal.wants_food(item)
 	var drop: Array = animal.hit(player.position, Items.attack_damage(item) if not creative else 100)
+	if feeding:
+		return                                    # fed, not hit: the animal plays its own sound
 	Sfx.play("hurt", -4.0, 1.7)
 	if creative:
 		return
@@ -1256,6 +1259,7 @@ func _process(delta: float) -> void:
 	var t1 := Time.get_ticks_usec()
 	_update_sky(delta)
 	var t2 := Time.get_ticks_usec()
+	Wildlife.held_item = inv.item_at(selected)
 	_update_animals(delta)
 	var t3 := Time.get_ticks_usec()
 	_update_health(delta)

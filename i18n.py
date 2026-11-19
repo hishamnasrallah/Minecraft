@@ -170,7 +170,7 @@ UI = {
     "days_ago": ("%d days ago", "من %d يوم"), "today": ("today", "اليوم"), "yesterday": ("yesterday", "مبارح"),
     "sound": ("Sound", "الصوت"),
     "monsters": ("Night monsters (glooms)", "وحوش الليل (الظلال)"),
-    "cause_gloom": ("A gloom got you.", "ظلّ قتلك."),
+    "cause_gloom": ("A night creature got you.", "وحش ليلي قتلك."),
     # touch actions, log, items screen
     "show_map": ("Mini map", "خريطة صغيرة"),
     "weather_clear": ("Clear sky", "صحو"), "weather_cloudy": ("Cloudy", "غيوم"), "weather_rain": ("Rain", "مطر"), "vibrate": ("Vibrate", "اهتزاز"),
