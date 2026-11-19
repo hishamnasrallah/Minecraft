@@ -16,7 +16,7 @@ var SAVE_PATH := "user://save.json"    # set from Session (the chosen world)
 const DAY_LENGTH := 600.0
 const AUTOSAVE_EVERY := 60.0
 const DAY_SKY := Color(0.62, 0.78, 0.95)
-const NIGHT_SKY := Color(0.02, 0.03, 0.09)
+const NIGHT_SKY := Color(0.07, 0.1, 0.22)          # moonlit navy, not black
 const DUSK_SKY := Color(0.95, 0.55, 0.32)
 const MOUSE_SENSITIVITY := 0.0025
 
@@ -51,6 +51,8 @@ var spawn_point := Vector3.ZERO
 var chest_pos = null
 var chest_inv: Inventory = null
 var daylight := 1.0
+var shown_light := 1.0              # brightness drawn on screen (brighter than `daylight` at night)
+const NIGHT_LIGHT := 0.42
 
 var mine_pos = null
 var mine_progress := 0.0
@@ -708,7 +710,12 @@ func aim_dir() -> Vector3:
 	return player.forward()
 
 
+var _forced_hit := {}                # testing: pretend the crosshair is on this face
+
+
 func target(hit_water := false) -> Dictionary:
+	if not _forced_hit.is_empty():
+		return _forced_hit
 	return world.raycast(player.eye(), aim_dir(), reach(), hit_water)
 
 
@@ -783,14 +790,17 @@ func break_at(pos: Vector3i) -> void:
 		edit(pos, 0, true)
 		return
 	Sfx.play(Sfx.dig_sound(id))
-	debris.burst(Vector3(pos), id, clampf(daylight + 0.2, 0.3, 1.0))
+	debris.burst(Vector3(pos), id, clampf(shown_light + 0.2, 0.3, 1.0))
 	buzz(30)
 	tutorial.report("break")
 	var tool := inv.item_at(selected)
 	var m := Items.mining(id, tool)
 	var contents = world.containers.get(pos)
 	world.containers.erase(pos)
-	if not edit(pos, 0) or creative:
+	if not edit(pos, 0):
+		return
+	_drop_attached(pos)
+	if creative:
 		return
 	health.exert(float(Items.survival["MINE"]))
 	var stacks := []
@@ -811,6 +821,44 @@ func break_at(pos: Vector3i) -> void:
 	if m[2] and inv.wear(selected):
 		hud.flash(I18n.f("tool_broke", Items.name_of(tool)))
 	hud.show_hotbar(inv, selected, creative)
+
+
+const WALL_TORCH := 1810
+
+
+func _solid_at(p: Vector3i) -> bool:
+	var b := world.get_block(p.x, p.y, p.z)
+	return b != 0 and Blocks.solid[b] == 1 and Blocks.defs[b].get("shape", "cube") == "cube"
+
+
+## A block was broken: what stood on it (plants, torches) or hung on it (wall torches, ladders)
+## falls off and drops as an item, instead of floating in the air.
+func _drop_attached(pos: Vector3i) -> void:
+	var cells := [[pos + Vector3i(0, 1, 0), -1]]
+	for f in 4:
+		var v: Vector2i = [Vector2i(0, 1), Vector2i(1, 0), Vector2i(0, -1), Vector2i(-1, 0)][f]
+		cells.append([pos - Vector3i(v.x, 0, v.y), f])          # hangs on `pos` when it faces it
+	for c in cells:
+		var p: Vector3i = c[0]
+		var id := world.get_block(p.x, p.y, p.z)
+		if id == 0 or id == WorldData.WATER:
+			continue
+		var d: Dictionary = Blocks.defs[id]
+		var shape: String = d.get("shape", "cube")
+		var falls := false
+		if c[1] == -1:
+			falls = (shape == "cross" and not d.has("door")) or (shape == "torch" and id < WALL_TORCH)
+		else:
+			var hangs := shape == "ladder" or (shape == "torch" and id >= WALL_TORCH)
+			falls = hangs and int(d.get("facing", -1)) == c[1]
+		if not falls or not edit(p, 0):
+			continue
+		if not creative:
+			var drop := Items.drop_for(id)
+			if drop != 0:
+				drops.spawn([drop, 1], Vector3(p))
+		if c[1] == -1:
+			_drop_attached(p)                         # a tall stack of reeds comes down whole
 
 
 func attack(animal) -> void:
@@ -1410,9 +1458,14 @@ func place_block(allow_use := true) -> void:
 		return
 	var d: Dictionary = Blocks.defs[item]
 	var below := world.get_block(pos.x, pos.y - 1, pos.z)
-	if d["shape"] in ["cross", "torch"] and (below == 0 or not Blocks.solid[below]):
-		return                                 # plants and torches need ground
 	var id := item
+	var n0: Vector3i = hit["normal"]
+	if d["shape"] == "torch" and n0.y == 0 and _solid_at(pos - n0):
+		# tapped the side of a block: the torch hangs on that wall
+		var by_n := {Vector2i(0, -1): 0, Vector2i(-1, 0): 1, Vector2i(0, 1): 2, Vector2i(1, 0): 3}
+		id = WALL_TORCH + int(by_n[Vector2i(n0.x, n0.z)])
+	elif d["shape"] in ["cross", "torch"] and (below == 0 or not Blocks.solid[below]):
+		return                                 # plants and torches need ground
 	if d.get("logic") is Dictionary and d["logic"].has("facing"):
 		# machines face away from you; pushers and breakers can also face up or down
 		var f := _facing()
@@ -1451,6 +1504,52 @@ func place_block(allow_use := true) -> void:
 			_refresh_mode()
 
 
+## The outline around the block you aim at: hugs thin things (torches, plants, slabs).
+func _outline_box(id: int) -> Array:
+	var d: Dictionary = Blocks.defs.get(id, {})
+	match d.get("shape", "cube"):
+		"torch":
+			if id >= WALL_TORCH:
+				var v: Vector2i = [Vector2i(0, 1), Vector2i(1, 0), Vector2i(0, -1), Vector2i(-1, 0)][int(d.get("facing", 0))]
+				return [Vector3(0.2, 0.78, 0.2), Vector3(v.x, 0, v.y) * 0.34 + Vector3(0, 0.09, 0)]
+			return [Vector3(0.2, 0.84, 0.2), Vector3(0, -0.08, 0)]
+		"cross":
+			return [Vector3(0.8, 0.85, 0.8), Vector3(0, -0.075, 0)]
+		"slab":
+			return [Vector3(1, 0.5, 1), Vector3(0, -0.25, 0)]
+		"carpet":
+			return [Vector3(1, 0.08, 1), Vector3(0, -0.46, 0)]
+	return [Vector3.ONE, Vector3.ZERO]
+
+
+## The preview of what the held item would become: [size, offset], or [] when it cannot go there.
+func _ghost_box(item: int, at: Vector3i, n: Vector3i) -> Array:
+	var shape: String = Blocks.defs[item].get("shape", "cube")
+	var below := world.get_block(at.x, at.y - 1, at.z)
+	var ground := below != 0 and Blocks.solid[below] == 1
+	match shape:
+		"torch":
+			if n.y == 0 and _solid_at(at - n):
+				return [Vector3(0.16, 0.75, 0.16), Vector3(-n) * 0.34 + Vector3(0, 0.09, 0)]
+			return [Vector3(0.16, 0.8, 0.16), Vector3(0, -0.1, 0)] if ground else []
+		"cross":
+			return [Vector3(0.7, 0.8, 0.7), Vector3(0, -0.1, 0)] if ground else []
+		"slab":
+			return [Vector3(1, 0.5, 1), Vector3(0, -0.25, 0)]
+		"carpet":
+			return [Vector3(1, 0.07, 1), Vector3(0, -0.46, 0)]
+		"door":
+			return [Vector3(1, 2, 1), Vector3(0, 0.5, 0)]
+	return [Vector3.ONE, Vector3.ZERO]
+
+
+## Testing: place what is in hand as if tapping face `n` of block `on`.
+func _place_on(on: Vector3i, n: Vector3i) -> void:
+	_forced_hit = {"pos": on, "normal": n, "distance": 2.0}
+	place_block(false)
+	_forced_hit = {}
+
+
 func pick_block() -> void:
 	var hit := target()
 	if hit.is_empty():
@@ -1462,6 +1561,8 @@ func pick_block() -> void:
 		item = int(d["door"].get("base", 510))
 	elif d.get("shape") == "ladder":
 		item = 500
+	elif id >= WALL_TORCH and id < WALL_TORCH + 4:
+		item = 50
 	elif d.get("shape") == "stair":
 		item = id - int(d["facing"])
 	if not Items.placeable.has(item):
@@ -1531,9 +1632,10 @@ func _update_mining(delta: float) -> void:
 		crack.visible = false
 		return
 	var pos: Vector3i = hit["pos"]
-	highlight.position = Vector3(pos)
-	highlight.scale = Vector3.ONE * 1.004
 	var id := world.get_block(pos.x, pos.y, pos.z)
+	var hb := _outline_box(id)
+	highlight.position = Vector3(pos) + hb[1]
+	highlight.scale = hb[0] * 1.004
 	hud.show_target(Items.name_of(id))
 	# ghost of the held block (with a crosshair; on touch the finger shows where it goes)
 	var held_item := inv.item_at(selected)
@@ -1541,7 +1643,11 @@ func _update_mining(delta: float) -> void:
 	ghost.visible = Items.placeable.has(held_item) and not held_item in [WorldData.WATER] \
 		and _replaceable(ghost_pos) and not _overlaps_player(ghost_pos, held_item)
 	if ghost.visible:
-		ghost.position = Vector3(ghost_pos)
+		var box := _ghost_box(held_item, ghost_pos, hit["normal"])
+		ghost.visible = not box.is_empty()
+		if ghost.visible:
+			ghost.position = Vector3(ghost_pos) + box[1]
+			ghost.scale = box[0]
 	if held and (Blocks.hardness[id] >= 0 or creative):
 		if creative:
 			# creative: the first block breaks at once, then one every 0.22 s while held
@@ -1738,7 +1844,7 @@ func _update_animals(delta: float) -> void:
 			var v := AnimalView.new(a)
 			add_child(v)
 			animal_views[a] = v
-		animal_views[a].sync(delta, daylight, world)
+		animal_views[a].sync(delta, shown_light, world)
 	for a in animal_views.keys():
 		if not alive.has(a):
 			animal_views[a].queue_free()
@@ -1812,9 +1918,11 @@ func _update_sky(delta: float) -> void:
 	env.fog_depth_end = reach_m * 0.98
 	weather.update(delta, player.position, 0.16 + 0.84 * day)
 	daylight = (0.16 + 0.84 * day) * (1.0 - weather.sky_dim())
-	var tint := Vector3(0.65, 0.75, 1.0).lerp(Vector3.ONE, day).lerp(Vector3(1.0, 0.78, 0.6), dusk * 0.5)
+	var tint := Vector3(0.72, 0.8, 1.0).lerp(Vector3.ONE, day).lerp(Vector3(1.0, 0.78, 0.6), dusk * 0.5)
+	# what you see: moonlight keeps the night readable (monsters still use `daylight`)
+	shown_light = (NIGHT_LIGHT + (1.0 - NIGHT_LIGHT) * day) * (1.0 - weather.sky_dim())
 	for m in materials.values():
-		m.set_shader_parameter("daylight", daylight)
+		m.set_shader_parameter("daylight", shown_light)
 		m.set_shader_parameter("sky_tint", Color(tint.x, tint.y, tint.z))
 	var dir := Vector3(cos(angle), sun_height, -0.3).normalized()
 	sun.global_position = player.eye() + dir * 300
@@ -1879,6 +1987,8 @@ func _process_inner(delta: float) -> void:
 	_update_tutorial()
 	if spawned:
 		_update_portal(delta)
+		if not is_inside_tree():
+			return                                    # travelled: this scene is already gone
 		if boss != null and not boss.dead:
 			boss.update(delta, player.position, not creative and not health.dead)
 			hud.show_boss(I18n.t("boss_name"), boss.health / StormRay.MAX_HEALTH, boss.alive_crystals().size())
@@ -2138,6 +2248,8 @@ func _process_inner(delta: float) -> void:
 		if _st_frame == 130:
 			_touch(1, get_viewport().get_visible_rect().size / 2, false)
 			print("HOLDPLACE placed ", _st["planks"] - inv.count(7), " planks while holding for 2 s")
+			if not _shot_path:
+				get_tree().quit()
 	if "--portaltest" in OS.get_cmdline_user_args() and spawned and not _st.has("portal"):
 		_st["portal"] = true                            # testing: build a frame, open it, step in
 		if world.dimension == "sky":
@@ -2178,7 +2290,40 @@ func _process_inner(delta: float) -> void:
 		if _st_frame == 420:
 			print("BOSS dead: ", boss.dead, ", saved as beaten: ", world.player_data.get("boss_dead", false),
 				", trophy placed: ", world.get_block(0, WorldData.SKY_BASE + 7, 0) == 1808,
-				", prize on the ground: ", drops.drops.map(func(d): return d["stack"]))
+				", prize on the ground: ", drops.drops.map(func(d): return d["stack"]), ", in bag: storm core ", inv.count(132), ", shards ", inv.count(130))
+			if not _shot_path:
+				get_tree().quit()
+	if "--torchtest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: torches on every side of a pillar, at night
+		if _st_frame == 5:
+			world.time_of_day = 0.8
+			var f := player.forward()
+			var o := Vector3i(floori(player.position.x + f.x * 4 + 0.5), floori(player.position.y) + 1, floori(player.position.z + f.z * 4 + 0.5))
+			_st["o"] = o
+			for y in 3:
+				edit(o + Vector3i(0, y, 0), 3, true, false)
+			inv.slots[selected] = [50, 20]
+			for n in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]:
+				_place_on(o + Vector3i(0, 1, 0), n)
+			_place_on(o + Vector3i(0, 2, 0), Vector3i(0, 1, 0))
+			var ids := []
+			for n in [Vector3i(1, 1, 0), Vector3i(-1, 1, 0), Vector3i(0, 1, 1), Vector3i(0, 1, -1), Vector3i(0, 3, 0)]:
+				var q: Vector3i = o + n
+				ids.append(world.get_block(q.x, q.y, q.z))
+			print("TORCH placed: ", ids)
+		if _st_frame == 60 and not _shot_path:
+			var o: Vector3i = _st["o"]
+			var before := drops.drops.size()
+			inv.slots[selected] = null
+			break_at(o + Vector3i(0, 1, 0))
+			var left := 0
+			for n in [Vector3i(1, 1, 0), Vector3i(-1, 1, 0), Vector3i(0, 1, 1), Vector3i(0, 1, -1)]:
+				var q: Vector3i = o + n
+				left += int(world.get_block(q.x, q.y, q.z) != 0)
+			print("TORCH after breaking the wall: hanging left ", left, ", dropped ", drops.drops.size() - before)
+			break_at(o + Vector3i(0, 2, 0))
+			print("TORCH standing one fell: ", world.get_block(o.x, o.y + 3, o.z) == 0)
+			get_tree().quit()
 	if "--debristest" in OS.get_cmdline_user_args() and spawned and Engine.get_process_frames() % 12 == 0:
 		debris.burst(player.eye() + player.forward() * 3.0, 1)        # testing: pieces in front of the camera
 	if "--machines" in OS.get_cmdline_user_args() and spawned and not _st.has("machines"):

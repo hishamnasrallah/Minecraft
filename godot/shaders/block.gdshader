@@ -21,5 +21,5 @@ void fragment() {
 	if (tex.a < alpha_cut) discard;
 	vec3 sky = vec3(curve(light.r) * daylight) * sky_tint;
 	vec3 lamp = vec3(curve(light.g)) * vec3(1.0, 0.86, 0.62);
-	ALBEDO = tex.rgb * max(max(sky, lamp), vec3(0.12)) * light.b;   // a faint glow so caves are never pitch black
+	ALBEDO = tex.rgb * max(max(sky, lamp), vec3(0.17)) * light.b;   // a faint glow so caves are never pitch black
 }

@@ -86,6 +86,7 @@ var emit: PackedByteArray
 var tile_top: PackedInt32Array
 var tile_side: PackedInt32Array
 var tile_bottom: PackedInt32Array
+const WALL_TORCH := 1810
 var facing: PackedByteArray
 var door_axis: PackedByteArray
 var door_open: PackedByteArray
@@ -381,7 +382,14 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 		"bed":
 			return [[Vector3(-.5, -.5, -.5), Vector3(.5, .06, .5)]]
 		"torch":
-			return [[Vector3(-.0625, -.5, -.0625), Vector3(.0625, .3, .0625)]]
+			if id < WALL_TORCH:
+				return [[Vector3(-.0625, -.5, -.0625), Vector3(.0625, .3, .0625)]]
+			# on a wall: the stick a little up the wall, and a small bracket into it
+			var d: Vector2 = [Vector2(0, 1), Vector2(1, 0), Vector2(0, -1), Vector2(-1, 0)][facing[id]]
+			var c := Vector3(d.x, 0, d.y) * .34
+			var b := Vector3(d.x, 0, d.y) * .44
+			return [[c + Vector3(-.0625, -.28, -.0625), c + Vector3(.0625, .46, .0625)],
+				[b + Vector3(-.06, -.14, -.06), b + Vector3(.06, -.02, .06)]]
 		"ladder":
 			var sides := [[Vector3(-.5, -.5, .42), Vector3(.5, .5, .5)], [Vector3(.42, -.5, -.5), Vector3(.5, .5, .5)],
 				[Vector3(-.5, -.5, -.5), Vector3(.5, .5, -.42)], [Vector3(-.5, -.5, -.5), Vector3(-.42, .5, .5)]]
@@ -449,7 +457,13 @@ func _shape(out: Dictionary, id: int, x: int, y: int, z: int) -> void:
 				g.colors.append(col)
 				var u := p.x + .5
 				var v := p.z + .5
+				if shape == "torch":
+					u = p.x - (lo.x + hi.x) * .5 + .5
+					v = p.z - (lo.z + hi.z) * .5 + .5
 				if n.y == 0:
 					u = (p.z if n.x != 0 else p.x) + .5
 					v = p.y + .5
+					if shape == "torch":                 # the torch picture, wherever the stick stands
+						u = (p.z - (lo.z + hi.z) * .5 if n.x != 0 else p.x - (lo.x + hi.x) * .5) + .5
+						v = p.y - lo.y
 				g.uvs.append(_uv(tile, u, v))

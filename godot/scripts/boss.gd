@@ -97,7 +97,9 @@ func _box(parent: Node3D, size: Vector3, pos: Vector3, mat: Material) -> MeshIns
 
 
 func alive_crystals() -> Array:
-	return crystals.filter(func(c: Vector3i): return world.get_block(c.x, c.y, c.z) == 1806)
+	# a crystal in a chunk that is not loaded yet still counts: it is there, just not streamed in
+	return crystals.filter(func(c: Vector3i): return not world.chunks.has(Vector2i(c.x >> 4, c.z >> 4)) \
+			or world.get_block(c.x, c.y, c.z) == 1806)
 
 
 func enraged() -> bool:

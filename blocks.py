@@ -111,6 +111,10 @@ block(62, "bed", ("bed_top", "bed_side", "planks"), FUNCTIONAL, 0.2, shape=BED)
 LADDERS = [block(500 + f, "ladder", "ladder", FUNCTIONAL, 0.4, "axe", shape=LADDER, solid=False,
                  facing=f, creative=f == 0, drop=500, climbable=True) for f in range(4)]
 
+# wall torches: 1810 + facing (the wall they hang on, same as ladders); they drop a torch
+WALL_TORCHES = [block(1810 + f, "torch", "torch", FUNCTIONAL, 0.0, shape=TORCH, solid=False, emit=13,
+                      facing=f, creative=False, drop=50) for f in range(4)]
+
 # doors: 510 + axis*4 + open*2 + top  (axis 0 = panel across x, 1 = across z)
 DOORS = {}
 for axis in (0, 1):

@@ -2001,6 +2001,86 @@
     67
    ]
   },
+  "1810": {
+   "name": "torch",
+   "tab": "functional",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 50,
+   "shape": "torch",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 13,
+   "creative": false,
+   "facing": 0,
+   "tiles": [
+    64,
+    64,
+    64
+   ]
+  },
+  "1811": {
+   "name": "torch",
+   "tab": "functional",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 50,
+   "shape": "torch",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 13,
+   "creative": false,
+   "facing": 1,
+   "tiles": [
+    64,
+    64,
+    64
+   ]
+  },
+  "1812": {
+   "name": "torch",
+   "tab": "functional",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 50,
+   "shape": "torch",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 13,
+   "creative": false,
+   "facing": 2,
+   "tiles": [
+    64,
+    64,
+    64
+   ]
+  },
+  "1813": {
+   "name": "torch",
+   "tab": "functional",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 50,
+   "shape": "torch",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 13,
+   "creative": false,
+   "facing": 3,
+   "tiles": [
+    64,
+    64,
+    64
+   ]
+  },
   "510": {
    "name": "door",
    "tab": "functional",
