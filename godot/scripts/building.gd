@@ -54,9 +54,9 @@ func volume() -> int:
 
 func _check() -> String:
 	if bounds() == null:
-		return "Select two corners first"
+		return I18n.t("select_first")
 	if volume() > MAX_BLOCKS:
-		return "Selection too big (%d blocks, max %d)" % [volume(), MAX_BLOCKS]
+		return I18n.f("too_big", [volume(), MAX_BLOCKS])
 	return ""
 
 
@@ -87,7 +87,7 @@ func fill(world: WorldData, id: int, hollow := false, replace := -1) -> Array:
 					continue
 				edits[Vector3i(x, y, z)] = id
 	var r := _apply(world, edits)
-	return [r[0], "Changed %d blocks" % r[1]]
+	return [r[0], I18n.f("changed", r[1])]
 
 
 func copy(world: WorldData) -> String:
@@ -105,7 +105,7 @@ func copy(world: WorldData) -> String:
 				if id != 0:
 					solid += 1
 	var s = size()
-	return "Copied %dx%dx%d (%d blocks)" % [s.x, s.y, s.z, solid]
+	return I18n.f("copied", [s.x, s.y, s.z, solid])
 
 
 func clipboard_size():
@@ -119,40 +119,40 @@ func clipboard_size():
 
 func paste(world: WorldData, origin: Vector3i, include_air := false) -> Array:
 	if clipboard.is_empty():
-		return [[], "Nothing copied yet"]
+		return [[], I18n.t("nothing_copied")]
 	var edits := {}
 	for p in clipboard:
 		if clipboard[p] != 0 or include_air:
 			edits[origin + p] = clipboard[p]
 	var r := _apply(world, edits)
-	return [r[0], "Pasted %d blocks" % r[1]]
+	return [r[0], I18n.f("pasted", r[1])]
 
 
 func rotate() -> String:
 	if clipboard.is_empty():
-		return "Nothing copied yet"
+		return I18n.t("nothing_copied")
 	var sx: int = clipboard_size().x
 	var out := {}
 	for p in clipboard:
 		out[Vector3i(p.z, p.y, sx - 1 - p.x)] = rotate_block(clipboard[p])
 	clipboard = out
-	return "Rotated the copy 90 degrees"
+	return I18n.t("rotated")
 
 
 func mirror() -> String:
 	if clipboard.is_empty():
-		return "Nothing copied yet"
+		return I18n.t("nothing_copied")
 	var sx: int = clipboard_size().x
 	var out := {}
 	for p in clipboard:
 		out[Vector3i(sx - 1 - p.x, p.y, p.z)] = mirror_block(clipboard[p])
 	clipboard = out
-	return "Mirrored the copy"
+	return I18n.t("mirrored")
 
 
 func undo(world: WorldData) -> Array:
 	if undo_stack.is_empty():
-		return [[], "Nothing to undo"]
+		return [[], I18n.t("nothing_undo")]
 	var previous: Dictionary = undo_stack.pop_back()
 	var r := world.bulk_set(previous)
-	return [r[0], "Undid %d block changes" % previous.size()]
+	return [r[0], I18n.f("undid", previous.size())]

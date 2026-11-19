@@ -13,6 +13,7 @@ signal menu_pressed
 signal inventory_pressed
 signal fly_pressed
 signal build_pressed
+signal settings_pressed
 
 const JOY_RADIUS := 90.0
 const LOOK_SENSITIVITY := 0.006
@@ -41,15 +42,17 @@ func _ready() -> void:
 	_joy_knob = _circle(JOY_RADIUS * 0.9, Color(1, 1, 1, 0.3))
 	_joy_base.visible = false
 	_joy_knob.visible = false
-	_add_button("jump", "JUMP", Vector2(-150, -170), 120)
-	_add_button("break", "BREAK", Vector2(-290, -120), 110)
-	_add_button("place", "PLACE", Vector2(-150, -300), 110)
-	_add_button("menu", "SAVE", Vector2(-80, 20), 64, true)
-	_add_button("inventory", "ITEMS", Vector2(-300, -330), 90)
-	_add_button("fly", "FLY", Vector2(-80, 100), 70, true)
-	_add_button("build", "BUILD", Vector2(-80, 180), 70, true)
-	_add_button("up", "UP", Vector2(-290, -250), 80)
-	_add_button("down", "DOWN", Vector2(-290, -40), 80)
+	# name, icon, label key, position (from the bottom-right / top-right corner), size
+	_add_button("jump", "jump", "btn_jump", Vector2(-150, -170), 120)
+	_add_button("break", "break", "btn_break", Vector2(-290, -120), 110)
+	_add_button("place", "place", "btn_place", Vector2(-150, -300), 110)
+	_add_button("inventory", "items", "btn_items", Vector2(-300, -330), 90)
+	_add_button("up", "up", "btn_up", Vector2(-290, -250), 80)
+	_add_button("down", "down", "btn_down", Vector2(-290, -40), 80)
+	_add_button("menu", "save", "btn_save", Vector2(-80, 50), 72, true)
+	_add_button("settings", "settings", "btn_settings", Vector2(-170, 50), 72, true)
+	_add_button("fly", "fly", "btn_fly", Vector2(-80, 140), 72, true)
+	_add_button("build", "build", "btn_build", Vector2(-80, 230), 72, true)
 	show_button("up", false)
 	show_button("down", false)
 	get_viewport().size_changed.connect(_layout)
@@ -68,16 +71,23 @@ func _circle(size: float, color: Color) -> Panel:
 	return p
 
 
-func _add_button(name: String, text: String, offset: Vector2, size: float, top := false) -> void:
+func _add_button(name: String, icon: String, label_key: String, offset: Vector2, size: float, top := false) -> void:
 	var p := _circle(size, Color(1, 1, 1, 0.18))
 	p.set_meta("offset", offset)
 	p.set_meta("top", top)
+	var tex := TextureRect.new()
+	tex.texture = load("res://data/ui/%s.png" % icon)
+	tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tex.size = Vector2(size, size) * 0.42
+	tex.position = Vector2(size * 0.29, size * 0.14)
+	tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_child(tex)
 	var label := Label.new()
-	label.text = text
+	label.text = I18n.t(label_key)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.size = Vector2(size, size)
-	label.add_theme_font_size_override("font_size", int(size / 5))
+	label.position = Vector2(0, size * 0.56)
+	label.size = Vector2(size, size * 0.3)
+	label.add_theme_font_size_override("font_size", maxi(12, int(size / 6.5)))
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.add_child(label)
 	_buttons[name] = p
@@ -127,6 +137,9 @@ func _set_button(name: String, down: bool) -> void:
 		"build":
 			if down:
 				build_pressed.emit()
+		"settings":
+			if down:
+				settings_pressed.emit()
 		"up":
 			up_held = down
 		"down":

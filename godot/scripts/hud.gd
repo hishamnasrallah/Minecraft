@@ -156,7 +156,7 @@ func _make_death_screen() -> void:
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	death.add_child(box)
 	var title := Label.new()
-	title.text = "You died"
+	title.text = I18n.t("you_died")
 	title.add_theme_font_size_override("font_size", 64)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
@@ -165,7 +165,7 @@ func _make_death_screen() -> void:
 	death_cause.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(death_cause)
 	var b := Button.new()
-	b.text = "Respawn"
+	b.text = I18n.t("respawn")
 	b.custom_minimum_size = Vector2(260, 80)
 	b.add_theme_font_size_override("font_size", 30)
 	b.pressed.connect(func(): respawn_pressed.emit())
@@ -187,7 +187,7 @@ func _layout() -> void:
 	item_label.position = Vector2(s.x / 2 - 200, s.y - SLOT - 14 - ICON - 42)
 	item_label.size = Vector2(400, 30)
 	item_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	clock.position = Vector2(s.x - 190, 12)
+	clock.position = Vector2(s.x / 2 - 40, 8)
 	fps.position = Vector2(12, 12)
 	message.position = Vector2(12, 40)
 	mode_label.position = Vector2(12, 70)
@@ -251,7 +251,7 @@ func hurt_flash() -> void:
 
 
 func show_death(cause: String) -> void:
-	death_cause.text = "You %s." % cause
+	death_cause.text = I18n.t("cause_" + cause)
 	death.visible = true
 
 

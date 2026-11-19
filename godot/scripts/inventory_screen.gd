@@ -56,6 +56,8 @@ func _ready() -> void:
 	main.add_theme_constant_override("separation", 16)
 	add_child(main)
 	_main = main
+	if I18n.is_arabic():
+		main.layout_direction = Control.LAYOUT_DIRECTION_RTL   # mirror the content, not the screen position
 
 	# ---- left: toolbar + inventory
 	var left := VBoxContainer.new()
@@ -64,10 +66,10 @@ func _ready() -> void:
 	var bar := HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 8)
 	left.add_child(bar)
-	bar.add_child(_button("Close", func(): closed.emit(), 110))
-	_half_button = _button("Half", func(): half = not half; _refresh_toggles(), 90, true)
+	bar.add_child(_button(I18n.t("close"), func(): closed.emit(), 110, false, "close"))
+	_half_button = _button(I18n.t("half"), func(): half = not half; _refresh_toggles(), 100, true, "half")
 	bar.add_child(_half_button)
-	_quick_button = _button("Quick", func(): quick = not quick; _refresh_toggles(), 90, true)
+	_quick_button = _button(I18n.t("quick"), func(): quick = not quick; _refresh_toggles(), 100, true, "quick")
 	bar.add_child(_quick_button)
 	var holding := Panel.new()
 	holding.custom_minimum_size = Vector2(SLOT, SLOT)
@@ -92,7 +94,7 @@ func _ready() -> void:
 	for i in 36:
 		_inv_parts.append(parts_by_index[i])
 	var hint := Label.new()
-	hint.text = "storage on top, hotbar below"
+	hint.text = I18n.t("storage_hint")
 	hint.add_theme_font_size_override("font_size", 14)
 	hint.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	left.add_child(hint)
@@ -113,7 +115,7 @@ func _ready() -> void:
 	_mode_button = _button("", func(): mode_toggle_pressed.emit(), 190)
 	head.add_child(_mode_button)
 	_search = LineEdit.new()
-	_search.placeholder_text = "search"
+	_search.placeholder_text = I18n.t("search")
 	_search.custom_minimum_size.y = 44
 	_search.text_changed.connect(func(_t): refresh())
 	_right.add_child(_search)
@@ -124,7 +126,7 @@ func _ready() -> void:
 	var tabs := HFlowContainer.new()
 	_creative_box.add_child(tabs)
 	for t in Items.tabs:
-		var b := _button(t, func(): tab = t; _search.text = ""; refresh(), 0)
+		var b := _button(I18n.tab(t), func(): tab = t; _search.text = ""; refresh(), 0)
 		b.add_theme_font_size_override("font_size", 15)
 		tabs.add_child(b)
 		_tab_buttons[t] = b
@@ -139,23 +141,23 @@ func _ready() -> void:
 	scroll.add_child(_palette)
 	var tools := HFlowContainer.new()
 	_creative_box.add_child(tools)
-	var trash := _button("Trash", func(): cursor = null; refresh(), 0)
+	var trash := _button(I18n.t("trash"), func(): cursor = null; refresh(), 0, false, "trash")
 	trash.add_theme_color_override("font_color", Color(1, 0.5, 0.5))
 	tools.add_child(trash)
-	tools.add_child(_button("Clear inventory", func(): inv.slots.fill(null); refresh(), 0))
-	for t in [["Sunrise", 0.0], ["Noon", 0.25], ["Sunset", 0.5], ["Midnight", 0.75]]:
-		tools.add_child(_button(t[0], func(): time_pressed.emit(t[1]), 0))
-	tools.add_child(_button("Freeze time", func(): freeze_pressed.emit(), 0))
+	tools.add_child(_button(I18n.t("clear_inventory"), func(): inv.slots.fill(null); refresh(), 0, false, "clear_inventory"))
+	for t in [["sunrise", 0.0], ["noon", 0.25], ["sunset", 0.5], ["midnight", 0.75]]:
+		tools.add_child(_button(I18n.t(t[0]), func(): time_pressed.emit(t[1]), 0, false, t[0]))
+	tools.add_child(_button(I18n.t("freeze"), func(): freeze_pressed.emit(), 0, false, "freeze"))
 	var hb := HFlowContainer.new()
 	_creative_box.add_child(hb)
 	var l := Label.new()
-	l.text = "Hotbars:"
+	l.text = I18n.t("hotbars")
 	hb.add_child(l)
 	for n in 9:
 		var b := _button(str(n + 1), func(): _hotbar_button(n), 46)
 		hb.add_child(b)
 		_hotbar_buttons.append(b)
-	_save_toggle = _button("Save", func(): save_hotbar_mode = not save_hotbar_mode; refresh(), 80, true)
+	_save_toggle = _button(I18n.t("save_hotbar"), func(): save_hotbar_mode = not save_hotbar_mode; refresh(), 90, true, "save_hotbar")
 	hb.add_child(_save_toggle)
 
 	_crafting_box = VBoxContainer.new()
@@ -191,9 +193,12 @@ func _layout() -> void:
 	_main.size = s - Vector2(32, 24)
 
 
-func _button(text: String, action: Callable, width := 0, toggle := false) -> Button:
+func _button(text: String, action: Callable, width := 0, toggle := false, icon := "") -> Button:
 	var b := Button.new()
 	b.text = text
+	if icon != "":
+		b.icon = load("res://data/ui/%s.png" % icon)
+		b.add_theme_constant_override("icon_max_width", 26)      # fixed size, even on narrow buttons
 	b.toggle_mode = toggle
 	b.custom_minimum_size = Vector2(width, 48)
 	b.focus_mode = Control.FOCUS_NONE
@@ -242,7 +247,7 @@ func close() -> void:
 	if cursor != null and not creative:
 		var left = inv.give(cursor)
 		if left != null:
-			message.emit("Inventory full - dropped %s" % Items.name_of(cursor[0]))
+			message.emit(I18n.f("dropped", Items.name_of(cursor[0])))
 	cursor = null
 	visible = false
 
@@ -278,7 +283,7 @@ func _tap_palette(item: int, alt: bool) -> void:
 		cursor = null                       # tapping the menu with something held throws it away
 	elif quick and not alt:
 		inv.add(item, Items.max_stack(item))
-		message.emit("+ %s" % Items.name_of(item))
+		message.emit(I18n.f("added", Items.name_of(item)))
 	else:
 		cursor = Items.new_stack(item, 1 if (half or alt) else Items.max_stack(item))
 	_tooltip.text = Items.name_of(item)
@@ -291,7 +296,7 @@ func _craft(r: Dictionary) -> void:
 		if inv.craft(r):
 			made += 1
 	if made == 0:
-		message.emit("Missing ingredients" if not inv.can_craft(r) else "Inventory full")
+		message.emit(I18n.t("missing_ingredients") if not inv.can_craft(r) else I18n.t("inventory_full"))
 	refresh()
 
 
@@ -302,14 +307,14 @@ func _hotbar_button(n: int) -> void:
 			saved.append(inv.slots[i].duplicate() if inv.slots[i] != null else null)
 		saved_hotbars[n] = saved
 		save_hotbar_mode = false
-		message.emit("Saved hotbar %d" % (n + 1))
+		message.emit(I18n.f("hotbar_saved", n + 1))
 	elif saved_hotbars[n] == null:
-		message.emit("Hotbar %d is empty - tap Save, then %d" % [n + 1, n + 1])
+		message.emit(I18n.f("hotbar_empty", [n + 1, n + 1]))
 	else:
 		for i in 9:
 			var s = saved_hotbars[n][i]
 			inv.slots[i] = s.map(func(v): return int(v)) if s != null else null
-		message.emit("Loaded hotbar %d" % (n + 1))
+		message.emit(I18n.f("hotbar_loaded", n + 1))
 	refresh()
 
 
@@ -324,14 +329,14 @@ func refresh() -> void:
 	_creative_box.visible = creative and chest == null
 	_crafting_box.visible = not creative and chest == null
 	_search.visible = chest == null
-	_mode_button.text = "Switch to survival" if creative else "Switch to creative"
+	_mode_button.text = I18n.t("to_survival") if creative else I18n.t("to_creative")
 	_mode_button.visible = chest == null
 	if chest != null:
-		_title.text = "Chest"
+		_title.text = I18n.t("chest")
 		for i in 27:
 			hud.show_stack(_chest_parts[i], chest.slots[i], SLOT)
 	elif creative:
-		_title.text = "Creative"
+		_title.text = I18n.t("creative")
 		_fill_palette()
 		for t in _tab_buttons:
 			_tab_buttons[t].modulate = Color(0.6, 0.85, 1.4) if t == tab and _search.text == "" else Color.WHITE
@@ -339,7 +344,7 @@ func refresh() -> void:
 			_hotbar_buttons[n].modulate = Color(0.6, 0.85, 1.4) if saved_hotbars[n] != null else Color.WHITE
 		_save_toggle.button_pressed = save_hotbar_mode
 	else:
-		_title.text = "Crafting"
+		_title.text = I18n.t("crafting")
 		_fill_recipes()
 
 

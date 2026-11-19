@@ -18,6 +18,8 @@ import blocks  # noqa: E402
 import world as w  # noqa: E402
 import inventory as inv  # noqa: E402
 import survival as sv  # noqa: E402
+import i18n  # noqa: E402
+import ui_icons  # noqa: E402
 from textures import generate_atlas, hud_icons, crack_stages  # noqa: E402
 
 OUT = ROOT / "godot" / "data"
@@ -89,6 +91,7 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "blocks.json").write_text(json.dumps(export_blocks(), indent=1))
     (OUT / "items.json").write_text(json.dumps(export_items(), indent=1))
+    (OUT / "i18n.json").write_text(json.dumps(i18n.export(), indent=1, ensure_ascii=False))
     generate_atlas().save(OUT / "atlas.png")
     icons = OUT / "icons"
     icons.mkdir(exist_ok=True)
@@ -96,6 +99,10 @@ def main():
         image.save(icons / f"{name}.png")
     for i, image in enumerate(crack_stages()):
         image.save(icons / f"crack_{i}.png")
+    ui = OUT / "ui"
+    ui.mkdir(exist_ok=True)
+    for name, image in ui_icons.render_all().items():
+        image.save(ui / f"{name}.png")
     fixtures = ROOT / "godot" / "tests" / "fixtures"
     fixtures.mkdir(parents=True, exist_ok=True)
     (fixtures / "worldgen.json").write_text(json.dumps(export_fixtures()))

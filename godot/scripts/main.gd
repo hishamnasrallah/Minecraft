@@ -26,6 +26,7 @@ var hud: Hud
 var touch: TouchControls
 var screen: InventoryScreen
 var build_panel: BuildPanel
+var settings: SettingsScreen
 var env: Environment
 var materials := {}
 var sun: MeshInstance3D
@@ -85,6 +86,9 @@ func _ready() -> void:
 			var parts := a.substr(7).split(",")
 			_initial_look = Vector2(float(parts[0]), float(parts[1]))
 
+	for a in args:
+		if a.begins_with("--lang="):                 # for testing: a language without saving it
+			I18n.lang = a.substr(7)
 	var pd := world.player_data
 	creative = "--creative" in args or pd.get("mode") == "creative"
 	inv = Inventory.from_data(pd.get("inventory"))
@@ -118,7 +122,8 @@ func _ready() -> void:
 	moon = _sky_quad(Color(0.85, 0.88, 1), 25)
 
 	chunks = ChunkManager.new()
-	chunks.setup(world, materials, 3 if use_touch else 4)
+	var distance := int(I18n.settings["view_distance"])
+	chunks.setup(world, materials, distance if distance > 0 else (3 if use_touch else 4))
 	add_child(chunks)
 	wildlife = Wildlife.new(world)
 
@@ -160,10 +165,11 @@ func _ready() -> void:
 	touch.visible = use_touch
 	touch.place_pressed.connect(place_block)
 	touch.hotbar_tapped.connect(func(pos): _select(hud.slot_at(pos)))
-	touch.menu_pressed.connect(func(): save_game(); hud.flash("Saved"))
+	touch.menu_pressed.connect(func(): save_game(); hud.flash(I18n.t("saved")))
 	touch.inventory_pressed.connect(open_screen)
 	touch.fly_pressed.connect(func(): set_flying(not player.flying))
 	touch.build_pressed.connect(toggle_build_panel)
+	touch.settings_pressed.connect(open_settings)
 	build_panel = BuildPanel.new()
 	build_panel.builder = builder
 	build_panel.visible = false
@@ -180,13 +186,23 @@ func _ready() -> void:
 	screen.closed.connect(close_screen)
 	screen.mode_toggle_pressed.connect(func(): set_mode(not creative); screen.creative = creative; screen.refresh())
 	screen.time_pressed.connect(func(v): world.time_of_day = v)
-	screen.freeze_pressed.connect(func(): time_speed = 0.0 if time_speed != 0.0 else 1.0; hud.flash("Time frozen" if time_speed == 0.0 else "Time running"))
+	screen.freeze_pressed.connect(func(): time_speed = 0.0 if time_speed != 0.0 else 1.0; hud.flash(I18n.t("time_frozen") if time_speed == 0.0 else I18n.t("time_running")))
 	screen.message.connect(hud.flash)
 	top.add_child(screen)
+	settings = SettingsScreen.new()
+	settings.visible = false
+	settings.closed.connect(close_settings)
+	settings.view_distance_changed.connect(func(v): chunks.render_distance = v; chunks.update_center(player.position, true))
+	settings.language_picked.connect(func(code):
+		save_game()
+		I18n.set_language(code)
+		get_tree().reload_current_scene())          # rebuild every screen in the new language
+	top.add_child(settings)
+	hud.fps.visible = bool(I18n.settings["show_fps"])
 
 	_select(0)
 	_refresh_mode()
-	hud.flash("Welcome! %s" % ("Joystick left, drag right to look" if use_touch else "Click to play, WASD + mouse, E for items"))
+	hud.flash(I18n.t("welcome_touch") if use_touch else I18n.t("welcome_desktop"))
 
 
 func _sky_quad(color: Color, size: float) -> MeshInstance3D:
@@ -242,11 +258,11 @@ func _refresh_mode() -> void:
 	touch.show_button("down", creative and player.flying)
 	if not creative:
 		build_panel.visible = false
-	var text := "creative" if creative else ""
+	var text := I18n.t("creative_label") if creative else ""
 	if player.flying:
-		text += " - flying"
+		text += " - " + I18n.t("flying_label")
 	if player.noclip:
-		text += " - noclip"
+		text += " - " + I18n.t("noclip_label")
 	hud.mode_label.text = text
 	hud.show_hotbar(inv, selected, creative)
 	hud.show_bars(health, creative)
@@ -257,13 +273,13 @@ func set_mode(to_creative: bool) -> void:
 	if not creative:
 		set_flying(false)
 	health.fall_top = null
-	hud.flash("Creative mode" if creative else "Survival mode")
+	hud.flash(I18n.t("mode_creative") if creative else I18n.t("mode_survival"))
 	_refresh_mode()
 
 
 func set_flying(on: bool) -> void:
 	if on and not creative:
-		hud.flash("Flying is a creative-mode thing")
+		hud.flash(I18n.t("fly_creative_only"))
 		on = false
 	player.flying = on
 	if not on:
@@ -296,6 +312,21 @@ func open_screen(chest = null) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
+func open_settings() -> void:
+	settings.visible = true
+	player.set_physics_process(false)
+	touch.blocked = true
+	if not use_touch:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func close_settings() -> void:
+	settings.visible = false
+	hud.fps.visible = bool(I18n.settings["show_fps"])
+	player.set_physics_process(spawned and not health.dead)
+	touch.blocked = false
+
+
 func close_screen() -> void:
 	screen.close()
 	if chest_pos != null:
@@ -308,6 +339,11 @@ func close_screen() -> void:
 
 # ---------------------------------------------------------------- input
 func _unhandled_input(event: InputEvent) -> void:
+	if settings.visible:
+		if event is InputEventKey and event.pressed and event.physical_keycode in [KEY_ESCAPE, KEY_F2]:
+			I18n.save_settings()
+			close_settings()
+		return
 	if screen.visible or health.dead:
 		if event is InputEventKey and event.pressed and event.physical_keycode in [KEY_E, KEY_ESCAPE] and screen.visible:
 			close_screen()
@@ -328,7 +364,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			MOUSE_BUTTON_WHEEL_DOWN:
 				_select(selected + 1)
 	elif event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		player.look(event.relative * MOUSE_SENSITIVITY)
+		player.look(event.relative * MOUSE_SENSITIVITY * float(I18n.settings["sensitivity"]))
 	elif event is InputEventKey and not event.echo:
 		var key: int = event.physical_keycode
 		if not event.pressed:
@@ -367,12 +403,14 @@ func _unhandled_input(event: InputEvent) -> void:
 						health.exert(float(Items.survival["JUMP"]))
 			KEY_F1:
 				hud.visible = not hud.visible
+			KEY_F2:
+				open_settings()
 			KEY_F5:
 				save_game()
-				hud.flash("Saved")
+				hud.flash(I18n.t("saved"))
 			KEY_T:
 				time_speed = 40.0 if time_speed != 40.0 else 1.0
-				hud.flash("Time x%d" % int(time_speed))
+				hud.flash(I18n.f("time_fast", int(time_speed)))
 			KEY_Z:
 				build_action("corner1")
 			KEY_X:
@@ -425,7 +463,7 @@ func _read_controls() -> void:
 		jump = jump or touch.jump_held
 		if touch.up_held or touch.down_held:
 			vertical = float(touch.up_held) - float(touch.down_held)
-		player.look(touch.take_look())
+		player.look(touch.take_look() * float(I18n.settings["sensitivity"]))
 	player.move_input = move.limit_length(1.0)
 	player.jump_held = jump
 	player.vertical = vertical
@@ -500,11 +538,11 @@ func break_at(pos: Vector3i) -> void:
 				stacks.append(s.map(func(v): return int(v)))
 	for s in stacks:
 		if inv.give(s) != null:
-			hud.flash("Inventory full")
+			hud.flash(I18n.t("inventory_full"))
 	if not m[1] and int(Blocks.defs[id]["level"]) > 0:
-		hud.flash("%s needs a better tool to drop anything" % Blocks.name_of[id])
+		hud.flash(I18n.f("needs_tool", Items.name_of(id)))
 	if m[2] and inv.wear(selected):
-		hud.flash("Your %s broke!" % Items.name_of(tool))
+		hud.flash(I18n.f("tool_broke", Items.name_of(tool)))
 	hud.show_hotbar(inv, selected, creative)
 
 
@@ -515,12 +553,12 @@ func attack(animal) -> void:
 		return
 	health.exert(float(Items.survival["ATTACK"]))
 	if Items.tools.has(item) and inv.wear(selected):
-		hud.flash("Your %s broke!" % Items.name_of(item))
+		hud.flash(I18n.f("tool_broke", Items.name_of(item)))
 	if meat > 0:
 		if inv.add(int(Items.S["RAW_MEAT"]), meat) > 0:
-			hud.flash("Inventory full")
+			hud.flash(I18n.t("inventory_full"))
 		else:
-			hud.flash("+%d raw meat" % meat)
+			hud.flash(I18n.f("got_meat", meat))
 	hud.show_hotbar(inv, selected, creative)
 
 
@@ -553,9 +591,9 @@ func use_block(pos: Vector3i) -> bool:
 		spawn_point = Vector3(pos.x, pos.y + 1.5, pos.z)
 		if world.time_of_day > 0.5 and world.time_of_day < 0.97:
 			world.time_of_day = 0.0
-			hud.flash("You slept until morning. Spawn point set.")
+			hud.flash(I18n.t("slept"))
 		else:
-			hud.flash("Spawn point set. You can only sleep at night.")
+			hud.flash(I18n.t("spawn_set"))
 		return true
 	return false
 
@@ -577,9 +615,9 @@ func place_block() -> void:
 	if Items.food.has(item) and not creative:
 		if health.eat(Items.food[item]):
 			inv.use_one(selected)
-			hud.flash("Ate %s" % Items.name_of(item))
+			hud.flash(I18n.f("ate", Items.name_of(item)))
 		else:
-			hud.flash("You're not hungry")
+			hud.flash(I18n.t("not_hungry"))
 		_refresh_mode()
 		return
 	if item == int(Items.S["BUCKET"]):
@@ -589,7 +627,7 @@ func place_block() -> void:
 			if not creative:
 				inv.use_one(selected)
 				if inv.add(int(Items.S["WATER_BUCKET"])) > 0:
-					hud.flash("Inventory full")
+					hud.flash(I18n.t("inventory_full"))
 			_refresh_mode()
 		return
 	if hit.is_empty():
@@ -712,15 +750,15 @@ func build_action(name: String) -> void:
 			if hit.is_empty():
 				return
 			builder.set(name, hit["pos"])
-			msg = "Corner %s at %s" % [name.right(1), hit["pos"]]
+			msg = I18n.f("corner_at", [name.right(1), hit["pos"]])
 		"fill", "hollow":
 			if not fill_ok:
-				msg = "Hold a block to build with"
+				msg = I18n.t("hold_block")
 			else:
 				result = builder.fill(world, item, name == "hollow")
 		"replace":
 			if hit.is_empty() or not fill_ok:
-				msg = "Hold a block and look at the block type to replace"
+				msg = I18n.t("hold_replace")
 			else:
 				result = builder.fill(world, item, false, world.get_block(hit["pos"].x, hit["pos"].y, hit["pos"].z))
 		"clear":
@@ -729,7 +767,7 @@ func build_action(name: String) -> void:
 			msg = builder.copy(world)
 		"paste":
 			_previewing_paste = not builder.clipboard.is_empty()
-			msg = "Aim, then tap Paste again" if _previewing_paste else "Nothing copied yet"
+			msg = I18n.t("paste_aim") if _previewing_paste else I18n.t("nothing_copied")
 			if _previewing_paste and use_touch:
 				_paste_armed = not _paste_armed
 				if not _paste_armed:
@@ -749,14 +787,14 @@ func build_action(name: String) -> void:
 		"deselect":
 			builder.corner1 = null
 			builder.corner2 = null
-			msg = "Selection cleared"
+			msg = I18n.t("selection_cleared")
 		"library":
 			build_panel.visible = true
 			build_panel.open_library()
 			_update_touch_rects()
 		_:
 			if name.begins_with("loaded:"):
-				msg = "Loaded %s - %s" % [name.substr(7), "tap Paste" if use_touch else "hold V to place it"]
+				msg = I18n.f("loaded_building" if use_touch else "loaded_building_desktop", name.substr(7))
 	if not result.is_empty():
 		_rebuild(result[0])
 		msg = result[1]
@@ -776,10 +814,10 @@ func _update_building() -> void:
 		selection_box.position = (Vector3(b[0]) + Vector3(b[1])) / 2.0
 		selection_box.scale = Vector3(b[1] - b[0]) + Vector3.ONE * 1.02
 		var s = builder.size()
-		parts.append("selection %dx%dx%d (%d)" % [s.x, s.y, s.z, builder.volume()])
+		parts.append(I18n.f("selection", [s.x, s.y, s.z, builder.volume()]))
 	if creative and not builder.clipboard.is_empty():
 		var c = builder.clipboard_size()
-		parts.append("copy %dx%dx%d" % [c.x, c.y, c.z])
+		parts.append(I18n.f("copy_size", [c.x, c.y, c.z]))
 	hud.build_label.text = "   |   ".join(parts)
 	var hit := target() if _previewing_paste and creative else {}
 	paste_preview.visible = not hit.is_empty()
@@ -868,7 +906,7 @@ func _process(delta: float) -> void:
 			spawned = true
 			player.set_physics_process(not screen.visible and not health.dead)
 	touch.hotbar_rect = hud.hotbar_rect()
-	if not screen.visible:
+	if not screen.visible and not settings.visible:
 		_read_controls()
 	touch.show_button("up", creative and player.flying)
 	touch.show_button("down", creative and player.flying)
@@ -979,6 +1017,10 @@ func _selftest_step() -> void:
 		412:
 			_st_shot("t2_crafting")
 			screen.closed.emit()
+			open_settings()
+		414:
+			_st_shot("t5_settings")
+			close_settings()
 		415:
 			print("SELFTEST inventory closed: ", not screen.visible)
 			set_mode(true)

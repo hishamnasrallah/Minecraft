@@ -12,6 +12,7 @@ config/features=PackedStringArray("4.3", "GL Compatibility")
 
 Blocks="*res://scripts/blocks.gd"
 Items="*res://scripts/items.gd"
+I18n="*res://scripts/i18n.gd"
 
 [display]
 
@@ -20,6 +21,10 @@ window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=4
+
+[gui]
+
+theme/custom_font="res://fonts/Cairo.ttf"
 
 [input_devices]
 

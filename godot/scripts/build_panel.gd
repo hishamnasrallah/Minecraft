@@ -5,12 +5,8 @@ extends Control
 
 signal action(name: String)
 
-const TOOLS := [
-	["Corner 1", "corner1"], ["Corner 2", "corner2"], ["Fill", "fill"], ["Hollow", "hollow"],
-	["Replace", "replace"], ["Clear", "clear"], ["Copy", "copy"], ["Paste", "paste"],
-	["Rotate", "rotate"], ["Mirror", "mirror"], ["Undo", "undo"], ["Deselect", "deselect"],
-	["Library", "library"],
-]
+const TOOLS := ["corner1", "corner2", "fill", "hollow", "replace", "clear", "copy", "paste",
+	"rotate", "mirror", "undo", "deselect", "library"]
 
 var builder: Builder
 var library: Control
@@ -30,11 +26,15 @@ func _ready() -> void:
 	add_child(column)
 	for t in TOOLS:
 		var b := Button.new()
-		b.text = t[0]
-		b.custom_minimum_size = Vector2(112, 50)
+		b.text = I18n.t(t)
+		b.icon = load("res://data/ui/%s.png" % t)
+		b.expand_icon = true
+		b.add_theme_constant_override("icon_max_width", 26)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.custom_minimum_size = Vector2(132, 50)
 		b.focus_mode = Control.FOCUS_NONE
-		b.modulate = Color(1, 1, 1, 0.85)
-		b.pressed.connect(func(): action.emit(t[1]))
+		b.modulate = Color(1, 1, 1, 0.88)
+		b.pressed.connect(func(): action.emit(t))
 		column.add_child(b)
 	_make_library()
 
@@ -47,28 +47,36 @@ func _make_library() -> void:
 	add_child(library)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
+	if I18n.is_arabic():
+		box.layout_direction = Control.LAYOUT_DIRECTION_RTL
 	library.add_child(box)
 	var head := HBoxContainer.new()
 	box.add_child(head)
 	var title := Label.new()
-	title.text = "Buildings"
+	title.text = I18n.t("buildings")
 	title.add_theme_font_size_override("font_size", 26)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(title)
 	var close := Button.new()
-	close.text = "Close"
+	close.text = I18n.t("close")
+	close.icon = load("res://data/ui/close.png")
+	close.expand_icon = true
+	close.add_theme_constant_override("icon_max_width", 24)
 	close.custom_minimum_size = Vector2(110, 48)
 	close.pressed.connect(func(): library.visible = false)
 	head.add_child(close)
 	var row := HBoxContainer.new()
 	box.add_child(row)
 	_name = LineEdit.new()
-	_name.placeholder_text = "name for the current copy"
+	_name.placeholder_text = I18n.t("building_name")
 	_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_name.custom_minimum_size.y = 48
 	row.add_child(_name)
 	var save := Button.new()
-	save.text = "Save copy"
+	save.text = I18n.t("save_copy")
+	save.icon = load("res://data/ui/save.png")
+	save.expand_icon = true
+	save.add_theme_constant_override("icon_max_width", 24)
 	save.custom_minimum_size = Vector2(150, 48)
 	save.pressed.connect(_save)
 	row.add_child(save)
@@ -95,14 +103,14 @@ func _refresh() -> void:
 		var row := HBoxContainer.new()
 		_list.add_child(row)
 		var b := Button.new()
-		b.text = "%s   (%d x %d x %d)%s" % [entry[1], entry[2][0], entry[2][1], entry[2][2], "   - example" if entry[3] else ""]
+		b.text = "%s   (%d x %d x %d)%s" % [entry[1], entry[2][0], entry[2][1], entry[2][2], "   - " + I18n.t("example") if entry[3] else ""]
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.custom_minimum_size.y = 50
 		b.pressed.connect(func(): _load(entry))
 		row.add_child(b)
 		if not entry[3]:
 			var d := Button.new()
-			d.text = "Delete"
+			d.text = I18n.t("delete")
 			d.custom_minimum_size = Vector2(100, 50)
 			d.pressed.connect(func(): Schematics.delete(entry[0]); _refresh())
 			row.add_child(d)
@@ -110,7 +118,7 @@ func _refresh() -> void:
 
 func _save() -> void:
 	var problem := Schematics.save(builder.clipboard, _name.text)
-	_status.text = problem if problem != "" else "Saved " + Schematics.clean_name(_name.text)
+	_status.text = problem if problem != "" else I18n.f("saved_file", Schematics.clean_name(_name.text))
 	if problem == "":
 		_name.text = ""
 	_refresh()
@@ -119,7 +127,7 @@ func _save() -> void:
 func _load(entry: Array) -> void:
 	var clip := Schematics.load_file(entry[0])
 	if clip.is_empty():
-		_status.text = "Could not read that file"
+		_status.text = I18n.t("cant_read")
 		return
 	builder.clipboard = clip
 	library.visible = false

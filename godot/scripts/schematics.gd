@@ -79,9 +79,9 @@ static func _by_name(name: String) -> int:
 static func save(clip: Dictionary, name: String) -> String:
 	var file := clean_name(name)
 	if file == "":
-		return "Give the building a name"
+		return I18n.t("name_it")
 	if clip.is_empty():
-		return "Nothing copied yet"
+		return I18n.t("nothing_copied")
 	DirAccess.make_dir_recursive_absolute(USER_DIR)
 	var f := FileAccess.open("%s/%s.json" % [USER_DIR, file], FileAccess.WRITE)
 	f.store_string(JSON.stringify(to_data(clip, name.strip_edges())))

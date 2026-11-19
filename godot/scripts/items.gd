@@ -43,8 +43,9 @@ func _init() -> void:
 	STACK_SIZE = int(S["STACK_SIZE"])
 
 
+## The item's name in the current language.
 func name_of(item: int) -> String:
-	return names.get(item, "?")
+	return I18n.item(item, names.get(item, "?"))
 
 
 func max_stack(item: int) -> int:
@@ -97,7 +98,7 @@ func drop_for(block: int) -> int:
 
 
 func ingredient_name(key) -> String:
-	return "any " + key if key is String else name_of(key)
+	return I18n.f("any", I18n.group(key)) if key is String else name_of(key)
 
 
 func recipe_text(r: Dictionary) -> String:
@@ -114,7 +115,8 @@ func creative_items(tab := "all", search := "") -> Array:
 	for c in creative:
 		var item: int = c[0]
 		if not words.is_empty():
-			var name := name_of(item).to_lower()
+			# match the English and the Arabic name, so search works in either language
+			var name: String = (names.get(item, "") + " " + I18n.names_ar.get(item, "")).to_lower()
 			var ok := true
 			for w in words:
 				if not w in name:

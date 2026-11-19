@@ -44,9 +44,9 @@ func rebuild(keys: Array) -> void:
 			_urgent[k] = true
 
 
-func update_center(position: Vector3) -> void:
+func update_center(position: Vector3, force := false) -> void:
 	var c := WorldData.chunk_key(floori(position.x + 0.5), floori(position.z + 0.5))
-	if c == _center:
+	if c == _center and not force:
 		return
 	_center = c
 	for dx in range(-render_distance, render_distance + 1):
