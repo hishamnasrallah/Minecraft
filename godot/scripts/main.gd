@@ -84,6 +84,11 @@ func _ready() -> void:
 		_remote_world = true
 	elif FileAccess.file_exists(SAVE_PATH) and fresh.is_empty():
 		world = WorldData.load_from(SAVE_PATH)
+	if world == null and Session.dimension == "sky":
+		# first visit to the sky realm: its own seed, derived from the world's
+		var base := int(Session.carry.get("seed", fresh.get("seed", -1)))
+		world = WorldData.new(base + 7777 if base >= 0 else -1, "sky")
+		world.player_data["base_seed"] = base
 	if world == null:
 		world = WorldData.new(int(fresh.get("seed", -1)))
 		if fresh.get("creative", false):
@@ -105,10 +110,16 @@ func _ready() -> void:
 	var pd := world.player_data
 	creative = "--creative" in args or pd.get("mode") == "creative"
 	inv = Inventory.from_data(pd.get("inventory"))
-	if not pd.has("inventory"):
+	var carry: Dictionary = Session.carry
+	if not carry.is_empty():
+		# through a portal: you bring your things, health and mode with you
+		inv = Inventory.from_data(carry["inventory"])
+		creative = carry["mode"] == "creative"
+	elif not pd.has("inventory"):
 		_fill_starter(creative)
-	health = Survival.from_data(pd.get("survival"))
-	saved_hotbars = pd.get("hotbars", [])
+	health = Survival.from_data(carry.get("survival", pd.get("survival")))
+	saved_hotbars = carry.get("hotbars", pd.get("hotbars", []))
+	Session.carry = {}
 	for g in pd.get("growing", []):
 		growing[Vector3i(int(g[0]), int(g[1]), int(g[2]))] = true
 	saved_hotbars.resize(9)
@@ -202,6 +213,10 @@ func _ready() -> void:
 	remote_players = RemotePlayers.new()
 	remote_players.icon_for = hud.icon_for
 	add_child(remote_players)
+	if world.dimension == "sky":
+		weather.set_weather("clear")
+		if not world.player_data.get("boss_dead", false):
+			_spawn_boss()
 	Net.remote_edits.connect(_apply_remote_edits)
 	Net.remote_container.connect(func(p, data): world.containers[p] = data)
 	Net.player_state.connect(func(id, st): remote_players.update_state(id, st))
@@ -692,6 +707,9 @@ func target(hit_water := false) -> Dictionary:
 func tap_world(pos: Vector2) -> void:
 	if health.dead or not spawned:
 		return
+	if _boss_in_sight():
+		_hit_boss()
+		return
 	var animal = looked_at_animal()        # the crosshair decides, not where the finger tapped
 	var item := inv.item_at(selected)
 	var hit := target()
@@ -865,6 +883,130 @@ func use_block(pos: Vector3i) -> bool:
 			hud.flash(I18n.t("spawn_set"))
 		return true
 	return false
+
+
+# ---------------------------------------------------------------- the sky realm: portals and the boss
+## The sky key on a frame of amethyst blocks: the empty space it encloses (up to 8 x 8, in an
+## upright plane) fills with portal.
+func _open_portal(hit_pos: Vector3i) -> void:
+	if world.get_block(hit_pos.x, hit_pos.y, hit_pos.z) != WorldData.SKY["FRAME"]:
+		hud.flash(I18n.t("portal_needs_frame"))
+		return
+	for plane in [Vector3i(1, 0, 0), Vector3i(0, 0, 1)]:
+		var starts := []                         # any empty cell near the tapped frame block
+		for a in range(-2, 3):
+			for b in range(-2, 3):
+				starts.append(hit_pos + plane * a + Vector3i(0, b, 0))
+		for start in starts:
+			if world.get_block(start.x, start.y, start.z) != 0:
+				continue
+			var inside := {start: true}
+			var queue := [start]
+			var ok := true
+			while not queue.is_empty() and ok:
+				var c: Vector3i = queue.pop_back()
+				for d in [plane, -plane, Vector3i(0, 1, 0), Vector3i(0, -1, 0)]:
+					var n: Vector3i = c + d
+					if inside.has(n):
+						continue
+					var b := world.get_block(n.x, n.y, n.z)
+					if b == WorldData.SKY["FRAME"]:
+						continue
+					if b != 0 or inside.size() >= 36:
+						ok = false                   # not closed by amethyst, or too big
+						break
+					inside[n] = true
+					queue.append(n)
+			if ok and inside.size() >= 2:
+				var edits := {}
+				for c in inside:
+					edits[c] = WorldData.SKY["PORTAL"]
+				_rebuild(world.bulk_set(edits)[0])
+				Sfx.play("pop", 0.0, 0.6)
+				hud.flash(I18n.t("portal_opened"))
+				if not creative:
+					inv.use_one(selected)
+					_refresh_mode()
+				return
+	hud.flash(I18n.t("portal_needs_frame"))
+
+
+## Standing in a portal for a moment takes you to the other world.
+func _update_portal(delta: float) -> void:
+	var p := player.position
+	var inside := false
+	for dy in [0.6, 1.4]:
+		var b := world.get_block(floori(p.x + 0.5), floori(p.y + dy), floori(p.z + 0.5))
+		if b == WorldData.SKY["PORTAL"]:
+			inside = true
+	if not inside:
+		_portal_lock = false
+		_portal_time = 0.0
+		hud.portal_glow(0.0)
+		return
+	if _portal_lock:
+		return
+	_portal_time += delta
+	hud.portal_glow(_portal_time / 1.4)
+	if _portal_time >= 1.4:
+		_travel()
+
+
+func _travel() -> void:
+	if Net.active():
+		hud.flash(I18n.t("portal_with_friends"))
+		_portal_lock = true
+		return
+	save_game()
+	var base := world.seed if world.dimension != "sky" else int(world.player_data.get("base_seed", -1))
+	Session.carry = {"inventory": inv.to_data(), "survival": health.to_data(), "hotbars": saved_hotbars,
+		"mode": "creative" if creative else "survival", "seed": base}
+	Session.set_dimension("" if world.dimension == "sky" else "sky")
+	get_tree().reload_current_scene()
+
+
+func _spawn_boss() -> void:
+	boss = StormRay.new()
+	boss.world = world
+	boss.center = Vector3(0, WorldData.SKY_BASE + 20, 0)
+	for pc in WorldData.PILLARS:
+		boss.crystals.append(Vector3i(pc.x, WorldData.SKY_BASE + 6 + WorldData.PILLAR_HEIGHT + 1, pc.y))
+	boss.hurt_player.connect(func(dmg, push):
+		_take_damage(dmg, "storm")
+		player.velocity += push)
+	boss.died.connect(_boss_died)
+	add_child(boss)
+
+
+func _boss_in_sight() -> bool:
+	if boss == null or boss.dead or not spawned:
+		return false
+	var d := boss.ray_hit(player.eye(), aim_dir(), reach() + 4.0)
+	if d < 0:
+		return false
+	var hit := target()
+	return hit.is_empty() or d < hit["distance"] + 0.5
+
+
+func _hit_boss() -> void:
+	var item := inv.item_at(selected)
+	boss.hit(Items.attack_damage(item) * (10 if creative else 1))
+	buzz(25)
+	if not creative and Items.tools.has(item) and inv.wear(selected):
+		hud.flash(I18n.f("tool_broke", Items.name_of(item)))
+
+
+func _boss_died(_at: Vector3) -> void:
+	world.player_data["boss_dead"] = true
+	hud.hide_boss()
+	hud.flash(I18n.t("boss_defeated"))
+	Sfx.play("pop", 4.0, 0.4)
+	# the prize: the storm core and star shards rain down next to you, a trophy in the middle
+	drops.spawn([132, 1], player.position + Vector3(0, 2, 0), Vector3(0, 2, 0), 0.3)
+	for i in 4:
+		drops.spawn([130, 4], player.position + Vector3(randf_range(-1, 1), 2, randf_range(-1, 1)))
+	edit(Vector3i(0, WorldData.SKY_BASE + 7, 0), 1808, true, false)
+	save_game()
 
 
 # ---------------------------------------------------------------- playing with friends
@@ -1211,6 +1353,9 @@ func place_block() -> void:
 		return
 	if not hit.is_empty() and _farm(hit["pos"], item):
 		return
+	if item == 131 and not hit.is_empty():
+		_open_portal(hit["pos"])
+		return
 	if Items.food.has(item) and not creative:
 		if health.eat(Items.food[item]):
 			Sfx.play("eat")
@@ -1339,6 +1484,10 @@ func _update_mining(delta: float) -> void:
 	var placing := _update_placing(delta)
 	var held := _breaking() and not screen.visible and not health.dead and not placing
 	var animal = looked_at_animal() if spawned else null
+	if held and not _break_was_held and _boss_in_sight():
+		_hit_boss()
+		_break_was_held = held
+		return
 	if held and not _break_was_held and animal != null:
 		attack(animal)
 	_break_was_held = held
@@ -1471,6 +1620,9 @@ var _ready_frames := 0
 var tutorial: Tutorial
 var drops: Drops
 var weather: Weather
+var boss: StormRay
+var _portal_time := 0.0
+var _portal_lock := true            # standing in a portal when the world starts: step out first
 var remote_players: RemotePlayers
 var chat_box: ChatBox
 var _remote_world := false          # we joined a friend: their phone saves the world, not ours
@@ -1595,6 +1747,8 @@ func respawn() -> void:
 
 
 func _update_sky(delta: float) -> void:
+	if world.dimension == "sky":
+		world.time_of_day = 0.3                       # the sky realm: an endless golden afternoon
 	world.time_of_day = fposmod(world.time_of_day + delta * time_speed / DAY_LENGTH, 1.0)
 	var angle := world.time_of_day * TAU
 	var sun_height := sin(angle)
@@ -1602,6 +1756,8 @@ func _update_sky(delta: float) -> void:
 	var dusk := clampf(1 - absf(sun_height) / 0.35, 0, 1)
 	var sky_color := NIGHT_SKY.lerp(DAY_SKY, day).lerp(DUSK_SKY, dusk * 0.7 * maxf(day, 0.5))
 	sky_color = weather.tint_sky(sky_color)
+	if world.dimension == "sky":
+		sky_color = Color(0.45, 0.36, 0.66).lerp(Color(0.95, 0.6, 0.55), 0.18)
 	# underground the sky fades to dark: you no longer see blue through far cave openings
 	var col = world.column(floori(player.position.x + 0.5), floori(player.position.z + 0.5))
 	if col != null:
@@ -1646,7 +1802,7 @@ func _process(delta: float) -> void:
 			spawned = true
 			Boot.stage("playing")
 			var args := Array(OS.get_cmdline_user_args())
-			var testing := args.any(func(a): return a.begins_with("--shot") or a in ["--selftest", "--gloomtest", "--menutest", "--machines"])
+			var testing := args.any(func(a): return a.begins_with("--shot") or a in ["--selftest", "--gloomtest", "--menutest", "--machines", "--bosstest", "--portaltest"])
 			if "--tutorial" in args or (not testing and not I18n.settings.get("tutorial_done", false)):
 				start_tutorial()
 			player.set_physics_process(not screen.visible and not health.dead)
@@ -1671,6 +1827,10 @@ func _process(delta: float) -> void:
 	_perf("mobs", t3 - t2)
 	_update_tutorial()
 	if spawned:
+		_update_portal(delta)
+		if boss != null and not boss.dead:
+			boss.update(delta, player.position, not creative and not health.dead)
+			hud.show_boss(I18n.t("boss_name"), boss.health / StormRay.MAX_HEALTH, boss.alive_crystals().size())
 		_update_net(delta)
 		_update_paste()
 		if not _remote_world:
@@ -1786,6 +1946,47 @@ func _process(delta: float) -> void:
 		if _st_frame == 130:
 			_touch(1, get_viewport().get_visible_rect().size / 2, false)
 			print("HOLDPLACE placed ", _st["planks"] - inv.count(7), " planks while holding for 2 s")
+	if "--portaltest" in OS.get_cmdline_user_args() and spawned and not _st.has("portal"):
+		_st["portal"] = true                            # testing: build a frame, open it, step in
+		if world.dimension == "sky":
+			print("PORTAL arrived in: ", world.dimension, ", items carried: ", inv.slots.filter(func(x): return x != null).size(),
+				", boss here: ", boss != null)
+			get_tree().quit()
+			return
+		var o := Vector3i(floori(player.position.x + 0.5) + 3, floori(player.position.y), floori(player.position.z + 0.5))
+		for i in 4:
+			for j in 5:
+				edit(o + Vector3i(0, j, i), WorldData.SKY["FRAME"] if (i == 0 or i == 3 or j == 0 or j == 4) else 0, true, false)
+		inv.slots[selected] = [131, 1]
+		_open_portal(o)
+		print("PORTAL opened: ", world.get_block(o.x, o.y + 1, o.z + 1) == WorldData.SKY["PORTAL"], ", key used: ", inv.item_at(selected) != 131)
+		player.position = Vector3(o.x, o.y + 0.5, o.z + 1)
+		_portal_lock = false
+	if "--bossview" in OS.get_cmdline_user_args() and spawned and boss != null:
+		var d := boss.global_position - player.eye()           # testing: keep the boss in view
+		player.yaw = atan2(-d.x, -d.z)
+		player.rotation.y = player.yaw
+		player.pitch = atan2(d.y, Vector2(d.x, d.z).length())
+		player.camera.rotation.x = player.pitch
+		if Engine.get_process_frames() % 60 == 0 and boss.state == "circle":
+			boss._timer = 0.0                               # swoop at us now and then
+	if "--bosstest" in OS.get_cmdline_user_args() and spawned and boss != null:
+		_st_frame += 1                                  # testing: a whole fight, sped up
+		if _st_frame == 30:
+			print("BOSS crystals healing it: ", boss.alive_crystals().size(), ", health ", boss.health)
+			boss.health = 200
+		if _st_frame == 90:
+			print("BOSS healed by the crystals to ", snappedf(boss.health, 1))
+			for c in boss.crystals:
+				edit(c, 0, true, false)                 # break the crystals
+		if _st_frame == 100:
+			print("BOSS crystals left: ", boss.alive_crystals().size())
+		if _st_frame > 100 and _st_frame < 400 and not boss.dead and _st_frame % 5 == 0:
+			boss.hit(20)
+		if _st_frame == 420:
+			print("BOSS dead: ", boss.dead, ", saved as beaten: ", world.player_data.get("boss_dead", false),
+				", trophy placed: ", world.get_block(0, WorldData.SKY_BASE + 7, 0) == 1808,
+				", prize on the ground: ", drops.drops.map(func(d): return d["stack"]))
 	if "--debristest" in OS.get_cmdline_user_args() and spawned and Engine.get_process_frames() % 12 == 0:
 		debris.burst(player.eye() + player.forward() * 3.0, 1)        # testing: pieces in front of the camera
 	if "--machines" in OS.get_cmdline_user_args() and spawned and not _st.has("machines"):

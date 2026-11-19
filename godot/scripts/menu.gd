@@ -37,6 +37,9 @@ func _ready() -> void:
 			if a.begins_with("--seed="):
 				seed = int(a.substr(7))
 		Session.use_test_world("--new" in args, seed, "--creative" in args)
+		if "--sky" in args:                         # testing: start in the sky realm
+			Session.dimension = "sky"
+			Session.carry = {"inventory": [[216, 1], [111, 2]], "survival": null, "hotbars": [], "mode": "creative" if "--creative" in args else "survival", "seed": seed}
 		get_tree().change_scene_to_file.call_deferred(GAME)
 		return
 	_build()

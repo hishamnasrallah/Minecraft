@@ -59,8 +59,12 @@ var ORES: Array                # private copies, so a generation thread shares n
 var TRANSPARENT: PackedByteArray                    # generation block ids (SLATE, LIMESTONE, bushes, ...)
 
 
-func _init(world_seed: int = -1) -> void:
+var dimension := "overworld"   # or "sky": floating islands (the second world)
+
+
+func _init(world_seed: int = -1, dim := "overworld") -> void:
 	seed = world_seed if world_seed >= 0 else randi() % 1000000
+	dimension = dim
 	WATER_LEVEL = int(Blocks.C["WATER_LEVEL"])
 	SNOW_LINE = int(Blocks.C["SNOW_LINE"])
 	TREE_CHANCE = float(Blocks.C["TREE_CHANCE"])
@@ -278,6 +282,8 @@ func has_tree(x: int, z: int) -> bool:
 func ensure_chunk(key: Vector2i) -> bool:
 	if chunks.has(key):
 		return false
+	if dimension == "sky":
+		return _ensure_sky(key)
 	var x0 := key.x * CS
 	var z0 := key.y * CS
 	var blk := PackedInt32Array()
@@ -705,7 +711,104 @@ func top_y(x: int, z: int) -> int:
 
 
 func spawn_point() -> Vector3:
+	if dimension == "sky":
+		return Vector3(0, top_y(0, 4) + 1.5, 4)          # on the main island, by the way home
 	return Vector3(8, top_y(8, 8) + 1.5, 8)
+
+
+# ---------------------------------------------------------------- the sky realm
+const SKY := {"STONE": 1800, "GRASS": 1801, "CLOUD": 1802, "STAR_ORE": 1803, "PORTAL": 1805,
+	"CRYSTAL": 1806, "PILLAR": 1807, "SOIL": 1809, "FRAME": 906}
+const SKY_BASE := 172                 # island tops are around here
+const MAIN_RADIUS := 40.0             # the main island (the boss's) at the centre
+const PILLARS := [Vector2i(24, 0), Vector2i(-24, 0), Vector2i(0, 24), Vector2i(0, -24)]
+const PILLAR_HEIGHT := 18
+
+
+## Island shape at a column: 0 = empty sky; above 0 = how deep in the island.
+func sky_island(x: int, z: int) -> float:
+	var n := VNoise.fbm(x / 70.0, z / 70.0, seed + 500, 3)
+	var d := sqrt(float(x * x + z * z))
+	if d < MAIN_RADIUS:
+		n = maxf(n, 0.6 + (MAIN_RADIUS - d) / MAIN_RADIUS * 0.4)
+	elif d < MAIN_RADIUS + 24:
+		n = minf(n, 0.5)                    # a clear ring of sky around the main island
+	return maxf(0.0, (n - 0.58) / 0.42)
+
+
+func sky_top(x: int, z: int) -> int:
+	var t := sky_island(x, z)
+	if t <= 0.0:
+		return -1
+	if sqrt(float(x * x + z * z)) < MAIN_RADIUS * 0.75:
+		return SKY_BASE + 6                 # the main island is flat: room for the fight
+	return SKY_BASE + int(t * 14.0 + VNoise.fbm(x / 14.0, z / 14.0, seed + 501, 2) * 5.0)
+
+
+func _ensure_sky(key: Vector2i) -> bool:
+	var x0 := key.x * CS
+	var z0 := key.y * CS
+	var blk := PackedInt32Array()
+	blk.resize(CS * H * CS)
+	var e := {}
+	for lx in CS:
+		for lz in CS:
+			var x := x0 + lx
+			var z := z0 + lz
+			var t := sky_island(x, z)
+			if t > 0.0:
+				var top := sky_top(x, z)
+				var bottom := top - int(4.0 + t * 42.0 + VNoise.hash2(x, z, seed + 502) * 3.0)
+				for y in range(maxi(bottom, 1), top + 1):
+					var id: int = SKY["STONE"]
+					if y == top:
+						id = SKY["GRASS"]
+					elif y >= top - 2:
+						id = SKY["SOIL"]
+					elif VNoise.hash3(x, y, z, seed + 503) < 0.012:
+						id = SKY["STAR_ORE"]
+					blk[(lx * H + y) * CS + lz] = id
+				var flower := VNoise.hash2(x, z, seed + 504)
+				if flower < 0.03 and top + 1 < H:
+					blk[(lx * H + top + 1) * CS + lz] = 1000 + int(flower * 1000.0) % 8
+			elif VNoise.fbm(x / 40.0, z / 40.0, seed + 520, 2) > 0.66:
+				for y in [SKY_BASE - 22, SKY_BASE - 21]:  # drifting clouds below the islands
+					blk[(lx * H + y) * CS + lz] = SKY["CLOUD"]
+	# the main island: four pillars with storm crystals, and the portal home
+	for pc in PILLARS:
+		for dx in range(-1, 2):
+			for dz in range(-1, 2):
+				var x: int = pc.x + dx
+				var z: int = pc.y + dz
+				if (x >> 4) != key.x or (z >> 4) != key.y:
+					continue
+				var top := SKY_BASE + 6
+				for y in range(top + 1, top + PILLAR_HEIGHT + 1):
+					blk[((x - x0) * H + y) * CS + (z - z0)] = SKY["PILLAR"]
+				if dx == 0 and dz == 0:
+					var cy := top + PILLAR_HEIGHT + 1
+					blk[((x - x0) * H + cy) * CS + (z - z0)] = SKY["CRYSTAL"]
+					e[Vector3i(x, cy, z)] = true
+	for i in 4:                               # portal home: a 4 x 5 frame across x at z = -12
+		for j in 5:
+			var x := -2 + i
+			var z := -12
+			if (x >> 4) != key.x or (z >> 4) != key.y:
+				continue
+			var y := SKY_BASE + 7 + j
+			var frame := i == 0 or i == 3 or j == 0 or j == 4
+			blk[((x - x0) * H + y) * CS + (z - z0)] = SKY["FRAME"] if frame else SKY["PORTAL"]
+			if not frame:
+				e[Vector3i(x, y, z)] = true
+	var chunk := Chunk.new(false)
+	chunk.b = blk
+	chunks[key] = chunk
+	if not e.is_empty():
+		emitters[key] = e
+	var edits: Dictionary = changes.get(key, {})
+	for pos in edits:
+		_put(pos.x, pos.y, pos.z, edits[pos])
+	return true
 
 
 # ---------------------------------------------------------------- lighting
@@ -792,7 +895,7 @@ func save(path: String, player := {}) -> void:
 	for p in containers:
 		boxes.append([[p.x, p.y, p.z], containers[p]])
 	var data := {"player": player, "version": SAVE_VERSION, "seed": seed, "time_of_day": time_of_day,
-		"containers": boxes, "changes": edits}
+		"containers": boxes, "changes": edits, "dimension": dimension}
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	f.store_string(JSON.stringify(data))
 
@@ -802,7 +905,7 @@ static func load_from(path: String) -> WorldData:
 	if typeof(parsed) != TYPE_DICTIONARY:
 		return null
 	var data := migrate(parsed)
-	var w := WorldData.new(int(data["seed"]))
+	var w := WorldData.new(int(data["seed"]), str(data.get("dimension", "overworld")))
 	w.time_of_day = float(data.get("time_of_day", 0.2))
 	w.player_data = data.get("player", {})
 	for c in data.get("containers", []):

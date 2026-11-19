@@ -104,3 +104,27 @@ func test_old_save_is_moved_up_to_the_deep_world() -> String:
 	if not again.changes[Vector2i(0, 0)].has(Vector3i(3, 20 + off, 3)) or float(again.player_data["spawn"][1]) != 21.5 + off:
 		return "a current save was moved again"
 	return ""
+
+
+func test_sky_realm_islands_pillars_and_portal_home() -> String:
+	var w := WorldData.new(99, "sky")
+	for dx in range(-3, 3):
+		for dz in range(-3, 3):
+			w.ensure_chunk(Vector2i(dx, dz))
+	var top := w.top_y(0, 0)
+	if top != WorldData.SKY_BASE + 6:
+		return "main island should be flat at %d, top is %d" % [WorldData.SKY_BASE + 6, top]
+	if w.get_block(0, top, 0) != 1801 or w.get_block(0, top - 10, 0) != 1800:
+		return "grass on top, sky stone below"
+	if w.get_block(0, 1, 0) != 0:
+		return "below the islands there is only sky"
+	for pc in WorldData.PILLARS:
+		var cy := WorldData.SKY_BASE + 6 + WorldData.PILLAR_HEIGHT + 1
+		if w.get_block(pc.x, cy, pc.y) != 1806 or w.get_block(pc.x, cy - 1, pc.y) != 1807:
+			return "pillar with a storm crystal missing at %s" % pc
+	if w.get_block(-1, WorldData.SKY_BASE + 8, -12) != 1805 or w.get_block(-2, WorldData.SKY_BASE + 8, -12) != 906:
+		return "the portal home is missing"
+	var sp := w.spawn_point()
+	if w.get_block(floori(sp.x + 0.5), floori(sp.y + 0.6), floori(sp.z + 0.5)) != 0:
+		return "spawn must be in the open"
+	return ""

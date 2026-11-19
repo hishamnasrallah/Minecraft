@@ -22,6 +22,10 @@ var build_label: Label
 var target_label: Label
 var minimap: Minimap
 var chat_log: Label
+var boss_box: Control
+var _boss_fill: ColorRect
+var _boss_label: Label
+var _portal: ColorRect
 var _chat_lines := []                # [text, time shown]
 var perf := {}                       # system -> ms per frame, shown under the FPS counter
 var _message_time := 0.0
@@ -85,6 +89,35 @@ func _ready() -> void:
 	target_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	build_label = _label(16)
 	build_label.add_theme_color_override("font_color", Color(0.4, 0.9, 1.0))
+	_portal = ColorRect.new()
+	_portal.color = Color(0.55, 0.25, 0.9, 0)
+	_portal.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_portal.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_portal)
+	boss_box = Control.new()
+	boss_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	boss_box.visible = false
+	root.add_child(boss_box)
+	var bg := ColorRect.new()
+	bg.color = Color(0, 0, 0, 0.6)
+	bg.size = Vector2(520, 18)
+	bg.position = Vector2(0, 30)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	boss_box.add_child(bg)
+	_boss_fill = ColorRect.new()
+	_boss_fill.color = Color(0.35, 0.8, 1.0)
+	_boss_fill.size = Vector2(516, 14)
+	_boss_fill.position = Vector2(2, 32)
+	_boss_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	boss_box.add_child(_boss_fill)
+	_boss_label = Label.new()
+	_boss_label.add_theme_font_size_override("font_size", 20)
+	_boss_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_boss_label.add_theme_constant_override("outline_size", 5)
+	_boss_label.size = Vector2(520, 28)
+	_boss_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_boss_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	boss_box.add_child(_boss_label)
 	chat_log = _label(18)
 	chat_log.add_theme_color_override("font_color", Color(1, 1, 1))
 	chat_log.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
@@ -211,6 +244,7 @@ func _layout() -> void:
 	message.position = Vector2(12, 40 + y0)
 	mode_label.position = Vector2(12, 70 + y0)
 	build_label.position = Vector2(12, 94 + y0)
+	boss_box.position = Vector2(s.x / 2 - 260, 44)
 	chat_log.position = Vector2(12, s.y - SLOT - 230)
 	chat_log.size = Vector2(minf(560, s.x * 0.45), 150)
 	var box: Control = death.get_child(0)
@@ -286,6 +320,22 @@ func icon_for(item: int) -> AtlasTexture:
 func show_target(text: String) -> void:
 	if target_label.text != text:
 		target_label.text = text
+
+
+func show_boss(name: String, fraction: float, crystals: int) -> void:
+	boss_box.visible = true
+	_boss_fill.size.x = 516.0 * clampf(fraction, 0.0, 1.0)
+	_boss_fill.color = Color(1.0, 0.4, 0.4) if fraction < 0.5 else Color(0.35, 0.8, 1.0)
+	_boss_label.text = name if crystals == 0 else "%s   •   %s" % [name, I18n.f("boss_crystals", crystals)]
+
+
+func hide_boss() -> void:
+	boss_box.visible = false
+
+
+## Standing in a portal: the screen turns purple as you are about to travel.
+func portal_glow(amount: float) -> void:
+	_portal.color.a = clampf(amount, 0.0, 1.0) * 0.6
 
 
 ## A chat message from a friend (or us): shown for 12 seconds, the last 6 at most.

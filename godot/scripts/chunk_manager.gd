@@ -353,7 +353,7 @@ func _max_y_around(key: Vector2i) -> int:
 func _start_generation(key: Vector2i) -> void:
 	_generating[key] = true
 	# everything the job needs is made here, on the main thread, and only the job uses it
-	var g := WorldData.new(world.seed)
+	var g := WorldData.new(world.seed, world.dimension)
 	var edits: Dictionary = world.changes.get(key, {}).duplicate(true)
 	if not edits.is_empty():
 		g.changes[key] = edits
@@ -378,7 +378,7 @@ func _start_mesh(key: Vector2i, secs: Array) -> void:
 		version[sk] = version.get(sk, 0) + 1
 		versions[s] = version[sk]
 	# a private copy of the 3x3 chunks for the worker
-	var snap := WorldData.new(world.seed)
+	var snap := WorldData.new(world.seed, world.dimension)
 	for dx in [-1, 0, 1]:
 		for dz in [-1, 0, 1]:
 			var k := Vector2i(key.x + dx, key.y + dz)

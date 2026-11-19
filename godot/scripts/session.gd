@@ -7,6 +7,8 @@ const ROOT := "user://worlds"
 
 var world_dir := ""
 var new_options := {}           # set when creating a world: {"seed": int, "creative": bool}
+var dimension := ""             # "" = the normal world, "sky" = the floating islands
+var carry := {}                 # inventory, health, mode... taken along through a portal
 var remote := {}                # a friend's world we joined (from Net): not saved on this device
 
 
@@ -27,7 +29,18 @@ func _migrate_old_save() -> void:
 
 
 func save_path() -> String:
-	return world_dir + "/save.json" if world_dir != "" else "user://save.json"
+	var file := "sky.json" if dimension == "sky" else "save.json"
+	return world_dir + "/" + file if world_dir != "" else "user://" + file
+
+
+## Going through a portal: remember which world we are in (the menu opens it next time).
+func set_dimension(dim: String) -> void:
+	dimension = dim
+	if world_dir != "":
+		var id := world_dir.get_file()
+		var meta = _read_meta(world_dir)
+		meta["dimension"] = dim
+		_write_meta(id, meta)
 
 
 ## [{"id", "name", "mode", "last_played", "created"}], most recently played first.
@@ -56,11 +69,15 @@ func create_world(name: String, seed: int, creative: bool) -> void:
 		"created": Time.get_unix_time_from_system()})
 	world_dir = ROOT + "/" + id
 	new_options = {"seed": seed, "creative": creative}
+	dimension = ""
+	carry = {}
 
 
 func open_world(id: String) -> void:
 	world_dir = ROOT + "/" + id
 	new_options = {}
+	dimension = str(_read_meta(world_dir).get("dimension", ""))
+	carry = {}
 
 
 ## A fresh hidden world for automated tests (--new / --selftest / --shot on the command line).
@@ -88,6 +105,14 @@ func touch(mode: String) -> void:
 	meta["mode"] = mode
 	meta["last_played"] = Time.get_unix_time_from_system()
 	_write_meta(id, meta)
+
+
+func _read_meta(dir: String) -> Dictionary:
+	var path := dir + "/meta.json"
+	if not FileAccess.file_exists(path):
+		return {}
+	var meta = JSON.parse_string(FileAccess.get_file_as_string(path))
+	return meta if meta is Dictionary else {}
 
 
 func _write_meta(id: String, meta: Dictionary) -> void:

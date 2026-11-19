@@ -516,6 +516,34 @@
    "en": "Mini map",
    "ar": "خريطة صغيرة"
   },
+  "boss_name": {
+   "en": "Storm Ray",
+   "ar": "رعّاد العاصفة"
+  },
+  "boss_crystals": {
+   "en": "healed by %d crystals",
+   "ar": "بتشفيه %d بلّورات"
+  },
+  "boss_defeated": {
+   "en": "The Storm Ray is defeated! Its core is yours.",
+   "ar": "انهزم رعّاد العاصفة! النواة صارت إلك."
+  },
+  "portal_opened": {
+   "en": "A portal opened - step in and wait",
+   "ar": "انفتحت بوابة - فوت فيها واستنى"
+  },
+  "portal_needs_frame": {
+   "en": "Use the sky key on a closed frame of amethyst blocks",
+   "ar": "استعمل مفتاح السماء على إطار مسكّر من بلوكات الجمشت"
+  },
+  "portal_with_friends": {
+   "en": "Portals do not work while playing with friends yet",
+   "ar": "البوابات لسا ما بتشتغل وإنتو عم تلعبوا مع بعض"
+  },
+  "cause_storm": {
+   "en": "The Storm Ray got you.",
+   "ar": "رعّاد العاصفة قتلك."
+  },
   "moved_out": {
    "en": "You were inside the new building: moved you just outside",
    "ar": "كنت جوّا البناية الجديدة: طلّعتك لبرّا جنبها"
