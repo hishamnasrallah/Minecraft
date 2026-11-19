@@ -1296,6 +1296,130 @@ for _i, (_name, _rgb) in enumerate(__import__("blocks").DYES):
 for _name, _dye in __import__("blocks").LAMP_COLORS:
     EXTRA_GENERATORS[f"lamp_{_name.replace(' ', '_')}"] = color_lamp(__import__("blocks").DYES[_dye][1])
 
+# ================================================================ farming, hoes, doors of every wood
+def _hoe(rng, head):
+    img = _blank()
+    _handle(img, rng)
+    for x in range(8, 14):                       # a flat blade bent down at the top of the handle
+        _px(img, x, 2, _shade(head, 1.1 + rng.uniform(-0.08, 0.08)))
+        _px(img, x, 3, _shade(head, 0.85))
+    _px(img, 13, 4, _shade(head, 0.8))
+    return img
+
+
+def farmland_top(rng):
+    img = _noise(rng, (92, 62, 40), 0.08)
+    for y in range(TILE):
+        if y % 4 in (0, 1):                      # ploughed furrows
+            for x in range(TILE):
+                img.putpixel((x, y), _shade((66, 44, 28), 1 + rng.uniform(-0.08, 0.08)))
+    return img
+
+
+def crop(stage, leaf, fruit=None, carrot=False):
+    def gen(rng):
+        img = _blank()
+        height = 4 + stage * 3
+        ripe = stage == 3
+        for col in (2, 5, 8, 11, 14):
+            top = TILE - height - rng.randrange(0, 2)
+            for y in range(top, TILE):
+                c = leaf if not (ripe and not carrot) else _mix(leaf, (214, 178, 70), 0.85)
+                _px(img, col, y, _shade(c, 1 + rng.uniform(-0.12, 0.08)))
+                if y % 3 == 0:
+                    _px(img, col + (1 if y % 2 else -1), y, _shade(c, 0.85))
+            if ripe and not carrot:              # ears of grain
+                for y in range(top, top + 4):
+                    _px(img, col, y, _shade((232, 196, 90), 1 + rng.uniform(-0.1, 0.1)))
+                    _px(img, col + 1, y + 1, _shade((210, 170, 70), 1))
+            if ripe and carrot:                  # orange tops peeking out of the soil
+                _px(img, col, TILE - 1, (230, 120, 30))
+                _px(img, col, TILE - 2, (240, 136, 40))
+        return img
+    return gen
+
+
+def seeds(rng):
+    img = _blank()
+    for _ in range(9):
+        x, y = rng.randrange(3, 13), rng.randrange(4, 13)
+        _px(img, x, y, _shade((120, 150, 60), 1 + rng.uniform(-0.15, 0.15)))
+        _px(img, x + 1, y, _shade((90, 120, 40), 1))
+    return img
+
+
+def wheat(rng):
+    img = _blank()
+    for i, col in enumerate((5, 8, 11)):
+        for y in range(6, 15):
+            _px(img, col + (y - 10) // 4 * (i - 1), y, (190, 160, 70))
+        for y in range(1, 7):
+            _px(img, col, y, _shade((236, 200, 96), 1 + rng.uniform(-0.1, 0.1)))
+            _px(img, col + (1 if y % 2 else -1), y, _shade((214, 178, 76), 1))
+    return img
+
+
+def bread(rng):
+    img = _blank()
+    for x in range(TILE):
+        for y in range(TILE):
+            d = ((x - 8) / 7.0) ** 2 + ((y - 9) / 4.0) ** 2
+            if d < 1:
+                c = (200, 140, 70) if y > 8 else (170, 106, 44)
+                _px(img, x, y, _shade(c, 1 + rng.uniform(-0.08, 0.08)))
+    for x in (4, 7, 10):                         # scored crust
+        _px(img, x, 7, (230, 190, 120))
+        _px(img, x + 1, 6, (230, 190, 120))
+    return img
+
+
+def carrot(rng):
+    img = _blank()
+    for i in range(10):
+        w = max(1, 3 - i // 4)
+        for k in range(w):
+            _px(img, 3 + i + k, 12 - i + k, _shade((236, 120, 30), 1 + rng.uniform(-0.1, 0.1)))
+    for x, y in ((12, 3), (13, 2), (14, 3), (12, 1), (11, 2)):
+        _px(img, x, y, (70, 150, 50))
+    return img
+
+
+def wood_door(planks, frame):
+    def gen_door(top):
+        def gen(rng):
+            img = boards(planks)(rng)
+            for i in range(TILE):
+                for j in (0, 1, TILE - 2, TILE - 1):
+                    _px(img, j, i, frame)
+            if top:
+                for x in range(4, 12):
+                    for y in range(4, 11):
+                        img.putpixel((x, y), (0, 0, 0, 0))
+            else:
+                _px(img, 12, 2, (210, 200, 120))
+                _px(img, 12, 3, (210, 200, 120))
+            return img
+        return gen
+    return gen_door
+
+
+for _metal, _head in METALS.items():
+    EXTRA_GENERATORS[f"{_metal}_hoe"] = (lambda h: lambda rng: _hoe(rng, h))(_head)
+EXTRA_GENERATORS.update({"farmland_top": farmland_top, "seeds": seeds, "wheat": wheat, "bread": bread,
+                         "carrot": carrot})
+for _stage in range(4):
+    EXTRA_GENERATORS[f"wheat_{_stage}"] = crop(_stage, (80, 160, 50))
+    EXTRA_GENERATORS[f"carrots_{_stage}"] = crop(_stage, (60, 150, 46), carrot=True)
+for _sp, _cols in WOOD_COLORS.items():
+    _wd = wood_door(_cols[4], _shade(_cols[4], 0.65))
+    EXTRA_GENERATORS[f"{_sp}_door_top"] = _wd(True)
+    EXTRA_GENERATORS[f"{_sp}_door_bottom"] = _wd(False)
+_wd = wood_door((196, 186, 150), (150, 140, 110))          # birch
+EXTRA_GENERATORS["birch_door_top"], EXTRA_GENERATORS["birch_door_bottom"] = _wd(True), _wd(False)
+_wd = wood_door((120, 84, 50), (78, 54, 30))               # pine
+EXTRA_GENERATORS["pine_door_top"], EXTRA_GENERATORS["pine_door_bottom"] = _wd(True), _wd(False)
+
+
 GENERATORS = {name: EXTRA_GENERATORS.get(name) or globals()[name] for name in TILES}
 
 

@@ -507,6 +507,27 @@
   "leafy_bush",
   "berry_bush",
   "dry_bush",
+  "birch_door_bottom",
+  "birch_door_top",
+  "pine_door_bottom",
+  "pine_door_top",
+  "maple_door_bottom",
+  "maple_door_top",
+  "cherry_door_bottom",
+  "cherry_door_top",
+  "ashwood_door_bottom",
+  "ashwood_door_top",
+  "ebony_door_bottom",
+  "ebony_door_top",
+  "farmland_top",
+  "wheat_0",
+  "wheat_1",
+  "wheat_2",
+  "wheat_3",
+  "carrots_0",
+  "carrots_1",
+  "carrots_2",
+  "carrots_3",
   "iron_ingot",
   "copper_ingot",
   "tin_ingot",
@@ -530,7 +551,15 @@
   "ruby",
   "sapphire",
   "amethyst",
-  "quartz"
+  "quartz",
+  "wood_hoe",
+  "stone_hoe",
+  "iron_hoe",
+  "diamond_hoe",
+  "seeds",
+  "wheat",
+  "bread",
+  "carrot"
  ],
  "plants_need_soil": [
   51,
@@ -565,6 +594,14 @@
   742,
   743,
   744,
+  971,
+  972,
+  973,
+  974,
+  975,
+  976,
+  977,
+  978,
   1000,
   1001,
   1002,
@@ -1817,8 +1854,10 @@
    "door": {
     "axis": 0,
     "open": 0,
-    "top": 0
+    "top": 0,
+    "base": 510
    },
+   "family": "doors",
    "tiles": [
     68,
     68,
@@ -1841,7 +1880,8 @@
    "door": {
     "axis": 0,
     "open": 0,
-    "top": 1
+    "top": 1,
+    "base": 510
    },
    "tiles": [
     69,
@@ -1865,7 +1905,8 @@
    "door": {
     "axis": 0,
     "open": 1,
-    "top": 0
+    "top": 0,
+    "base": 510
    },
    "tiles": [
     68,
@@ -1889,7 +1930,8 @@
    "door": {
     "axis": 0,
     "open": 1,
-    "top": 1
+    "top": 1,
+    "base": 510
    },
    "tiles": [
     69,
@@ -1913,7 +1955,8 @@
    "door": {
     "axis": 1,
     "open": 0,
-    "top": 0
+    "top": 0,
+    "base": 510
    },
    "tiles": [
     68,
@@ -1937,7 +1980,8 @@
    "door": {
     "axis": 1,
     "open": 0,
-    "top": 1
+    "top": 1,
+    "base": 510
    },
    "tiles": [
     69,
@@ -1961,7 +2005,8 @@
    "door": {
     "axis": 1,
     "open": 1,
-    "top": 0
+    "top": 0,
+    "base": 510
    },
    "tiles": [
     68,
@@ -1985,7 +2030,8 @@
    "door": {
     "axis": 1,
     "open": 1,
-    "top": 1
+    "top": 1,
+    "base": 510
    },
    "tiles": [
     69,
@@ -9984,6 +10030,1425 @@
     224,
     224,
     224
+   ]
+  },
+  "1500": {
+   "name": "birch door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1500,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "door": {
+    "axis": 0,
+    "open": 0,
+    "top": 0,
+    "base": 1500
+   },
+   "family": "doors",
+   "tiles": [
+    247,
+    247,
+    247
+   ]
+  },
+  "1501": {
+   "name": "birch door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 0,
+    "top": 1,
+    "base": 1500
+   },
+   "tiles": [
+    248,
+    248,
+    248
+   ]
+  },
+  "1502": {
+   "name": "birch door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1500,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 1,
+    "top": 0,
+    "base": 1500
+   },
+   "tiles": [
+    247,
+    247,
+    247
+   ]
+  },
+  "1503": {
+   "name": "birch door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 1,
+    "top": 1,
+    "base": 1500
+   },
+   "tiles": [
+    248,
+    248,
+    248
+   ]
+  },
+  "1504": {
+   "name": "birch door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1500,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 0,
+    "top": 0,
+    "base": 1500
+   },
+   "tiles": [
+    247,
+    247,
+    247
+   ]
+  },
+  "1505": {
+   "name": "birch door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 0,
+    "top": 1,
+    "base": 1500
+   },
+   "tiles": [
+    248,
+    248,
+    248
+   ]
+  },
+  "1506": {
+   "name": "birch door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1500,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 1,
+    "top": 0,
+    "base": 1500
+   },
+   "tiles": [
+    247,
+    247,
+    247
+   ]
+  },
+  "1507": {
+   "name": "birch door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 1,
+    "top": 1,
+    "base": 1500
+   },
+   "tiles": [
+    248,
+    248,
+    248
+   ]
+  },
+  "1508": {
+   "name": "pine door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1508,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "door": {
+    "axis": 0,
+    "open": 0,
+    "top": 0,
+    "base": 1508
+   },
+   "family": "doors",
+   "tiles": [
+    249,
+    249,
+    249
+   ]
+  },
+  "1509": {
+   "name": "pine door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 0,
+    "top": 1,
+    "base": 1508
+   },
+   "tiles": [
+    250,
+    250,
+    250
+   ]
+  },
+  "1510": {
+   "name": "pine door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1508,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 1,
+    "top": 0,
+    "base": 1508
+   },
+   "tiles": [
+    249,
+    249,
+    249
+   ]
+  },
+  "1511": {
+   "name": "pine door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 1,
+    "top": 1,
+    "base": 1508
+   },
+   "tiles": [
+    250,
+    250,
+    250
+   ]
+  },
+  "1512": {
+   "name": "pine door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1508,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 0,
+    "top": 0,
+    "base": 1508
+   },
+   "tiles": [
+    249,
+    249,
+    249
+   ]
+  },
+  "1513": {
+   "name": "pine door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 0,
+    "top": 1,
+    "base": 1508
+   },
+   "tiles": [
+    250,
+    250,
+    250
+   ]
+  },
+  "1514": {
+   "name": "pine door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1508,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 1,
+    "top": 0,
+    "base": 1508
+   },
+   "tiles": [
+    249,
+    249,
+    249
+   ]
+  },
+  "1515": {
+   "name": "pine door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 1,
+    "top": 1,
+    "base": 1508
+   },
+   "tiles": [
+    250,
+    250,
+    250
+   ]
+  },
+  "1516": {
+   "name": "maple door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1516,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "door": {
+    "axis": 0,
+    "open": 0,
+    "top": 0,
+    "base": 1516
+   },
+   "family": "doors",
+   "tiles": [
+    251,
+    251,
+    251
+   ]
+  },
+  "1517": {
+   "name": "maple door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 0,
+    "top": 1,
+    "base": 1516
+   },
+   "tiles": [
+    252,
+    252,
+    252
+   ]
+  },
+  "1518": {
+   "name": "maple door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1516,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 1,
+    "top": 0,
+    "base": 1516
+   },
+   "tiles": [
+    251,
+    251,
+    251
+   ]
+  },
+  "1519": {
+   "name": "maple door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 1,
+    "top": 1,
+    "base": 1516
+   },
+   "tiles": [
+    252,
+    252,
+    252
+   ]
+  },
+  "1520": {
+   "name": "maple door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1516,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 0,
+    "top": 0,
+    "base": 1516
+   },
+   "tiles": [
+    251,
+    251,
+    251
+   ]
+  },
+  "1521": {
+   "name": "maple door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 0,
+    "top": 1,
+    "base": 1516
+   },
+   "tiles": [
+    252,
+    252,
+    252
+   ]
+  },
+  "1522": {
+   "name": "maple door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1516,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 1,
+    "top": 0,
+    "base": 1516
+   },
+   "tiles": [
+    251,
+    251,
+    251
+   ]
+  },
+  "1523": {
+   "name": "maple door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 1,
+    "top": 1,
+    "base": 1516
+   },
+   "tiles": [
+    252,
+    252,
+    252
+   ]
+  },
+  "1524": {
+   "name": "cherry door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1524,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "door": {
+    "axis": 0,
+    "open": 0,
+    "top": 0,
+    "base": 1524
+   },
+   "family": "doors",
+   "tiles": [
+    253,
+    253,
+    253
+   ]
+  },
+  "1525": {
+   "name": "cherry door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 0,
+    "top": 1,
+    "base": 1524
+   },
+   "tiles": [
+    254,
+    254,
+    254
+   ]
+  },
+  "1526": {
+   "name": "cherry door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1524,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 1,
+    "top": 0,
+    "base": 1524
+   },
+   "tiles": [
+    253,
+    253,
+    253
+   ]
+  },
+  "1527": {
+   "name": "cherry door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 1,
+    "top": 1,
+    "base": 1524
+   },
+   "tiles": [
+    254,
+    254,
+    254
+   ]
+  },
+  "1528": {
+   "name": "cherry door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1524,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 0,
+    "top": 0,
+    "base": 1524
+   },
+   "tiles": [
+    253,
+    253,
+    253
+   ]
+  },
+  "1529": {
+   "name": "cherry door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 0,
+    "top": 1,
+    "base": 1524
+   },
+   "tiles": [
+    254,
+    254,
+    254
+   ]
+  },
+  "1530": {
+   "name": "cherry door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1524,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 1,
+    "top": 0,
+    "base": 1524
+   },
+   "tiles": [
+    253,
+    253,
+    253
+   ]
+  },
+  "1531": {
+   "name": "cherry door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 1,
+    "top": 1,
+    "base": 1524
+   },
+   "tiles": [
+    254,
+    254,
+    254
+   ]
+  },
+  "1532": {
+   "name": "ashwood door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1532,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "door": {
+    "axis": 0,
+    "open": 0,
+    "top": 0,
+    "base": 1532
+   },
+   "family": "doors",
+   "tiles": [
+    255,
+    255,
+    255
+   ]
+  },
+  "1533": {
+   "name": "ashwood door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 0,
+    "top": 1,
+    "base": 1532
+   },
+   "tiles": [
+    256,
+    256,
+    256
+   ]
+  },
+  "1534": {
+   "name": "ashwood door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1532,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 1,
+    "top": 0,
+    "base": 1532
+   },
+   "tiles": [
+    255,
+    255,
+    255
+   ]
+  },
+  "1535": {
+   "name": "ashwood door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 1,
+    "top": 1,
+    "base": 1532
+   },
+   "tiles": [
+    256,
+    256,
+    256
+   ]
+  },
+  "1536": {
+   "name": "ashwood door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1532,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 0,
+    "top": 0,
+    "base": 1532
+   },
+   "tiles": [
+    255,
+    255,
+    255
+   ]
+  },
+  "1537": {
+   "name": "ashwood door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 0,
+    "top": 1,
+    "base": 1532
+   },
+   "tiles": [
+    256,
+    256,
+    256
+   ]
+  },
+  "1538": {
+   "name": "ashwood door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1532,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 1,
+    "top": 0,
+    "base": 1532
+   },
+   "tiles": [
+    255,
+    255,
+    255
+   ]
+  },
+  "1539": {
+   "name": "ashwood door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 1,
+    "top": 1,
+    "base": 1532
+   },
+   "tiles": [
+    256,
+    256,
+    256
+   ]
+  },
+  "1540": {
+   "name": "ebony door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1540,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "door": {
+    "axis": 0,
+    "open": 0,
+    "top": 0,
+    "base": 1540
+   },
+   "family": "doors",
+   "tiles": [
+    257,
+    257,
+    257
+   ]
+  },
+  "1541": {
+   "name": "ebony door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 0,
+    "top": 1,
+    "base": 1540
+   },
+   "tiles": [
+    258,
+    258,
+    258
+   ]
+  },
+  "1542": {
+   "name": "ebony door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1540,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 1,
+    "top": 0,
+    "base": 1540
+   },
+   "tiles": [
+    257,
+    257,
+    257
+   ]
+  },
+  "1543": {
+   "name": "ebony door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 1,
+    "top": 1,
+    "base": 1540
+   },
+   "tiles": [
+    258,
+    258,
+    258
+   ]
+  },
+  "1544": {
+   "name": "ebony door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1540,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 0,
+    "top": 0,
+    "base": 1540
+   },
+   "tiles": [
+    257,
+    257,
+    257
+   ]
+  },
+  "1545": {
+   "name": "ebony door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 0,
+    "top": 1,
+    "base": 1540
+   },
+   "tiles": [
+    258,
+    258,
+    258
+   ]
+  },
+  "1546": {
+   "name": "ebony door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 1540,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 1,
+    "top": 0,
+    "base": 1540
+   },
+   "tiles": [
+    257,
+    257,
+    257
+   ]
+  },
+  "1547": {
+   "name": "ebony door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 1,
+    "top": 1,
+    "base": 1540
+   },
+   "tiles": [
+    258,
+    258,
+    258
+   ]
+  },
+  "970": {
+   "name": "farmland",
+   "tab": "natural",
+   "hardness": 0.5,
+   "tool": "shovel",
+   "level": 0,
+   "drop": 2,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "tiles": [
+    259,
+    2,
+    2
+   ]
+  },
+  "971": {
+   "name": "wheat",
+   "tab": "plants",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 120,
+   "shape": "cross",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "crop": {
+    "stage": 0,
+    "next": 972
+   },
+   "tiles": [
+    260,
+    260,
+    260
+   ]
+  },
+  "972": {
+   "name": "wheat",
+   "tab": "plants",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 120,
+   "shape": "cross",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "crop": {
+    "stage": 1,
+    "next": 973
+   },
+   "tiles": [
+    261,
+    261,
+    261
+   ]
+  },
+  "973": {
+   "name": "wheat",
+   "tab": "plants",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 120,
+   "shape": "cross",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "crop": {
+    "stage": 2,
+    "next": 974
+   },
+   "tiles": [
+    262,
+    262,
+    262
+   ]
+  },
+  "974": {
+   "name": "wheat",
+   "tab": "plants",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 121,
+   "shape": "cross",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "crop": {
+    "stage": 3,
+    "next": 0
+   },
+   "bonus": [
+    120,
+    1,
+    2
+   ],
+   "tiles": [
+    263,
+    263,
+    263
+   ]
+  },
+  "975": {
+   "name": "carrots",
+   "tab": "plants",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 123,
+   "shape": "cross",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "crop": {
+    "stage": 0,
+    "next": 976
+   },
+   "tiles": [
+    264,
+    264,
+    264
+   ]
+  },
+  "976": {
+   "name": "carrots",
+   "tab": "plants",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 123,
+   "shape": "cross",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "crop": {
+    "stage": 1,
+    "next": 977
+   },
+   "tiles": [
+    265,
+    265,
+    265
+   ]
+  },
+  "977": {
+   "name": "carrots",
+   "tab": "plants",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 123,
+   "shape": "cross",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "crop": {
+    "stage": 2,
+    "next": 978
+   },
+   "tiles": [
+    266,
+    266,
+    266
+   ]
+  },
+  "978": {
+   "name": "carrots",
+   "tab": "plants",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 123,
+   "shape": "cross",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "crop": {
+    "stage": 3,
+    "next": 0
+   },
+   "bonus": [
+    123,
+    1,
+    2
+   ],
+   "tiles": [
+    267,
+    267,
+    267
    ]
   }
  }

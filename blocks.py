@@ -292,6 +292,40 @@ for i, material in enumerate(WALL_MATERIALS):
                             m["level"], shape=FENCE, material=material, family="walls")
 
 
+# ---------------------------------------------------------------- doors for every wood
+# 1500 + 8 * n: the same layout as the oak door at 510 (axis*4 + open*2 + top)
+for _n, _sp in enumerate(sp for sp in WOODS if sp != "oak"):
+    _base = 1500 + 8 * _n
+    for axis in (0, 1):
+        for is_open in (0, 1):
+            for top in (0, 1):
+                i = _base + axis * 4 + is_open * 2 + top
+                DOORS[i] = dict(axis=axis, open=is_open, top=top, base=_base)
+                block(i, f"{_sp} door", (f"{_sp}_door_top" if top else f"{_sp}_door_bottom"), FUNCTIONAL, 2.0, "axe",
+                      shape=DOOR, creative=i == _base, drop=_base if not top else None, door=DOORS[i])
+    WOODS[_sp]["door"] = _base
+WOODS["oak"]["door"] = 510
+for _i in range(510, 518):
+    DOORS[_i]["base"] = 510
+family("doors", [w["door"] for w in WOODS.values()])
+
+# ---------------------------------------------------------------- farming
+# hoe a grass / dirt block into farmland, plant seeds or a carrot on it, and it grows in 4 stages
+SEEDS, WHEAT_ITEM, BREAD, CARROT = 120, 121, 122, 123
+FARMLAND = block(970, "farmland", ("farmland_top", "dirt", "dirt"), NATURAL, 0.5, "shovel", drop=2, creative=False)
+CROPS = {}           # crop name -> [stage ids]
+for _crop, _base, _seed, _ripe, _bonus in (("wheat", 971, SEEDS, WHEAT_ITEM, [SEEDS, 1, 2]),
+                                          ("carrots", 975, CARROT, CARROT, [CARROT, 1, 2])):
+    CROPS[_crop] = []
+    for _stage in range(4):
+        ripe = _stage == 3
+        CROPS[_crop].append(block(_base + _stage, f"{_crop}", f"{_crop}_{_stage}", PLANTS, 0.0, shape=CROSS,
+                                  solid=False, creative=False, drop=_ripe if ripe else _seed,
+                                  crop=dict(stage=_stage, next=_base + _stage + 1 if not ripe else 0),
+                                  **({"bonus": _bonus} if ripe else {})))
+PLANT_ON_FARMLAND = {SEEDS: CROPS["wheat"][0], CARROT: CROPS["carrots"][0]}   # item -> crop stage 0
+
+
 # ---------------------------------------------------------------- derived lookups
 BLOCKS = {i: d["name"] for i, d in BLOCK_DEFS.items()}
 BLOCK_TILES = {i: d["tiles"] for i, d in BLOCK_DEFS.items()}

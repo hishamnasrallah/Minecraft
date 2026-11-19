@@ -40,6 +40,7 @@ ITEM_TILES = [
     "wood_shovel", "stone_shovel", "iron_shovel", "diamond_shovel",
     "wood_sword", "stone_sword", "iron_sword", "diamond_sword",
     "ruby", "sapphire", "amethyst", "quartz",
+    "wood_hoe", "stone_hoe", "iron_hoe", "diamond_hoe", "seeds", "wheat", "bread", "carrot",
 ]
 TILES = list(_BASE_TILES)
 for _tiles in BLOCK_TILES.values():

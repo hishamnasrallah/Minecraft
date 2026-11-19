@@ -60,7 +60,7 @@ def test_tool_tiers_gate_ores():
     assert mining(29, IRON_PICKAXE)[1]
     assert mining(29, IRON_PICKAXE)[0] < mining(25, STONE_PICKAXE)[0] * 2
     assert mining(53)[0] < 0.1                             # flowers break instantly
-    assert len(TOOLS) == 16
+    assert len(TOOLS) == 20                             # 5 kinds x 4 tiers
 
 
 def test_smelting_and_storage_blocks():

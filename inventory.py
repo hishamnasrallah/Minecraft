@@ -4,7 +4,8 @@ import random
 from blocks import (BLOCK_DEFS, BLOCKS, BLOCK_TILES, LEAVES, WATER, GLASS, LAMP, WOOL, STAINED_GLASS, SLABS,
                     STAIRS, SHAPE_MATERIALS, FAMILIES, CONCRETE, TERRACOTTA, TERRACOTTA_PLAIN, GLAZED, CARPETS,
                     WOODS, POLISHED, ROCK_BRICKS, CHISELED, WALLS, COLOR_LAMPS, LAMP_COLORS, SLATE, COBBLED_SLATE,
-                    LIMESTONE, RUBY, SAPPHIRE, AMETHYST, QUARTZ, GLOW_CRYSTAL)
+                    LIMESTONE, RUBY, SAPPHIRE, AMETHYST, QUARTZ, GLOW_CRYSTAL, SEEDS, WHEAT_ITEM, BREAD, CARROT,
+                    PLANT_ON_FARMLAND)
 from world import COAL_ORE
 
 STACK_SIZE = 64
@@ -15,7 +16,7 @@ STICK, COAL = 101, 102
 RAW_MEAT, COOKED_MEAT, APPLE = 103, 104, 105
 IRON_INGOT, COPPER_INGOT, TIN_INGOT, GOLD_INGOT, BRONZE_INGOT, DIAMOND = 106, 107, 108, 109, 110, 111
 BUCKET, WATER_BUCKET = 112, 113
-FOOD = {RAW_MEAT: 2, COOKED_MEAT: 6, APPLE: 4}      # item -> hunger points restored
+FOOD = {RAW_MEAT: 2, COOKED_MEAT: 6, APPLE: 4, BREAD: 5, CARROT: 3}      # item -> hunger points restored
 
 MATERIAL_ITEMS = {
     STICK: ("stick", "stick"), COAL: ("coal", "coal"), IRON_INGOT: ("iron ingot", "iron_ingot"),
@@ -23,9 +24,10 @@ MATERIAL_ITEMS = {
     GOLD_INGOT: ("gold ingot", "gold_ingot"), BRONZE_INGOT: ("bronze ingot", "bronze_ingot"),
     DIAMOND: ("diamond", "diamond"), RUBY: ("ruby", "ruby"), SAPPHIRE: ("sapphire", "sapphire"),
     AMETHYST: ("amethyst shard", "amethyst"), QUARTZ: ("quartz", "quartz"),
+    SEEDS: ("seeds", "seeds"), WHEAT_ITEM: ("wheat", "wheat"),
 }
 FOOD_ITEMS = {RAW_MEAT: ("raw meat", "raw_meat"), COOKED_MEAT: ("cooked meat", "cooked_meat"),
-              APPLE: ("apple", "apple")}
+              APPLE: ("apple", "apple"), BREAD: ("bread", "bread"), CARROT: ("carrot", "carrot")}
 OTHER_ITEMS = {BUCKET: ("bucket", "bucket"), WATER_BUCKET: ("water bucket", "water_bucket")}
 
 # ---------------------------------------------------------------- tools
@@ -33,6 +35,7 @@ WOOD_PICKAXE, STONE_PICKAXE, WOOD_AXE, STONE_AXE = 201, 202, 203, 204
 IRON_PICKAXE, DIAMOND_PICKAXE, IRON_AXE, DIAMOND_AXE = 205, 206, 207, 208
 WOOD_SHOVEL, STONE_SHOVEL, IRON_SHOVEL, DIAMOND_SHOVEL = 209, 210, 211, 212
 WOOD_SWORD, STONE_SWORD, IRON_SWORD, DIAMOND_SWORD = 213, 214, 215, 216
+WOOD_HOE, STONE_HOE, IRON_HOE, DIAMOND_HOE = 217, 218, 219, 220
 
 # tier: (speed multiplier, durability, level)
 TIERS = {"wooden": (2.0, 60, 1), "stone": (4.0, 130, 2), "iron": (6.0, 250, 3), "diamond": (8.0, 1500, 4)}
@@ -41,6 +44,7 @@ _TOOL_IDS = {
     "axe": (WOOD_AXE, STONE_AXE, IRON_AXE, DIAMOND_AXE),
     "shovel": (WOOD_SHOVEL, STONE_SHOVEL, IRON_SHOVEL, DIAMOND_SHOVEL),
     "sword": (WOOD_SWORD, STONE_SWORD, IRON_SWORD, DIAMOND_SWORD),
+    "hoe": (WOOD_HOE, STONE_HOE, IRON_HOE, DIAMOND_HOE),
 }
 # tool id: (kind, speed multiplier, durability, name, icon tile, level)
 TOOLS = {}
@@ -144,6 +148,8 @@ def drop_for(block_id, rng=random):
     d = BLOCK_DEFS.get(block_id)
     if d is None:
         return None
+    if block_id in (51, 52):          # tall grass and ferns sometimes hide seeds
+        return SEEDS if rng.random() < 0.15 else None
     if block_id in LEAVES:            # leaves sometimes drop a stick or a sapling, oak leaves an apple
         roll = rng.random()
         if roll >= 0.94:
@@ -174,6 +180,7 @@ def _tool_recipes():
             ({material: 2, STICK: 2}, (_TOOL_IDS["axe"][ids], 1)),
             ({material: 1, STICK: 2}, (_TOOL_IDS["shovel"][ids], 1)),
             ({material: 2, STICK: 1}, (_TOOL_IDS["sword"][ids], 1)),
+            ({material: 2, STICK: 3}, (_TOOL_IDS["hoe"][ids], 1)),
         ]
     return out
 
@@ -265,7 +272,8 @@ RECIPES = [
     ({"planks": 8}, (48, 1)),                  # chest
     ({"planks": 6, STICK: 3}, (45, 1)),        # bookshelf
     ({STICK: 7}, (500, 3)),                    # ladders
-    ({"planks": 6}, (510, 1)),                 # door
+    *[({w["planks"]: 6}, (w["door"], 2)) for w in WOODS.values()],      # a door of each wood
+    ({WHEAT_ITEM: 3}, (BREAD, 1)), ({WHEAT_ITEM: 9}, (950, 1)), ({950: 1}, (WHEAT_ITEM, 9)),
     ({STICK: 4, "planks": 2}, (61, 3)),        # fence
     ({"wool": 3, "planks": 3}, (62, 1)),       # bed
     ({IRON_INGOT: 3}, (BUCKET, 1)),

@@ -98,6 +98,8 @@ func _ready() -> void:
 		_fill_starter(creative)
 	health = Survival.from_data(pd.get("survival"))
 	saved_hotbars = pd.get("hotbars", [])
+	for g in pd.get("growing", []):
+		growing[Vector3i(int(g[0]), int(g[1]), int(g[2]))] = true
 	saved_hotbars.resize(9)
 	var sp = pd.get("spawn")
 	spawn_point = Vector3(sp[0], sp[1], sp[2]) if sp is Array else world.spawn_point()
@@ -608,7 +610,8 @@ func tap_world(pos: Vector2) -> void:
 		attack(animal)
 	elif not hit.is_empty() and use_block(hit["pos"]):
 		pass
-	elif Items.placeable.has(item) or Items.food.has(item) or item in [int(Items.S["BUCKET"]), int(Items.S["WATER_BUCKET"])]:
+	elif Items.placeable.has(item) or Items.food.has(item) or Items.plant.has(item) or _is_hoe(item) \
+			or item in [int(Items.S["BUCKET"]), int(Items.S["WATER_BUCKET"])]:
 		place_block()
 	elif not hit.is_empty():
 		var id := world.get_block(hit["pos"].x, hit["pos"].y, hit["pos"].z)
@@ -670,6 +673,9 @@ func break_at(pos: Vector3i) -> void:
 	var drop := Items.drop_for(id) if m[1] else 0
 	if drop != 0:
 		stacks.append([drop, 1])
+	var bonus = Blocks.defs[id].get("bonus")
+	if bonus is Array:                         # ripe crops give extra seeds / carrots
+		stacks.append([int(bonus[0]), randi_range(int(bonus[1]), int(bonus[2]))])
 	if contents is Array:
 		for s in contents:
 			if s != null:
@@ -740,6 +746,96 @@ func use_block(pos: Vector3i) -> bool:
 	return false
 
 
+# ---------------------------------------------------------------- farming and growing
+var growing := {}                  # Vector3i -> true: saplings and crops that will grow
+var _grow_timer := 0.0
+
+
+func _is_hoe(item: int) -> bool:
+	return Items.tools.has(item) and Items.tools[item]["kind"] == "hoe"
+
+
+## Hoe grass or dirt into farmland, or plant seeds / a carrot on farmland. True if it did.
+func _farm(pos: Vector3i, item: int) -> bool:
+	var id := world.get_block(pos.x, pos.y, pos.z)
+	var above := pos + Vector3i(0, 1, 0)
+	var free := world.get_block(above.x, above.y, above.z) == 0
+	if _is_hoe(item):
+		if id in [1, 2] and free:
+			edit(pos, Items.farmland)
+			Sfx.play("dig_dirt")
+			buzz(20)
+			if not creative and inv.wear(selected):
+				hud.flash(I18n.f("tool_broke", Items.name_of(item)))
+			_refresh_mode()
+		else:
+			hud.flash(I18n.t("hoe_hint"))
+		return true
+	if Items.plant.has(item):
+		if id == Items.farmland and free:
+			if edit(above, int(Items.plant[item])):
+				growing[above] = true
+				Sfx.play("dig_soft")
+				buzz(15)
+				if not creative:
+					inv.use_one(selected)
+				_refresh_mode()
+			return true
+		if not Items.food.has(item):            # seeds are only for planting
+			hud.flash(I18n.t("needs_farmland"))
+			return true
+	return false
+
+
+## Every second: crops move to the next stage now and then, saplings become trees.
+func _update_growing(delta: float) -> void:
+	_grow_timer += delta
+	if _grow_timer < 1.0:
+		return
+	_grow_timer = 0.0
+	for p in growing.keys():
+		if not world.is_loaded(p.x, p.z):
+			continue
+		var id := world.get_block(p.x, p.y, p.z)
+		var d: Dictionary = Blocks.defs.get(id, {})
+		if d.has("crop"):
+			var nxt := int(d["crop"]["next"])
+			if nxt == 0:
+				growing.erase(p)                # ripe
+			elif randf() < 1.0 / 45.0:          # about 45 s per stage
+				edit(p, nxt)
+		elif Items.sapling_trees.has(id):
+			if randf() < 1.0 / 90.0:            # about a minute and a half
+				if _grow_tree(p, Items.sapling_trees[id]):
+					growing.erase(p)
+		else:
+			growing.erase(p)                    # broken or replaced
+
+
+func _grow_tree(p: Vector3i, parts: Array) -> bool:
+	var height := randi_range(4, 6)
+	if p.y + height + 2 >= WorldData.H:
+		return false
+	for y in range(1, height + 1):
+		if world.get_block(p.x, p.y + y, p.z) != 0:
+			return false                        # no room yet; try again later
+	var edits := {}
+	for dx in range(-2, 3):
+		for dz in range(-2, 3):
+			for dy in range(height - 2, height + 2):
+				var r := absi(dx) + absi(dz) + maxi(0, dy - height + 1) * 2
+				if r <= 3 and not (absi(dx) == 2 and absi(dz) == 2):
+					var q := p + Vector3i(dx, dy, dz)
+					if world.get_block(q.x, q.y, q.z) == 0:
+						edits[q] = int(parts[1])
+	for y in height:
+		edits[p + Vector3i(0, y, 0)] = int(parts[0])
+	_rebuild(world.bulk_set(edits)[0])
+	if player.position.distance_to(Vector3(p)) < 24:
+		hud.flash(I18n.t("tree_grew"))
+	return true
+
+
 ## A short vibration on phones (can be turned off in the settings).
 func buzz(ms: int) -> void:
 	if use_touch and bool(I18n.settings.get("vibrate", true)):
@@ -759,6 +855,8 @@ func place_block() -> void:
 	var hit := target()
 	var item := inv.item_at(selected)
 	if not hit.is_empty() and use_block(hit["pos"]):
+		return
+	if not hit.is_empty() and _farm(hit["pos"], item):
 		return
 	if Items.food.has(item) and not creative:
 		if health.eat(Items.food[item]):
@@ -806,7 +904,7 @@ func place_block() -> void:
 			if not _replaceable(above) or _overlaps_player(above, 512):
 				return
 			var axis := 0 if _facing() in [0, 2] else 1
-			if edit(pos, 510 + axis * 4) and edit(above, 511 + axis * 4) and not creative:
+			if edit(pos, item + axis * 4) and edit(above, item + 1 + axis * 4) and not creative:
 				inv.use_one(selected)
 			_refresh_mode()
 			return
@@ -814,6 +912,8 @@ func place_block() -> void:
 		Sfx.play(Sfx.dig_sound(id) if Blocks.defs[id].get("shape") == "cross" else "place")
 		InventoryScreen.note_recent(item)
 		buzz(15)
+		if Items.sapling_trees.has(id):
+			growing[pos] = true                   # saplings grow into trees
 		tutorial.report("place")
 		if not creative:
 			inv.use_one(selected)
@@ -828,7 +928,7 @@ func pick_block() -> void:
 	var d: Dictionary = Blocks.defs.get(id, {})
 	var item := id
 	if d.has("door"):
-		item = 510
+		item = int(d["door"].get("base", 510))
 	elif d.get("shape") == "ladder":
 		item = 500
 	elif d.get("shape") == "stair":
@@ -1131,6 +1231,8 @@ func _process(delta: float) -> void:
 	_update_animals(delta)
 	_update_health(delta)
 	_update_tutorial()
+	if spawned:
+		_update_growing(delta)
 	if spawned and hud.minimap.visible:
 		hud.minimap.update_map(player.position, player.forward(), spawn_point)
 	if spawned:
@@ -1175,6 +1277,7 @@ func save_game() -> void:
 	data["survival"] = health.to_data()
 	data["mode"] = "creative" if creative else "survival"
 	data["hotbars"] = saved_hotbars
+	data["growing"] = growing.keys().map(func(v): return [v.x, v.y, v.z])
 	data["spawn"] = [spawn_point.x, spawn_point.y, spawn_point.z]
 	world.save(SAVE_PATH, data)
 	Session.touch(data["mode"])
@@ -1252,7 +1355,39 @@ func _selftest_step() -> void:
 			_touch(1, s / 2, false)
 		404:
 			print("SELFTEST tap placed a block: ", inv.count(7) == _st["planks"] - 1)
+			# farming: hoe a dirt block, plant seeds, let it ripen, harvest
+			var f := player.position + player.forward() * 3.0
+			var fp := Vector3i(floori(f.x + 0.5), world.top_y(floori(f.x + 0.5), floori(f.z + 0.5)), floori(f.z + 0.5))
+			edit(fp, 2, true)
+			edit(fp + Vector3i(0, 1, 0), 0, true)
+			_farm(fp, 217)
+			var tilled := world.get_block(fp.x, fp.y, fp.z) == Items.farmland
+			_farm(fp, 120)
+			var crop_pos := fp + Vector3i(0, 1, 0)
+			var planted := growing.has(crop_pos)
+			for i in 3:
+				edit(crop_pos, int(Blocks.defs[world.get_block(crop_pos.x, crop_pos.y, crop_pos.z)]["crop"]["next"]))
+			var wheat_before := drops.drops.filter(func(d): return d["stack"][0] == 121).size()
+			break_at(crop_pos)
+			var wheat_after := drops.drops.filter(func(d): return d["stack"][0] == 121).size()
+			print("SELFTEST farming: tilled ", tilled, ", planted ", planted, ", harvested wheat ", wheat_after > wheat_before)
+			# a sapling grows into a tree
+			var sp := fp + Vector3i(2, 0, 0)
+			edit(sp, 2, true)
+			for y in range(1, 9):
+				edit(sp + Vector3i(0, y, 0), 0, true)
+			edit(sp + Vector3i(0, 1, 0), 714)
+			for i in 4:                                        # a little farm row and a door, for the screenshot
+				for side in [-1, 1]:
+					var q := fp + Vector3i(i - 1, 0, side)
+					edit(q, Items.farmland, true)
+					edit(q + Vector3i(0, 1, 0), (971 if side < 0 else 975) + i, true)
+			var dp := fp + Vector3i(-2, 1, 0)
+			edit(dp, 1524, true)
+			edit(dp + Vector3i(0, 1, 0), 1525, true)
+			print("SELFTEST sapling grew: ", _grow_tree(sp + Vector3i(0, 1, 0), Items.sapling_trees[714]), ", trunk: ", world.get_block(sp.x, sp.y + 2, sp.z) == 710)
 		405:
+			_st_shot("t7_farm")
 			inv.add(4, 2)                                        # two logs to craft with
 			_press("inventory", 2, true)
 			_press("inventory", 2, false)
@@ -1264,8 +1399,13 @@ func _selftest_step() -> void:
 			screen._craft(planks, 1)
 			screen.refresh()
 			print("SELFTEST crafted planks: ", inv.count(7) == before + 4)
-		412:
+		411:
 			_st_shot("t2_crafting")
+			inv.add(25, 3)                                       # iron ore and coal for the furnace
+			inv.add(102, 2)
+			screen.open(inv, false, null, "furnace")
+		412:
+			_st_shot("t8_furnace")
 			screen.closed.emit()
 			open_settings()
 		413:

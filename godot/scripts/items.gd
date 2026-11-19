@@ -16,6 +16,9 @@ var S := {}                 # special ids and sizes (STICK, BUCKET, STACK_SIZE, 
 var STACK_SIZE := 64
 var families := {}          # "wool" -> [creative item ids in menu order]; the first one represents the family
 var family_of := {}         # item id -> family name (only items that belong to a family)
+var plant := {}             # seed item -> crop block (planted on farmland)
+var farmland := 970
+var sapling_trees := {}     # sapling -> [log, leaves]
 var icons3d := {}           # block id -> index in data/icons3d.png (little 3D cubes)
 var icon3d_size := 48
 var icon3d_cols := 32
@@ -39,6 +42,11 @@ func _init() -> void:
 		for k in r["in"]:
 			ins[k if groups.has(k) else int(k)] = int(r["in"][k])
 		recipes.append({"in": ins, "out": [int(r["out"][0]), int(r["out"][1])], "station": str(r.get("station", ""))})
+	for k in d.get("plant", {}):
+		plant[int(k)] = int(d["plant"][k])
+	farmland = int(d.get("farmland", 970))
+	for k in d.get("sapling_trees", {}):
+		sapling_trees[int(k)] = d["sapling_trees"][k].map(func(v): return int(v))
 	if d.has("icons3d"):
 		icon3d_size = int(d["icons3d"]["size"])
 		icon3d_cols = int(d["icons3d"]["cols"])
@@ -105,6 +113,8 @@ func drop_for(block: int) -> int:
 	var d: Dictionary = Blocks.defs.get(block, {})
 	if d.is_empty():
 		return 0
+	if block == 51 or block == 52:                 # tall grass and ferns sometimes hide seeds
+		return int(S.get("SEEDS", 120)) if randf() < 0.15 else 0
 	if d.get("leaves", false):
 		var roll := randf()
 		if roll >= 0.94:

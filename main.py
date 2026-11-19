@@ -805,7 +805,7 @@ def place_block():
         if not replaceable(above) or overlaps_player(outside, 512) or overlaps_player(above, 512):
             return
         axis = 0 if facing in (0, 2) else 1
-        if edit(outside, 510 + axis * 4) and edit(above, 510 + axis * 4 + 1) and not creative:
+        if edit(outside, item + axis * 4) and edit(above, item + axis * 4 + 1) and not creative:
             inventory.use_one(selected)
             refresh_items()
         return
@@ -824,7 +824,7 @@ def pick_block():
     block_id = world.get(*inside)
     item = block_id
     if block_id in DOORS:
-        item = 510
+        item = DOORS[block_id]["base"]
     elif 500 <= block_id <= 503:
         item = 500
     for stairs in STAIRS.values():

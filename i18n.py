@@ -16,7 +16,8 @@ NAMES_AR = {
     "chest": "صندوق", "clay": "طين", "coal": "فحم", "coal ore": "خام فحم", "cobblestone": "حجر مرصوف",
     "cooked meat": "لحمة مشوية", "copper block": "بلوك نحاس", "copper ingot": "سبيكة نحاس",
     "copper ore": "خام نحاس", "diamond": "ألماس", "diamond block": "بلوك ألماس", "diamond ore": "خام ألماس",
-    "dirt": "تراب", "door": "باب", "fern": "سرخس", "furnace": "فرن", "glass": "زجاج", "gold block": "بلوك ذهب",
+    "dirt": "تراب", "door": "باب", "farmland": "أرض محروثة", "wheat": "قمح", "carrots": "جزر", "seeds": "بذور",
+    "bread": "خبز", "carrot": "جزرة", "fern": "سرخس", "furnace": "فرن", "glass": "زجاج", "gold block": "بلوك ذهب",
     "gold ingot": "سبيكة ذهب", "gold ore": "خام ذهب", "granite": "غرانيت", "grass": "عشب", "gravel": "حصى",
     "ice": "جليد", "iron block": "بلوك حديد", "iron ingot": "سبيكة حديد", "iron ore": "خام حديد",
     "ladder": "سلّم", "lamp": "لمبة", "marble": "رخام", "mossy cobblestone": "حجر مرصوف بطحلب",
@@ -77,13 +78,13 @@ FAMILIES = {
     "mushrooms": ("Mushrooms", "فطر"), "slabs": ("Slabs", "بلاطات"), "stairs": ("Stairs", "أدراج"),
     "walls": ("Walls", "أسوار"), "ingots": ("Ingots", "سبائك"), "gems": ("Gems", "جواهر"),
     "pickaxes": ("Pickaxes", "معاول"), "axes": ("Axes", "فؤوس"), "shovels": ("Shovels", "مجارف"),
-    "swords": ("Swords", "سيوف"),
+    "swords": ("Swords", "سيوف"), "hoes": ("Hoes", "معازق"), "doors": ("Doors", "أبواب"),
 }
 FAMILIES_EN = {f: en for f, (en, _ar) in FAMILIES.items()}
 FAMILIES_AR = {f: ar for f, (_en, ar) in FAMILIES.items()}
 _DYE_INDEX = {tuple(rgb): i for i, (_name, rgb) in enumerate(DYES)}
 
-TOOL_KINDS_AR = {"pickaxe": "معول", "axe": "فأس", "shovel": "مجرفة", "sword": "سيف"}
+TOOL_KINDS_AR = {"pickaxe": "معول", "axe": "فأس", "shovel": "مجرفة", "sword": "سيف", "hoe": "معزقة"}
 TIERS_AR = {"wooden": "خشبي", "stone": "حجري", "iron": "حديدي", "diamond": "ألماسي"}
 GROUPS_AR = {"planks": "ألواح", "rock": "صخر", "wool": "صوف", "logs": "جذوع", "flowers": "ورود", "fuel": "وقود"}
 TABS_AR = {"all": "الكل", "natural": "طبيعي", "building": "بناء", "colored": "ملوّن", "plants": "نباتات",
@@ -189,7 +190,10 @@ UI = {
     "info_mine_with": ("Faster with a %s", "أسرع بـ %s"), "info_variants": ("%d kinds", "%d أنواع"),
     "info_recipe": ("Made from:", "بينصنع من:"),
     "tool_pickaxe": ("pickaxe", "معول"), "tool_axe": ("axe", "فأس"), "tool_shovel": ("shovel", "مجرفة"),
-    "tool_sword": ("sword", "سيف"),
+    "tool_sword": ("sword", "سيف"), "tool_hoe": ("hoe", "معزقة"),
+    "hoe_hint": ("Use a hoe on grass or dirt, then plant seeds", "استعمل المعزقة على عشب أو تراب، وبعدين ازرع بذور"),
+    "needs_farmland": ("Plant it on farmland (use a hoe first)", "بينزرع بأرض محروثة (استعمل المعزقة أول)"),
+    "tree_grew": ("A tree grew!", "كبرت شجرة!"),
     "no_favorites": ("Hold any block to add it here", "اضغط مطوّل على أي بلوك ليصير هون"),
     "nothing_found": ("Nothing here", "ما في شي هون"),
     "favorited": ("★ %s", "★ %s"), "unfavorited": ("Removed %s", "انشال %s"),
@@ -246,7 +250,8 @@ def arabic_name(item):
         return TOOL_KINDS_AR[kind] + " " + TIERS_AR[tier]
     d = BLOCK_DEFS.get(item, {})
     if d.get("door"):
-        return NAMES_AR["door"]
+        species = name.replace(" door", "")
+        return NAMES_AR["door"] + (" " + _WOODS_AR[species] if species in _WOODS_AR else "")
     if d.get("shape") == "ladder":
         return NAMES_AR["ladder"]
     raise KeyError(f"no Arabic name for {item} ({name})")

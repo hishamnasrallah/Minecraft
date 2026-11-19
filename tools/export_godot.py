@@ -76,11 +76,14 @@ def export_items():
         "families": inv.creative_families(),
         "family_names": {f: {"en": i18n.FAMILIES_EN[f], "ar": i18n.FAMILIES_AR[f]} for f in inv.creative_families()},
         "placeable": sorted(inv.PLACEABLE),
+        "plant": {str(k): v for k, v in blocks.PLANT_ON_FARMLAND.items()},
+        "farmland": blocks.FARMLAND,
+        "sapling_trees": {str(w["sapling"]): [w["log"], w["leaves"]] for w in blocks.WOODS.values()},
         "survival": {k: getattr(sv, k) for k in ("MAX_HEALTH", "MAX_HUNGER", "MAX_AIR", "EXHAUSTION_PER_POINT",
                                                  "IDLE_PER_SECOND", "WALK_PER_BLOCK", "JUMP", "MINE", "ATTACK",
                                                  "REGEN", "REGEN_EVERY", "STARVE_EVERY", "DROWN_EVERY", "SAFE_FALL")},
         "special": {"STICK": inv.STICK, "COAL": inv.COAL, "RAW_MEAT": inv.RAW_MEAT, "COOKED_MEAT": inv.COOKED_MEAT,
-                    "APPLE": inv.APPLE, "BUCKET": inv.BUCKET, "WATER_BUCKET": inv.WATER_BUCKET,
+                    "APPLE": inv.APPLE, "SEEDS": inv.SEEDS, "BUCKET": inv.BUCKET, "WATER_BUCKET": inv.WATER_BUCKET,
                     "STACK_SIZE": inv.STACK_SIZE, "HOTBAR_SIZE": inv.HOTBAR_SIZE, "INVENTORY_SIZE": inv.INVENTORY_SIZE},
     }
 
