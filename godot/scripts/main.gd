@@ -2343,6 +2343,15 @@ func _process_inner(delta: float) -> void:
 			print("VOID frame %d: y %.0f, health %d, dead %s" % [_st_frame, player.position.y, health.health, health.dead])
 		if _st_frame == 600:
 			get_tree().quit()
+	if "--backtest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: the phone's Back button
+		if _st_frame == 5:
+			open_screen()
+		if _st_frame in [10, 20, 30]:
+			get_tree().root.propagate_notification(NOTIFICATION_WM_GO_BACK_REQUEST)
+			print("BACK %d: inventory %s, settings %s, still running %s" % [_st_frame, screen.visible, settings.visible, is_inside_tree()])
+		if _st_frame == 40:
+			get_tree().quit()
 	if "--torchtest" in OS.get_cmdline_user_args() and spawned:
 		_st_frame += 1                                  # testing: torches on every side of a pillar, at night
 		if _st_frame == 5:
@@ -2469,6 +2478,25 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_PAUSED:
 		if world and player:
 			save_game()
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		_back_pressed()
+
+
+## The phone's Back button closes what is open, one thing at a time; in the game itself it
+## opens the settings (where "exit to menu" is). It never quits the app by surprise.
+func _back_pressed() -> void:
+	if settings.visible:
+		I18n.save_settings()
+		close_settings()
+	elif screen.visible:
+		close_screen()
+	elif chat_box.visible:
+		chat_box.visible = false
+		chat_box.closed.emit()
+	elif health.dead:
+		respawn()
+	elif spawned:
+		open_settings()
 
 
 # ---------------------------------------------------------------- self test (-- --selftest --touch)

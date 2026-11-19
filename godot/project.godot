@@ -7,6 +7,7 @@ config/name="BlockWorld"
 config/description="A voxel sandbox. Same world, blocks and rules as the Python version."
 run/main_scene="res://scenes/menu.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
+config/quit_on_go_back=false
 
 [autoload]
 

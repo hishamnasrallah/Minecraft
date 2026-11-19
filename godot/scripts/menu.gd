@@ -366,3 +366,20 @@ func _process(delta: float) -> void:
 		if _join_timer <= 0.0:
 			_join_timer = 1.0
 			_refresh_found()
+
+
+## Back on the phone: close the open panel first; on the plain menu it leaves the app.
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_WM_GO_BACK_REQUEST:
+		return
+	if _confirm != null and _confirm.visible:
+		_confirm.hide()
+	elif _settings != null and _settings.visible:
+		I18n.save_settings()
+		_settings.visible = false
+	elif _join != null and _join.visible:
+		_join.visible = false
+		Net.stop_listening()
+		Net.stop()
+	else:
+		get_tree().quit()
