@@ -97,10 +97,15 @@ def test_new_blocks_generate_in_the_world():
     for i in (b.SLATE, b.LIMESTONE, b.RUBY_ORE, b.SAPPHIRE_ORE, b.AMETHYST_ORE, b.QUARTZ_ORE,
               b.LEAFY_BUSH, b.BERRY_BUSH, 951, 952, *b.FAMILIES["flowers"]):
         assert i in found, b.BLOCKS[i]
-    # ores and slate stay underground, below the surface layer
+    # ores stay in their depth bands and slate deep down, far below the surface layer
+    from world import World as W, SLATE_LINE
+    deepest = {ore: max_y for ore, _, max_y in W.ORES}
+    assert deepest[b.RUBY_ORE] < SLATE_LINE and deepest[b.SAPPHIRE_ORE] < SLATE_LINE
     for (x, y, z), block_id in w.blocks.items():
-        if block_id in (b.RUBY_ORE, b.SAPPHIRE_ORE):
-            assert y <= 12
+        if block_id in deepest:
+            assert y <= deepest[block_id]
+        elif block_id == b.SLATE:
+            assert y < SLATE_LINE + 6
 
 
 def test_carpets_are_drawn_without_collision():

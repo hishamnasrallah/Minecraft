@@ -4,10 +4,12 @@ extends RefCounted
 ## and saving. A faithful port of world.py — the same seed generates the same world, and
 ## save files use the same format.
 ##
-## Each chunk is a flat PackedInt32Array of block ids (16 x 64 x 16), index (lx*64 + y)*16 + lz.
+## Each chunk is a flat PackedInt32Array of block ids (16 x H x 16), index (lx*H + y)*16 + lz.
 
 const CS := 16
-const H := 64
+const H := 320                  # world height (world.py MAX_HEIGHT)
+const SURFACE_OFFSET := 180     # the surface sits this far above the bedrock (world.py SURFACE_OFFSET)
+const SAVE_VERSION := 4         # saves before 4 were made when the surface was SURFACE_OFFSET lower
 const WATER := 10
 const NEIGHBOURS := [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]
 
@@ -16,8 +18,9 @@ const NEIGHBOURS := [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), V
 class Chunk:
 	var b := PackedInt32Array()
 
-	func _init() -> void:
-		b.resize(16 * 64 * 16)
+	func _init(allocate := true) -> void:
+		if allocate:
+			b.resize(16 * H * 16)
 
 
 var seed: int
@@ -35,6 +38,17 @@ var SNOW_LINE: int
 var TREE_CHANCE: float
 var CAVE_THRESHOLD: float
 var CAVE_GRID: int
+var CAVE_FLOOR: int
+var BEDROCK_TOP: int
+var SLATE_LINE: int
+var BASALT_LINE: int
+var LIMESTONE_LINE: int
+var CAVERN_TOP: int
+var CAVERN_MID: int
+var CAVERN_LIMIT: float
+var ORE_IDS: PackedInt32Array          # World.ORES as typed arrays for the generator's inner loops
+var ORE_BANDS: PackedFloat64Array
+var ORE_MAX_Y: PackedInt32Array
 var TREE_KINDS: Array          # kind index -> name ("oak", "birch", "pine", "maple", ...)
 var TREES: Array               # kind index -> [log, leaves, trunk height, [[dy, radius, reach], ...]]
 var FLOWERS: Array
@@ -52,6 +66,14 @@ func _init(world_seed: int = -1) -> void:
 	TREE_CHANCE = float(Blocks.C["TREE_CHANCE"])
 	CAVE_THRESHOLD = float(Blocks.C["CAVE_THRESHOLD"])
 	CAVE_GRID = int(Blocks.C["CAVE_GRID"])
+	CAVE_FLOOR = int(Blocks.C["CAVE_FLOOR"])
+	BEDROCK_TOP = int(Blocks.C["BEDROCK_TOP"])
+	SLATE_LINE = int(Blocks.C["SLATE_LINE"])
+	BASALT_LINE = int(Blocks.C["BASALT_LINE"])
+	LIMESTONE_LINE = int(Blocks.C["LIMESTONE_LINE"])
+	CAVERN_TOP = int(Blocks.C["CAVERN_TOP"])
+	CAVERN_MID = int(Blocks.C["CAVERN_MID"])
+	CAVERN_LIMIT = float(Blocks.C["CAVERN_LIMIT"])
 	TREE_KINDS = Blocks.C["TREE_KINDS"].duplicate(true)
 	ORES = Blocks.ores.duplicate(true)
 	TRANSPARENT = Blocks.transparent.duplicate()
@@ -64,6 +86,10 @@ func _init(world_seed: int = -1) -> void:
 		TREES.append([int(t[0]), int(t[1]), int(t[2]), layers])
 	FLOWERS = Blocks.C["FLOWERS"].map(func(v): return int(v))
 	ORE_LIMIT = float(Blocks.ores[Blocks.ores.size() - 1][1])
+	for ore in ORES:
+		ORE_IDS.append(int(ore[0]))
+		ORE_BANDS.append(float(ore[1]))
+		ORE_MAX_Y.append(int(ore[2]))
 	for k in Blocks.C["GEN_IDS"]:
 		G[k] = int(Blocks.C["GEN_IDS"][k])
 
@@ -204,7 +230,7 @@ func _column_climate(x: int, z: int) -> Array:
 	var hills := VNoise.fbm(x / 28.0, z / 28.0, seed)
 	var m := VNoise.fbm(x / 90.0, z / 90.0, seed + 7)
 	var mountains := m * m
-	var h := int(3 + hills * 12 + mountains * 22)
+	var h := int(3 + hills * 12 + mountains * 22) + SURFACE_OFFSET
 	var desert := h > WATER_LEVEL + 1 and h < SNOW_LINE - 3 and VNoise.fbm(x / 140.0, z / 140.0, seed + 31, 2) > 0.6
 	var forest := VNoise.fbm(x / 60.0, z / 60.0, seed + 41, 2)
 	var tree := not desert and h > WATER_LEVEL and VNoise.hash2(x, z, seed + 777) < TREE_CHANCE * (0.6 + 1.6 * forest)
@@ -245,15 +271,25 @@ func has_tree(x: int, z: int) -> bool:
 
 
 ## Generate a chunk (and re-apply the player's edits in it) if it isn't loaded.
+## Gives exactly the blocks of world.py's per-cell rules, but fills them in bulk (generation runs
+## on phones): each column's slate / stone base is written in one pass, rock blobs are painted
+## per 8x4x8 blob and ores per 2x2x2 cluster, so most of the ~50k underground cells cost one
+## array write instead of a few noise calls. Priority, as in World._rock: ore > blob > slate/stone.
 func ensure_chunk(key: Vector2i) -> bool:
 	if chunks.has(key):
 		return false
-	chunks[key] = Chunk.new()
 	var x0 := key.x * CS
 	var z0 := key.y * CS
+	var blk := PackedInt32Array()
+	blk.resize(CS * H * CS)
+	var rock_tops := PackedInt32Array()            # per column: rock fills BEDROCK_TOP .. rock_top - 1
+	rock_tops.resize(CS * CS)
 	var surface := []
-	for x in range(x0, x0 + CS):
-		for z in range(z0, z0 + CS):
+	var slate_id: int = G["SLATE"]
+	for lx in CS:
+		for lz in CS:
+			var x := x0 + lx
+			var z := z0 + lz
 			var cl := _column_climate(x, z)
 			var h: int = cl[0]
 			var desert: bool = cl[1]
@@ -273,21 +309,39 @@ func ensure_chunk(key: Vector2i) -> bool:
 					filler = top_block
 			else:
 				top_block = 16 if snowy else 1
-			for y in range(h + 1):
-				var b: int
-				if y == 0:
-					b = 9
-				elif y < h - 3:
-					b = 20 if (desert and y >= h - 6) else _rock(x, y, z)
-				elif y < h:
-					b = filler
-				else:
-					b = top_block
-				_put(x, y, z, b)
+			var rock_top := h - 6 if desert else h - 3  # deserts have sandstone under the sand
+			rock_tops[lx * CS + lz] = rock_top
+			var slate := _slate_line(x, z)
+			var col := lx * H * CS + lz              # index of (lx, 0, lz); one block up is +CS
+			blk[col] = 9
+			for y in range(1, BEDROCK_TOP):          # ragged bedrock floor (cell by cell)
+				if VNoise.hash3(x, y, z, seed + 5) < (BEDROCK_TOP - y) * 0.2:
+					blk[col + y * CS] = 9
+				elif y < rock_top:
+					blk[col + y * CS] = _rock(x, y, z, slate)
+			var split := clampi(slate, BEDROCK_TOP, rock_top)
+			var i := col + BEDROCK_TOP * CS
+			for y in range(BEDROCK_TOP, split):
+				blk[i] = slate_id
+				i += CS
+			for y in range(split, rock_top):
+				blk[i] = 3
+				i += CS
+			for y in range(rock_top, h - 3):
+				blk[col + y * CS] = 20
+			for y in range(maxi(rock_top, h - 3), h):
+				blk[col + y * CS] = filler
+			blk[col + h * CS] = top_block
 			for y in range(h + 1, WATER_LEVEL + 1):
-				_put(x, y, z, WATER)
+				blk[col + y * CS] = WATER
 			surface.append([x, z, h, top_block, desert])
-	_carve_caves(key)
+	blk = _paint_blobs(blk, rock_tops, x0, z0)     # (packed arrays are handed back, so this
+	blk = _paint_ores(blk, rock_tops, x0, z0)      # works whether they pass by value or reference)
+	blk = _carve_caves(key, blk)
+	var chunk := Chunk.new(false)
+	chunk.b = blk
+	blk = PackedInt32Array()                        # drop our reference: later edits write in place
+	chunks[key] = chunk                             # (no generated terrain block emits light)
 	_plants(surface)
 	# trees near the border overlap neighbouring chunks; each chunk keeps only its part
 	for tx in range(x0 - 2, x0 + CS + 2):
@@ -300,30 +354,174 @@ func ensure_chunk(key: Vector2i) -> bool:
 	return true
 
 
-## Underground block: stone with patches of other rock, and ore clusters by depth.
-func _rock(x: int, y: int, z: int) -> int:
+## Below this y the rock is dark slate instead of stone (a wavy, ragged boundary).
+func _slate_line(x: int, z: int) -> int:
+	return SLATE_LINE - 6 + int(VNoise.value_noise(x / 16.0, z / 16.0, seed + 81) * 9) \
+		+ int(VNoise.hash2(x, z, seed + 82) * 3)
+
+
+## Underground block: stone (slate deep down) with patches of other rock, and ore clusters by
+## depth. The per-cell reference (world.py World._rock); ensure_chunk only uses it below BEDROCK_TOP.
+func _rock(x: int, y: int, z: int, slate: int) -> int:
 	var r := VNoise.hash3(x >> 1, y >> 1, z >> 1, seed + 55)
 	if r < ORE_LIMIT:
-		for ore in ORES:
-			if r < float(ore[1]):
-				if y <= int(ore[2]) and VNoise.hash3(x, y, z, seed + 56) < 0.6:
-					return int(ore[0])
+		for o in ORE_IDS.size():
+			if r < ORE_BANDS[o]:
+				if y <= ORE_MAX_Y[o] and VNoise.hash3(x, y, z, seed + 56) < 0.6:
+					return ORE_IDS[o]
 				break
 	var v := VNoise.hash3(x >> 3, y >> 2, z >> 3, seed + 71)
 	if v < 0.08:
 		return 18
-	if v < 0.15 and y < 20:
+	if v < 0.15 and y < BASALT_LINE:
 		return 19
 	if v < 0.19:
 		return 21
-	if v < 0.25 and y > 14:
+	if v < 0.25 and y >= LIMESTONE_LINE:
 		return G["LIMESTONE"]
-	if y < 4 + int(VNoise.hash2(x, z, seed + 81) * 3):
+	if y < slate:
 		return G["SLATE"]
 	return 3
 
 
-func _carve_caves(key: Vector2i) -> void:
+## Rock blobs (granite, basalt, marble, limestone): one hash per 8x4x8 blob. BASALT_LINE and
+## LIMESTONE_LINE are multiples of 4, so a whole blob is on one side of them.
+func _paint_blobs(blk: PackedInt32Array, rock_tops: PackedInt32Array, x0: int, z0: int) -> PackedInt32Array:
+	var limestone: int = G["LIMESTONE"]
+	for bi in 2:
+		for bk in 2:
+			var top := 0
+			for lx in range(bi * 8, bi * 8 + 8):
+				for lz in range(bk * 8, bk * 8 + 8):
+					top = maxi(top, rock_tops[lx * CS + lz])
+			for by in range(BEDROCK_TOP >> 2, ((top - 1) >> 2) + 1):
+				var v := VNoise.hash3((x0 >> 3) + bi, by, (z0 >> 3) + bk, seed + 71)
+				var y0 := by * 4
+				var id := 0
+				if v < 0.08:
+					id = 18
+				elif v < 0.15 and y0 < BASALT_LINE:
+					id = 19
+				elif v < 0.19:
+					id = 21
+				elif v < 0.25 and y0 >= LIMESTONE_LINE:
+					id = limestone
+				if id == 0:
+					continue
+				for lx in range(bi * 8, bi * 8 + 8):
+					for lz in range(bk * 8, bk * 8 + 8):
+						var i := (lx * H + y0) * CS + lz
+						for y in range(y0, mini(y0 + 4, rock_tops[lx * CS + lz])):
+							blk[i] = id
+							i += CS
+	return blk
+
+
+## Ore clusters: one hash per 2x2x2 cell (inlined VNoise.hash3), then 60% of its cells.
+func _paint_ores(blk: PackedInt32Array, rock_tops: PackedInt32Array, x0: int, z0: int) -> PackedInt32Array:
+	var s55: int = (seed + 55) * 1442695041
+	for oi in 8:
+		for ok in 8:
+			var c := (2 * oi) * CS + 2 * ok
+			var top := maxi(maxi(rock_tops[c], rock_tops[c + 1]), maxi(rock_tops[c + CS], rock_tops[c + CS + 1]))
+			var hb: int = ((x0 >> 1) + oi) * 374761393 + ((z0 >> 1) + ok) * 668265263 + s55
+			for oy in range(BEDROCK_TOP >> 1, ((top - 1) >> 1) + 1):
+				var n: int = (hb + oy * 1103515245) & 0xFFFFFFFF
+				n = ((n ^ (n >> 13)) * 1274126177) & 0xFFFFFFFF
+				var r := float(n ^ (n >> 16)) / 4294967295.0
+				if r >= ORE_LIMIT:
+					continue
+				var o := 0
+				while r >= ORE_BANDS[o]:
+					o += 1
+				var id := ORE_IDS[o]
+				var max_y := ORE_MAX_Y[o]
+				for dx in 2:
+					for dz in 2:
+						var lx := 2 * oi + dx
+						var lz := 2 * ok + dz
+						var rt := rock_tops[lx * CS + lz]
+						for dy in 2:
+							var y := 2 * oy + dy
+							if y <= max_y and y < rt and VNoise.hash3(x0 + lx, y, z0 + lz, seed + 56) < 0.6:
+								blk[(lx * H + y) * CS + lz] = id
+	return blk
+
+
+## VNoise.value_noise3(X / sxz, Y / sy, Z / sxz, nseed) at the cave grid points X = x0 + i*g,
+## Y = j*g (j < ny), Z = z0 + k*g, at index (i * ny + j) * (n + 1) + k. Bit-identical to calling
+## value_noise3 per point (same lerps in the same order), but every lattice hash is made once
+## and the z / y / x interpolations are shared between neighbouring points.
+func _noise_grid(nseed: int, sxz: float, sy: float, x0: int, z0: int, ny: int) -> PackedFloat64Array:
+	var g := CAVE_GRID
+	var np := CS / g + 1
+	var xi := PackedInt32Array()
+	var xt := PackedFloat64Array()
+	var zi := PackedInt32Array()
+	var zt := PackedFloat64Array()
+	var yi := PackedInt32Array()
+	var yt := PackedFloat64Array()
+	for i in np:
+		var fx := (x0 + i * g) / sxz
+		var fl := floori(fx)
+		xi.append(fl)
+		xt.append(VNoise._smooth(fx - fl))
+		var fz := (z0 + i * g) / sxz
+		fl = floori(fz)
+		zi.append(fl)
+		zt.append(VNoise._smooth(fz - fl))
+	for j in ny:
+		var fy := (j * g) / sy
+		var fl := floori(fy)
+		yi.append(fl)
+		yt.append(VNoise._smooth(fy - fl))
+	var lx0 := xi[0]
+	var ly0 := yi[0]
+	var lz0 := zi[0]
+	var nlx := xi[np - 1] - lx0 + 2
+	var nly := yi[ny - 1] - ly0 + 2
+	var nlz := zi[np - 1] - lz0 + 2
+	var hz := PackedFloat64Array()
+	hz.resize(nlx * nly * nlz)
+	for a in nlx:
+		for b in nly:
+			for c in nlz:
+				hz[(a * nly + b) * nlz + c] = VNoise.hash3(lx0 + a, ly0 + b, lz0 + c, nseed)
+	var ez := PackedFloat64Array()                 # along z: [(a * nly + b) * np + k]
+	ez.resize(nlx * nly * np)
+	for a in nlx:
+		for b in nly:
+			for k in np:
+				var h := (a * nly + b) * nlz + zi[k] - lz0
+				var h0 := hz[h]
+				ez[(a * nly + b) * np + k] = h0 + (hz[h + 1] - h0) * zt[k]
+	var ey := PackedFloat64Array()                 # then y: [(a * ny + j) * np + k]
+	ey.resize(nlx * ny * np)
+	for a in nlx:
+		for j in ny:
+			var e0i := (a * nly + yi[j] - ly0) * np
+			var t := yt[j]
+			for k in np:
+				var e0 := ez[e0i + k]
+				ey[(a * ny + j) * np + k] = e0 + (ez[e0i + np + k] - e0) * t
+	var out := PackedFloat64Array()                # then x
+	out.resize(np * ny * np)
+	for i in np:
+		var a := xi[i] - lx0
+		var t := xt[i]
+		for j in ny:
+			var v0i := (a * ny + j) * np
+			var v1i := ((a + 1) * ny + j) * np
+			for k in np:
+				var v0 := ey[v0i + k]
+				out[(i * ny + j) * np + k] = v0 + (ey[v1i + k] - v0) * t
+	return out
+
+
+## Hollow out tunnels everywhere and big caverns below CAVERN_TOP (port of World._carve_caves).
+## Noise is sampled on a coarse grid and interpolated; grid cells whose corners are all solid,
+## and cells above the terrain, are skipped.
+func _carve_caves(key: Vector2i, blk: PackedInt32Array) -> PackedInt32Array:
 	var g := CAVE_GRID
 	var x0 := key.x * CS
 	var z0 := key.y * CS
@@ -342,51 +540,77 @@ func _carve_caves(key: Vector2i) -> void:
 				top = h - 1                       # and under tree trunks
 			cols[lx * CS + lz] = top
 			ymax = maxi(ymax, top)
-	if ymax < 1:
-		return
 	var n := CS / g
+	var np := n + 1
 	var ny := ymax / g + 2
+	var tunnel_a := _noise_grid(seed + 300, 14.0, 9.0, x0, z0, ny)
+	var tunnel_b := _noise_grid(seed + 600, 14.0, 9.0, x0, z0, ny)
+	var ncav := mini(ny, (CAVERN_TOP + g - 1) / g)  # grid levels with j * g < CAVERN_TOP
+	var cavern := _noise_grid(seed + 900, 32.0, 16.0, x0, z0, ncav)
 	var grid := PackedFloat64Array()
-	grid.resize((n + 1) * ny * (n + 1))
-	for i in n + 1:
-		for k in n + 1:
-			for j in ny:
-				grid[(i * ny + j) * (n + 1) + k] = VNoise.cave_density(x0 + i * g, j * g, z0 + k * g, seed)
+	grid.resize(np * ny * np)
+	for i in np:
+		for j in ny:
+			var cav_t := (j * g - CAVERN_MID) / float(CAVERN_TOP - CAVERN_MID)
+			var limit := CAVERN_LIMIT + 0.18 * cav_t * cav_t
+			for k in np:
+				var gi := (i * ny + j) * np + k
+				var a := tunnel_a[gi] - 0.5
+				var b := tunnel_b[gi] - 0.5
+				var d := a * a + b * b                  # = VNoise.cave_density
+				if j < ncav:                            # = world.py cavern_density
+					d = minf(d, CAVE_THRESHOLD + (limit - cavern[(i * ncav + j) * np + k]) * 0.25)
+				grid[gi] = d
 	var c := PackedFloat64Array()
 	c.resize(8)
 	for i in n:
 		for k in n:
-			for j in ymax / g + 1:
+			var top := -1
+			for lx in g:
+				for lz in g:
+					top = maxi(top, cols[(i * g + lx) * CS + k * g + lz])
+			for j in range(CAVE_FLOOR / g, top / g + 1):
 				var lowest := 1e9
+				var highest := -1e9
 				for a in 2:
 					for b in 2:
 						for d in 2:
-							var value := grid[((i + a) * ny + j + b) * (n + 1) + k + d]
+							var value := grid[((i + a) * ny + j + b) * np + k + d]
 							c[a * 4 + b * 2 + d] = value
 							lowest = minf(lowest, value)
+							highest = maxf(highest, value)
 				if lowest >= CAVE_THRESHOLD:
 					continue                          # interpolation never goes below the lowest corner
-				for lx in g:
-					var fx := lx / float(g)
+				if highest < CAVE_THRESHOLD - 1e-9:   # ... nor above the highest: all hollow
+					for lx in g:
+						for lz in g:
+							var cx := i * g + lx
+							var cz := k * g + lz
+							var y_end := mini(j * g + g - 1, cols[cx * CS + cz])
+							for y in range(maxi(j * g, CAVE_FLOOR), y_end + 1):
+								blk[(cx * H + y) * CS + cz] = 0
+					continue
+				for lz in g:
+					var fz := lz / float(g)
+					var c00 := c[0] + (c[1] - c[0]) * fz
+					var c01 := c[2] + (c[3] - c[2]) * fz
+					var c10 := c[4] + (c[5] - c[4]) * fz
+					var c11 := c[6] + (c[7] - c[6]) * fz
 					for ly in g:
 						var y := j * g + ly
-						if y < 1:
+						if y < CAVE_FLOOR:
 							continue
 						var fy := ly / float(g)
-						for lz in g:
-							var x := x0 + i * g + lx
-							var z := z0 + k * g + lz
-							if y > cols[(i * g + lx) * CS + k * g + lz]:
+						var c0 := c00 + (c01 - c00) * fy
+						var c1 := c10 + (c11 - c10) * fy
+						for lx in g:
+							var cx := i * g + lx
+							var cz := k * g + lz
+							if y > cols[cx * CS + cz]:
 								continue
-							var fz := lz / float(g)
-							var c00 := c[0] + (c[1] - c[0]) * fz
-							var c01 := c[2] + (c[3] - c[2]) * fz
-							var c10 := c[4] + (c[5] - c[4]) * fz
-							var c11 := c[6] + (c[7] - c[6]) * fz
-							var c0 := c00 + (c01 - c00) * fy
-							var c1 := c10 + (c11 - c10) * fy
-							if c0 + (c1 - c0) * fx < CAVE_THRESHOLD:
-								_put(x, y, z, 0)
+							if c0 + (c1 - c0) * (lx / float(g)) < CAVE_THRESHOLD:
+								blk[(cx * H + y) * CS + cz] = 0
+	return blk
 
 
 ## Grass tufts, flowers, ferns, mushrooms, reeds by the water and cacti in deserts.
@@ -567,16 +791,17 @@ func save(path: String, player := {}) -> void:
 	var boxes := []
 	for p in containers:
 		boxes.append([[p.x, p.y, p.z], containers[p]])
-	var data := {"player": player, "version": 3, "seed": seed, "time_of_day": time_of_day,
+	var data := {"player": player, "version": SAVE_VERSION, "seed": seed, "time_of_day": time_of_day,
 		"containers": boxes, "changes": edits}
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	f.store_string(JSON.stringify(data))
 
 
 static func load_from(path: String) -> WorldData:
-	var data = JSON.parse_string(FileAccess.get_file_as_string(path))
-	if typeof(data) != TYPE_DICTIONARY:
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if typeof(parsed) != TYPE_DICTIONARY:
 		return null
+	var data := migrate(parsed)
 	var w := WorldData.new(int(data["seed"]))
 	w.time_of_day = float(data.get("time_of_day", 0.2))
 	w.player_data = data.get("player", {})
@@ -589,6 +814,50 @@ static func load_from(path: String) -> WorldData:
 		edits[p] = int(e[3])
 		w.changes[key] = edits
 	return w
+
+
+## Positions the game keeps in the save's player data: single points and lists of block cells.
+const PLAYER_POINTS := ["position", "spawn"]
+const PLAYER_CELL_LISTS := ["growing"]
+
+
+## Bring a loaded save up to SAVE_VERSION (same as world.py World.migrate). Saves before version 4
+## come from the shallow world (64 high, surface ~180 lower): every stored y moves up by
+## SURFACE_OFFSET so old builds, chests and the player stay on the same terrain.
+static func migrate(data: Dictionary) -> Dictionary:
+	if int(data.get("version", 0)) >= 4:
+		return data
+	var changes_up := []
+	for e in data.get("changes", []):
+		changes_up.append(_raised(e))
+	data["changes"] = changes_up
+	var boxes := []
+	for c in data.get("containers", []):
+		boxes.append([_raised(c[0]), c[1]])
+	data["containers"] = boxes
+	var player = data.get("player")
+	if typeof(player) != TYPE_DICTIONARY:
+		player = {}
+	for k in PLAYER_POINTS:
+		var p = player.get(k)
+		if p is Array and p.size() >= 3:
+			player[k] = _raised(p)
+	for k in PLAYER_CELL_LISTS:
+		var cells = player.get(k)
+		if cells is Array:
+			var up := []
+			for p in cells:
+				up.append(_raised(p))
+			player[k] = up
+	data["player"] = player
+	data["version"] = SAVE_VERSION
+	return data
+
+
+static func _raised(p: Array) -> Array:
+	var q := p.duplicate()
+	q[1] = q[1] + SURFACE_OFFSET
+	return q
 
 
 ## [top solid y, water surface y] of a loaded column, or null if its chunk isn't loaded.

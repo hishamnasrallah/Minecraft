@@ -13,7 +13,7 @@ extends Node3D
 ## States: "clear" -> "cloudy" -> "rain" ..., changing at random every few minutes.
 
 const KINDS := ["clear", "cloudy", "rain"]
-const CLOUD_Y := 58.0              # bottom of the cloud layer (world height is 64)
+const CLOUD_Y := WorldData.SURFACE_OFFSET + 58.0   # bottom of the cloud layer (well above the highest peaks)
 const CLOUD_H := 2.0               # cloud thickness
 const CELL := 12.0                 # size of one cloud block
 const CN := 32                     # cells per side of one cloud tile (tile = 384 m, repeats)

@@ -661,17 +661,19 @@ func looked_at_animal():
 
 func edit(pos: Vector3i, id: int, force := false, flood := true) -> bool:
 	var keys := world.set_block(pos.x, pos.y, pos.z, id, force, flood)
-	_rebuild(keys)
+	# light can change up to 15 blocks away: re-mesh the sections within 16 rows
+	_rebuild(keys, maxi(pos.y - 16, 0), mini(pos.y + 16, WorldData.H - 1))
 	return not keys.is_empty()
 
 
-func _rebuild(keys: Array) -> void:
+## Rows: the height range that changed (default: anything, e.g. building tools).
+func _rebuild(keys: Array, y_lo := -1, y_hi := -1) -> void:
 	var all := {}
 	for k in keys:
 		for dx in [-1, 0, 1]:
 			for dz in [-1, 0, 1]:
 				all[Vector2i(k.x + dx, k.y + dz)] = true
-	chunks.rebuild(all.keys())
+	chunks.rebuild(all.keys(), y_lo, y_hi)
 
 
 func break_at(pos: Vector3i) -> void:
@@ -1169,6 +1171,7 @@ var weather: Weather
 var power: Power
 var ghost: MeshInstance3D
 var debris: Debris
+var _cave_dark := 0.0               # 0 above ground .. 1 deep underground (darkens the sky)
 var _creative_cd := 0.0             # creative: time until holding breaks the next block           # where the held block would go
 var _tut_last = null              # [yaw, pitch, position] last frame, for the tutorial
 
@@ -1279,6 +1282,12 @@ func _update_sky(delta: float) -> void:
 	var dusk := clampf(1 - absf(sun_height) / 0.35, 0, 1)
 	var sky_color := NIGHT_SKY.lerp(DAY_SKY, day).lerp(DUSK_SKY, dusk * 0.7 * maxf(day, 0.5))
 	sky_color = weather.tint_sky(sky_color)
+	# underground the sky fades to dark: you no longer see blue through far cave openings
+	var col = world.column(floori(player.position.x + 0.5), floori(player.position.z + 0.5))
+	if col != null:
+		var depth: float = float(col[0]) - player.position.y
+		_cave_dark = move_toward(_cave_dark, clampf((depth - 6.0) / 18.0, 0.0, 1.0), delta * 0.8)
+	sky_color = sky_color.lerp(Color(0.02, 0.02, 0.03), _cave_dark)
 	env.background_color = sky_color
 	env.fog_light_color = sky_color
 	var reach_m := chunks.render_distance * 16.0
@@ -1359,13 +1368,33 @@ func _process(delta: float) -> void:
 	if "--stress" in OS.get_cmdline_user_args() and spawned:
 		# testing: fly fast in a straight line to stream many chunks through the worker threads
 		player.flying = true
-		player.position += Vector3(2.5, 0, 1.0)
+		player.position += Vector3(0.35, 0, 0.14)          # about 20 blocks a second
 		_st_frame += 1
 		if _st_frame > 900:
-			print("STRESS done at ", player.position, " chunks shown ", chunks.views.size(), " fps ", Engine.get_frames_per_second())
+			print("STRESS done at ", player.position, " chunks shown ", chunks.views.size(), " sections ", chunks.sections.size(), " fps ", Engine.get_frames_per_second())
 			get_tree().quit()
 	if "--selftest" in OS.get_cmdline_user_args() and spawned:
 		_selftest_step()
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--goto-y=") and spawned and not _st.has("goto"):
+			_st["goto"] = true                          # testing: jump deep underground
+			creative = true
+			set_flying(true)
+			player.noclip = true
+			var want := int(a.substr(9))
+			var px := floori(player.position.x + 0.5)
+			var pz := floori(player.position.z + 0.5)
+			var found := want
+			for dy in range(0, 60):                     # the nearest open air (a cave) at or below
+				for yy in [want - dy, want + dy]:
+					if yy > 2 and yy < WorldData.H - 2 and world.get_block(px, yy, pz) == 0 and world.get_block(px, yy + 1, pz) == 0:
+						found = yy
+						break
+				if found != want or world.get_block(px, want, pz) == 0:
+					break
+			player.position.y = float(found)
+			print("GOTO y ", found)
+			_shot_frames = 150
 	if "--debristest" in OS.get_cmdline_user_args() and spawned and Engine.get_process_frames() % 12 == 0:
 		debris.burst(player.eye() + player.forward() * 3.0, 1)        # testing: pieces in front of the camera
 	if "--machines" in OS.get_cmdline_user_args() and spawned and not _st.has("machines"):

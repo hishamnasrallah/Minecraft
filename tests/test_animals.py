@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from world import World, CHUNK_SIZE, WATER  # noqa: E402
+from world import World, CHUNK_SIZE, WATER, WATER_LEVEL  # noqa: E402
 from animals import (Animal, Wildlife, MAX_ANIMALS, MAX_FISH, MAX_AMBIENT, DESPAWN_DISTANCE,  # noqa: E402
                      SPECIES, DROPS, cap_of, GROW_TIME)
 
@@ -20,7 +20,7 @@ def flat(ground=3):
             w.chunks[(cx, cz)] = set()
     for x in range(-CHUNK_SIZE, 2 * CHUNK_SIZE):
         for z in range(-CHUNK_SIZE, 2 * CHUNK_SIZE):
-            for y in range(ground + 1):
+            for y in range(max(ground - 4, 0), ground + 1):   # (just the top layers of a high field)
                 w._put((x, y, z), 9 if y == 0 else (1 if y == ground else 2))
     return w
 
@@ -265,18 +265,19 @@ def test_goats_jump_up_two_blocks():
 
 
 def test_biomes_pick_fitting_creatures():
-    w = flat(ground=14)                   # a meadow above the sea
+    g = WATER_LEVEL + 3
+    w = flat(ground=g)                    # a meadow above the sea
     life = Wildlife(w, random.Random(10))
     seen = {life.pick_kind(5, 5)[0] for _ in range(60)}
     assert seen <= {"woolly", "hen", "rabbit", "deer"} and "woolly" in seen
-    w = flat(ground=14)
+    w = flat(ground=g)
     for x in range(-16, 32):
         for z in range(-16, 32):
-            w._put((x, 14, z), 6)             # desert sand
+            w._put((x, g, z), 6)             # desert sand
     life = Wildlife(w, random.Random(10))
     assert {life.pick_kind(5, 5)[0] for _ in range(10)} == {"lizard"}
-    w = flat(ground=14)                   # (fresh world: column tops are cached)
-    pond(w, depth=3, ground=14)
+    w = flat(ground=g)                   # (fresh world: column tops are cached)
+    pond(w, depth=3, ground=g)
     life = Wildlife(w, random.Random(10))
     kinds = {life.pick_kind(8, 8)[0] for _ in range(40)}
     assert kinds <= {"fish", "duck"} and "fish" in kinds

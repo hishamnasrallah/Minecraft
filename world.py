@@ -15,14 +15,25 @@ from blocks import (BLOCK_DEFS, BLOCKS, BLOCK_TILES, TRANSPARENT, TRANSLUCENT, N
                     AMETHYST_ORE, QUARTZ_ORE, LEAFY_BUSH, BERRY_BUSH, DRY_BUSH)
 
 CHUNK_SIZE = 16
-MAX_HEIGHT = 64
-WATER_LEVEL = 11
+MAX_HEIGHT = 320
+SURFACE_OFFSET = 180       # the surface sits this far above the bedrock: ~190 layers of underground
+WATER_LEVEL = 11 + SURFACE_OFFSET
 TREE_CHANCE = 0.012
 COAL_ORE = 13
 MAX_LIGHT = 15
 CAVE_THRESHOLD = 0.016     # bigger = more/wider caves
 CAVE_GRID = 4              # cave noise is sampled every N blocks and interpolated
-SNOW_LINE = 27             # mountain tops above this are snowy with pine trees
+CAVE_FLOOR = 4             # caves never cut into the bedrock layers below this
+SNOW_LINE = 27 + SURFACE_OFFSET   # mountain tops above this are snowy with pine trees
+# underground layers (absolute y)
+BEDROCK_TOP = 4            # y=0 is solid bedrock, y 1..3 random bedrock
+SLATE_LINE = 88            # dark slate below about this (ragged boundary, +-6)
+BASALT_LINE = 120          # basalt blobs below this (multiple of 4: decided per 8x4x8 blob)
+LIMESTONE_LINE = 160       # limestone blobs from here up (multiple of 4)
+CAVERN_TOP = 120           # big caverns below this
+CAVERN_MID = 62            # ... most common around this height
+CAVERN_LIMIT = 0.78        # cavern noise above this (plus more away from CAVERN_MID) is hollow
+SAVE_VERSION = 4           # saves before version 4 were made when the surface was SURFACE_OFFSET lower
 
 # Texture atlas layout: ATLAS_COLS x ATLAS_COLS tiles, read left-to-right, top-to-bottom.
 ATLAS_COLS = 32
@@ -172,6 +183,15 @@ def cave_density(x, y, z, seed):
     return a * a + b * b
 
 
+def cavern_density(x, y, z, seed):
+    """Big caverns deep down, on the same scale as cave_density (below CAVE_THRESHOLD = hollow):
+    a low-frequency blob noise whose threshold rises away from CAVERN_MID."""
+    t = (y - CAVERN_MID) / (CAVERN_TOP - CAVERN_MID)
+    limit = CAVERN_LIMIT + 0.18 * t * t
+    c = value_noise3(x / 32, y / 16, z / 32, seed + 900)
+    return CAVE_THRESHOLD + (limit - c) * 0.25
+
+
 def fbm(x, z, seed, octaves=4):
     total, amp, freq, norm = 0.0, 1.0, 1.0, 0.0
     for i in range(octaves):
@@ -308,7 +328,7 @@ class World:
         seed = self.seed
         hills = fbm(x / 28, z / 28, seed)
         mountains = fbm(x / 90, z / 90, seed + 7) ** 2
-        h = int(3 + hills * 12 + mountains * 22)
+        h = int(3 + hills * 12 + mountains * 22) + SURFACE_OFFSET
         desert = WATER_LEVEL + 1 < h < SNOW_LINE - 3 and fbm(x / 140, z / 140, seed + 31, 2) > 0.6
         forest = fbm(x / 60, z / 60, seed + 41, 2)
         tree = (not desert and h > WATER_LEVEL
@@ -353,10 +373,11 @@ class World:
         """Generate a chunk (and re-apply the player's edits in it) if it isn't loaded."""
         if key in self.chunks:
             return False
-        self.chunks[key] = set()
         cx, cz = key
         x0, z0 = cx * CHUNK_SIZE, cz * CHUNK_SIZE
         seed = self.seed
+        rock = self._rock
+        cells = {}
         surface = {}
         for x in range(x0, x0 + CHUNK_SIZE):
             for z in range(z0, z0 + CHUNK_SIZE):
@@ -373,19 +394,26 @@ class World:
                         top_block = filler = 15 if r < 0.25 else 14 if r < 0.4 else 6
                 else:
                     top_block, filler = (16 if snowy else 1), 2
-                for y in range(h + 1):
-                    if y == 0:
-                        b = 9
+                rock_top = h - 6 if desert else h - 3    # deserts have sandstone under the sand
+                slate = self.slate_line(x, z)
+                cells[(x, 0, z)] = 9
+                for y in range(1, h + 1):
+                    if y < BEDROCK_TOP and _hash3(x, y, z, seed + 5) < (BEDROCK_TOP - y) * 0.2:
+                        b = 9                                # ragged bedrock floor
+                    elif y < rock_top:
+                        b = rock(x, y, z, slate)
                     elif y < h - 3:
-                        b = self._rock(x, y, z) if not (desert and y >= h - 6) else 20
+                        b = 20
                     elif y < h:
                         b = filler
                     else:
                         b = top_block
-                    self._put((x, y, z), b)
+                    cells[(x, y, z)] = b
                 for y in range(h + 1, WATER_LEVEL + 1):
-                    self._put((x, y, z), WATER)
+                    cells[(x, y, z)] = WATER
                 surface[(x, z)] = (h, top_block, desert)
+        self.blocks.update(cells)                    # no generated terrain block emits light
+        self.chunks[key] = set(cells)
         self._carve_caves(key)
         self._plants(key, surface)
         # trees near the border overlap neighbouring chunks; each chunk keeps only its part
@@ -397,14 +425,20 @@ class World:
             self._put(pos, b)
         return True
 
-    # ores: (block, chance band, deepest y it can appear at)
-    ORES = [(COAL_ORE, 0.050, 64), (26, 0.064, 36), (27, 0.074, 36), (25, 0.086, 28), (28, 0.091, 14),
-            (29, 0.094, 9), (14, 0.104, 64),   # gravel pockets
-            (RUBY_ORE, 0.107, 12), (SAPPHIRE_ORE, 0.110, 12), (AMETHYST_ORE, 0.115, 22), (QUARTZ_ORE, 0.121, 40)]
+    def slate_line(self, x, z):
+        """Below this y the rock is dark slate instead of stone (a wavy, ragged boundary)."""
+        seed = self.seed
+        return SLATE_LINE - 6 + int(value_noise(x / 16, z / 16, seed + 81) * 9) + int(_hash(x, z, seed + 82) * 3)
+
+    # ores: (block, chance band, deepest y it can appear at). Common ores reach up to the
+    # surface, rare ones only appear deep down.
+    ORES = [(COAL_ORE, 0.050, MAX_HEIGHT), (26, 0.064, 205), (27, 0.074, 205), (25, 0.086, 150), (28, 0.091, 64),
+            (29, 0.094, 24), (14, 0.104, MAX_HEIGHT),   # gravel pockets
+            (RUBY_ORE, 0.107, 40), (SAPPHIRE_ORE, 0.110, 40), (AMETHYST_ORE, 0.115, 90), (QUARTZ_ORE, 0.121, 160)]
     ORE_LIMIT = ORES[-1][1]
 
-    def _rock(self, x, y, z):
-        """Underground block: stone with patches of other rock, and ore clusters by depth."""
+    def _rock(self, x, y, z, slate):
+        """Underground block: stone (slate deep down) with patches of other rock, and ore clusters by depth."""
         seed = self.seed
         r = _hash3(x >> 1, y >> 1, z >> 1, seed + 55)          # 2x2x2 cells decide ore clusters
         if r < self.ORE_LIMIT:
@@ -416,13 +450,13 @@ class World:
         v = _hash3(x >> 3, y >> 2, z >> 3, seed + 71)          # big blobs of other rock types
         if v < 0.08:
             return 18                                             # granite
-        if v < 0.15 and y < 20:
+        if v < 0.15 and y < BASALT_LINE:
             return 19                                             # basalt, deeper down
         if v < 0.19:
             return 21                                             # marble
-        if v < 0.25 and y > 14:
+        if v < 0.25 and y >= LIMESTONE_LINE:
             return LIMESTONE                                      # pale limestone, nearer the surface
-        if y < 4 + int(_hash(x, z, seed + 81) * 3):
+        if y < slate:
             return SLATE                                          # a deep layer of dark slate
         return 3
 
@@ -468,11 +502,12 @@ class World:
                 self._put((x, y, z), 951 if _hash(x, z, seed + 99) < 0.5 else 952)   # wild pumpkins and melons
 
     def _carve_caves(self, key):
-        """Hollow out tunnels. Noise is sampled on a coarse grid and interpolated, and
-        grid cells whose corners are all solid are skipped, which keeps this fast."""
+        """Hollow out tunnels everywhere and big caverns deep down. Noise is sampled on a coarse
+        grid and interpolated, and grid cells whose corners are all solid are skipped."""
         g = CAVE_GRID
         cx, cz = key
         x0, z0 = cx * CHUNK_SIZE, cz * CHUNK_SIZE
+        seed = self.seed
         cols = {}
         for x in range(x0, x0 + CHUNK_SIZE):
             for z in range(z0, z0 + CHUNK_SIZE):
@@ -486,11 +521,16 @@ class World:
                     top = h
                 cols[(x, z)] = top
         ymax = max(cols.values())
-        if ymax < 1:
-            return
         n = CHUNK_SIZE // g
-        grid = {(i, j, k): cave_density(x0 + i * g, j * g, z0 + k * g, self.seed)
-                for i in range(n + 1) for k in range(n + 1) for j in range(ymax // g + 2)}
+        grid = {}
+        for i in range(n + 1):
+            for k in range(n + 1):
+                for j in range(ymax // g + 2):
+                    gx, gy, gz = x0 + i * g, j * g, z0 + k * g
+                    d = cave_density(gx, gy, gz, seed)
+                    if gy < CAVERN_TOP:
+                        d = min(d, cavern_density(gx, gy, gz, seed))
+                    grid[(i, j, k)] = d
         for i in range(n):
             for k in range(n):
                 for j in range(ymax // g + 1):
@@ -501,7 +541,7 @@ class World:
                         fx = lx / g
                         for ly in range(g):
                             y = j * g + ly
-                            if y < 1:
+                            if y < CAVE_FLOOR:
                                 continue
                             fy = ly / g
                             for lz in range(g):
@@ -821,7 +861,7 @@ class World:
     def save(self, path, player=None):
         data = {
             "player": player or {},
-            "version": 3,
+            "version": SAVE_VERSION,
             "seed": self.seed,
             "time_of_day": self.time_of_day,
             "containers": [[list(pos), slots] for pos, slots in self.containers.items()],
@@ -831,7 +871,7 @@ class World:
 
     @classmethod
     def load(cls, path):
-        data = json.loads(Path(path).read_text())
+        data = cls.migrate(json.loads(Path(path).read_text()))
         world = cls(seed=data["seed"])
         world.time_of_day = data.get("time_of_day", world.time_of_day)
         world.player_data = data.get("player", {})
@@ -839,3 +879,28 @@ class World:
         for x, y, z, b in data["changes"]:
             world.changes.setdefault(cls.chunk_key(x, z), {})[(x, y, z)] = b
         return world
+
+    # positions the game keeps in the save's player data: single points and lists of block cells
+    PLAYER_POINTS = ("position", "spawn")
+    PLAYER_CELL_LISTS = ("growing",)
+
+    @classmethod
+    def migrate(cls, data):
+        """Bring a loaded save up to SAVE_VERSION. Saves before version 4 come from the shallow
+        world (64 high, surface ~180 lower): every stored y moves up by SURFACE_OFFSET so old
+        builds, chests and the player stay on the same terrain."""
+        if data.get("version", 0) < 4:
+            def up(p):
+                return [p[0], p[1] + SURFACE_OFFSET, p[2]] + list(p[3:])
+            data["changes"] = [up(e) for e in data.get("changes", [])]
+            data["containers"] = [[up(pos), slots] for pos, slots in data.get("containers", [])]
+            player = data.get("player") or {}
+            for k in cls.PLAYER_POINTS:
+                if isinstance(player.get(k), (list, tuple)) and len(player[k]) >= 3:
+                    player[k] = up(player[k])
+            for k in cls.PLAYER_CELL_LISTS:
+                if isinstance(player.get(k), list):
+                    player[k] = [up(p) for p in player[k]]
+            data["player"] = player
+            data["version"] = SAVE_VERSION
+        return data

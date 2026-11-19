@@ -1,69 +1,79 @@
 {
  "constants": {
   "CHUNK_SIZE": 16,
-  "MAX_HEIGHT": 64,
-  "WATER_LEVEL": 11,
+  "MAX_HEIGHT": 320,
+  "WATER_LEVEL": 191,
   "TREE_CHANCE": 0.012,
   "MAX_LIGHT": 15,
   "CAVE_THRESHOLD": 0.016,
   "CAVE_GRID": 4,
-  "SNOW_LINE": 27,
+  "SNOW_LINE": 207,
   "ATLAS_COLS": 32,
+  "SURFACE_OFFSET": 180,
+  "SAVE_VERSION": 4,
+  "CAVE_FLOOR": 4,
+  "BEDROCK_TOP": 4,
+  "SLATE_LINE": 88,
+  "BASALT_LINE": 120,
+  "LIMESTONE_LINE": 160,
+  "CAVERN_TOP": 120,
+  "CAVERN_MID": 62,
+  "CAVERN_LIMIT": 0.78,
   "ORES": [
    [
     13,
     0.05,
-    64
+    320
    ],
    [
     26,
     0.064,
-    36
+    205
    ],
    [
     27,
     0.074,
-    36
+    205
    ],
    [
     25,
     0.086,
-    28
+    150
    ],
    [
     28,
     0.091,
-    14
+    64
    ],
    [
     29,
     0.094,
-    9
+    24
    ],
    [
     14,
     0.104,
-    64
+    320
    ],
    [
     900,
     0.107,
-    12
+    40
    ],
    [
     901,
     0.11,
-    12
+    40
    ],
    [
     902,
     0.115,
-    22
+    90
    ],
    [
     903,
     0.121,
-    40
+    160
    ]
   ],
   "TREE_KINDS": [

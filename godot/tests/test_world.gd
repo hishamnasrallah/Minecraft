@@ -26,26 +26,30 @@ func test_heights_match_python() -> String:
 
 
 func test_generated_chunks_match_python_exactly() -> String:
+	if int(fixtures["height"]) != WorldData.H:
+		return "fixture world height %s, WorldData.H %d: re-run tools/export_godot.py" % [fixtures["height"], WorldData.H]
 	var w := WorldData.new(int(fixtures["seed"]))
 	for key_text in fixtures["chunks"]:
 		var parts: PackedStringArray = key_text.split(",")
 		var key := Vector2i(int(parts[0]), int(parts[1]))
 		w.ensure_chunk(key)
-		var expected := {}
-		for cell in fixtures["chunks"][key_text]:
-			expected[Vector3i(int(cell[0]), int(cell[1]), int(cell[2]))] = int(cell[3])
+		var got: PackedInt32Array = w.chunks[key].b
+		var runs: Array = fixtures["chunks"][key_text]     # [id, count, ...] in chunk index order
+		var i := 0
 		var mismatches := 0
 		var first := ""
-		for lx in 16:
-			for y in 64:
-				for lz in 16:
-					var p := Vector3i(key.x * 16 + lx, y, key.y * 16 + lz)
-					var got := w.get_block(p.x, p.y, p.z)
-					var want: int = expected.get(p, 0)
-					if got != want:
-						mismatches += 1
-						if first == "":
-							first = "%s: godot %d, python %d" % [p, got, want]
+		for r in range(0, runs.size(), 2):
+			var want := int(runs[r])
+			for n in int(runs[r + 1]):
+				if got[i] != want:
+					mismatches += 1
+					if first == "":
+						var lx := i / (WorldData.H * 16)
+						var p := Vector3i(key.x * 16 + lx, (i / 16) % WorldData.H, key.y * 16 + i % 16)
+						first = "%s: godot %d, python %d" % [p, got[i], want]
+				i += 1
+		if i != got.size():
+			return "chunk %s: fixture has %d cells, chunk %d" % [key_text, i, got.size()]
 		if mismatches:
 			return "chunk %s: %d blocks differ, first %s" % [key_text, mismatches, first]
 	return ""
@@ -92,7 +96,7 @@ func test_lamp_light_spreads() -> String:
 		w._put(x, 2, 5, 0)
 	w._put(3, 2, 5, 11)
 	var m := Mesher.new(w)
-	m.compute_light(Vector2i(0, 0))
+	m.compute_light(Vector2i(0, 0), 0, WorldData.H)
 	if m.light_at(4, 2, 5) != Vector2i(0, 14) or m.light_at(7, 2, 5) != Vector2i(0, 11):
 		return "lamp light wrong: %s %s" % [m.light_at(4, 2, 5), m.light_at(7, 2, 5)]
 	return ""
@@ -136,7 +140,7 @@ func test_build_timing() -> String:
 			w.ensure_chunk(Vector2i(dx, dz))
 	var m := Mesher.new(w)
 	var t := Time.get_ticks_usec()
-	m.compute_light(Vector2i(0, 0))
+	m.compute_light(Vector2i(0, 0), 0, WorldData.H)
 	var light_ms := (Time.get_ticks_usec() - t) / 1000.0
 	t = Time.get_ticks_usec()
 	m.build(Vector2i(0, 0))
@@ -152,7 +156,7 @@ func test_ambient_occlusion() -> String:
 			w.chunks[Vector2i(dx, dz)] = WorldData.Chunk.new()
 	w._put(5, 1, 5, 3)
 	var m := Mesher.new(w)
-	m.compute_light(Vector2i(0, 0))
+	m.compute_light(Vector2i(0, 0), 0, WorldData.H)
 	if m._corner_ao(0, 5, 1, 5) != [3, 3, 3, 3]:
 		return "a lone block's top should be fully open: %s" % [m._corner_ao(0, 5, 1, 5)]
 	w._put(6, 2, 5, 3)                          # a block on top of the +x neighbour

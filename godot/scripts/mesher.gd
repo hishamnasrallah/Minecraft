@@ -5,8 +5,9 @@ extends RefCounted
 ## The block shader combines them with the time of day.
 
 const CS := 16
-const H := 64
-const R := 48                     # light region: the chunk and its 8 neighbours
+const H := WorldData.H
+const R := 48                     # light region: the chunk and its 8 neighbours (x and z)
+const SEC := 32                   # rows per section: chunks are meshed in slices of 32
 const WATER := 10
 
 # (normal, shade); corner order matches world.py so triangles face outwards
@@ -26,6 +27,10 @@ var x_lo: int
 var z_lo: int
 var sky := PackedByteArray()
 var lamp := PackedByteArray()
+var y_lo := 0                     # light region rows (the meshed sections + 16 rows margin)
+var y_hi := 0
+var RH := 0
+var max_y := H - 1                # highest block in the 3x3 chunks (set by the chunk manager)
 var tops := PackedInt32Array()    # per region column
 var waters := PackedInt32Array()
 
@@ -120,53 +125,77 @@ func _uv(tile: int, u: float, v: float) -> Vector2:
 
 # ---------------------------------------------------------------- light
 func _ri(x: int, y: int, z: int) -> int:
-	return ((x - x_lo) * H + y) * R + (z - z_lo)
+	return ((x - x_lo) * RH + (y - y_lo)) * R + (z - z_lo)
 
 
 func _in_region(x: int, z: int) -> bool:
 	return x >= x_lo and x < x_lo + R and z >= z_lo and z < z_lo + R
 
 
-func compute_light(key: Vector2i) -> void:
-	x_lo = (key.x - 1) * CS
-	z_lo = (key.y - 1) * CS
-	sky.resize(R * H * R)
-	sky.fill(0)
-	lamp.resize(R * H * R)
-	lamp.fill(0)
+## Highest opaque block and highest water of every column of the 3x3 chunks, scanning down
+## from `max_y` (the highest block anywhere in them) instead of the top of the world.
+func _column_tops(key: Vector2i) -> void:
 	tops.resize(R * R)
 	waters.resize(R * R)
 	for dx in 3:
 		for dz in 3:
 			var k := Vector2i(key.x - 1 + dx, key.y - 1 + dz)
-			var info := world.column_info(k)
+			var data: PackedInt32Array = world.chunks[k].b
 			for lx in CS:
 				for lz in CS:
+					var top := -1
+					var water := -1
+					for y in range(mini(max_y, H - 1), -1, -1):
+						var b := data[(lx * H + y) * CS + lz]
+						if b == 0:
+							continue
+						if b == WATER:
+							water = maxi(water, y)
+						elif transparent[b] == 0:
+							top = y
+							break
 					var ci := (dx * CS + lx) * R + dz * CS + lz
-					tops[ci] = info[0][lx * CS + lz]
-					waters[ci] = info[1][lx * CS + lz]
+					tops[ci] = top
+					waters[ci] = water
+
+
+## Light for the rows y_lo..y_hi only (the sections being meshed plus 16 rows of margin:
+## light never travels further than 15 blocks).
+func compute_light(key: Vector2i, lo: int, hi: int) -> void:
+	x_lo = (key.x - 1) * CS
+	z_lo = (key.y - 1) * CS
+	y_lo = maxi(0, lo - 16)
+	y_hi = mini(H, hi + 16)
+	RH = y_hi - y_lo
+	sky.resize(R * RH * R)
+	sky.fill(0)
+	lamp.resize(R * RH * R)
+	lamp.fill(0)
+	_column_tops(key)
 	# sky light: seed from open-sky cells next to a taller neighbour column, then spread
 	var q := PackedInt32Array()
 	for rx in R:
 		for rz in R:
 			var top := tops[rx * R + rz]
 			var highest := top
-			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-				var nx: int = rx + d.x
-				var nz: int = rz + d.y
+			for d in 4:
+				var nx: int = rx + (1 if d == 0 else (-1 if d == 1 else 0))
+				var nz: int = rz + (1 if d == 2 else (-1 if d == 3 else 0))
 				if nx >= 0 and nx < R and nz >= 0 and nz < R:
 					highest = maxi(highest, tops[nx * R + nz])
-			for y in range(top + 1, mini(highest, H - 1) + 1):
-				q.append(((rx * H + y) * R + rz) * 16 + WorldData.open_sky(y, waters[rx * R + rz]))
+			for y in range(maxi(top + 1, y_lo), mini(mini(highest, H - 1), y_hi - 1) + 1):
+				q.append(((rx * RH + (y - y_lo)) * R + rz) * 16 + WorldData.open_sky(y, waters[rx * R + rz]))
 	_spread(q, true)
 	var lq := PackedInt32Array()
 	for dx in 3:
 		for dz in 3:
 			var e: Dictionary = world.emitters.get(Vector2i(key.x - 1 + dx, key.y - 1 + dz), {})
 			for p in e:
+				if p.y < y_lo or p.y >= y_hi:
+					continue
 				# +1: the lamp cell itself, so its neighbours get the lamp's level
 				var level: int = mini(emit[world.get_block(p.x, p.y, p.z)] + 1, 15)
-				lq.append((((p.x - x_lo) * H + p.y) * R + p.z - z_lo) * 16 + level)
+				lq.append(_ri(p.x, p.y, p.z) * 16 + level)
 	_spread(lq, false)
 
 
@@ -180,11 +209,11 @@ func _spread(q: PackedInt32Array, is_sky: bool) -> void:
 		var level := e & 15
 		var i := e >> 4
 		var rz := i % R
-		var y := (i / R) % H
-		var rx := i / (R * H)
+		var ry := (i / R) % RH
+		var rx := i / (R * RH)
 		for n in 6:
 			var nx := rx
-			var ny := y
+			var ny := ry
 			var nz := rz
 			match n:
 				0: nx += 1
@@ -193,15 +222,16 @@ func _spread(q: PackedInt32Array, is_sky: bool) -> void:
 				3: ny -= 1
 				4: nz += 1
 				5: nz -= 1
-			if nx < 0 or nx >= R or nz < 0 or nz >= R or ny <= 0 or ny >= H:
+			if nx < 0 or nx >= R or nz < 0 or nz >= R or ny < 0 or ny >= RH or ny + y_lo <= 0:
 				continue
-			if is_sky and ny > tops[nx * R + nz]:
+			var wy := ny + y_lo
+			if is_sky and wy > tops[nx * R + nz]:
 				continue                      # already fully lit by the open sky
-			var b := world.get_block(x_lo + nx, ny, z_lo + nz)
+			var b := world.get_block(x_lo + nx, wy, z_lo + nz)
 			if b != 0 and transparent[b] == 0:
 				continue
 			var new_level := level - (2 if b == WATER else 1)
-			var ni := (nx * H + ny) * R + nz
+			var ni := (nx * RH + ny) * R + nz
 			var current := sky[ni] if is_sky else lamp[ni]
 			if new_level > current:
 				if is_sky:
@@ -243,12 +273,12 @@ func light_at(x: int, y: int, z: int) -> Vector2i:
 	if not _in_region(x, z) or y < 0:
 		return Vector2i(15, 0)
 	var ci := (x - x_lo) * R + (z - z_lo)
-	var s: int
 	if y >= H or y > tops[ci]:
-		s = WorldData.open_sky(y, waters[ci])
-	else:
-		s = sky[_ri(x, y, z)]
-	return Vector2i(s, lamp[_ri(x, y, z)] if y < H else 0)
+		return Vector2i(WorldData.open_sky(y, waters[ci]), lamp[_ri(x, y, z)] if y >= y_lo and y < y_hi else 0)
+	if y < y_lo or y >= y_hi:
+		return Vector2i(0, 0)
+	var i := _ri(x, y, z)
+	return Vector2i(sky[i], lamp[i])
 
 
 # ---------------------------------------------------------------- meshing
@@ -258,18 +288,40 @@ class Group:
 	var uvs := PackedVector2Array()
 
 
-## Returns {"solid", "translucent", "water", "plants"} -> Group.
+## Mesh the given sections (index = y / SEC). Returns {section: {"solid", "translucent",
+## "water", "plants"} -> Group}. Light is computed once for all of them.
+func build_sections(key: Vector2i, sections: Array) -> Dictionary:
+	for dx in [-1, 0, 1]:
+		for dz in [-1, 0, 1]:
+			world.ensure_chunk(Vector2i(key.x + dx, key.y + dz))
+	var lo := H
+	var hi := 0
+	for s in sections:
+		lo = mini(lo, s * SEC)
+		hi = maxi(hi, mini(H, s * SEC + SEC))
+	compute_light(key, lo, hi)
+	var result := {}
+	for s in sections:
+		result[s] = _mesh_rows(key, s * SEC, mini(H, s * SEC + SEC))
+	return result
+
+
+## Old entry point: the whole column as one mesh (tests and safe mode).
 func build(key: Vector2i) -> Dictionary:
 	for dx in [-1, 0, 1]:
 		for dz in [-1, 0, 1]:
 			world.ensure_chunk(Vector2i(key.x + dx, key.y + dz))
-	compute_light(key)
+	compute_light(key, 0, H)
+	return _mesh_rows(key, 0, H)
+
+
+func _mesh_rows(key: Vector2i, row_lo: int, row_hi: int) -> Dictionary:
 	var out := {"solid": Group.new(), "translucent": Group.new(), "water": Group.new(), "plants": Group.new()}
 	var data: PackedInt32Array = world.chunks[key].b
 	var x0 := key.x * CS
 	var z0 := key.y * CS
 	for lx in CS:
-		for y in H:
+		for y in range(row_lo, mini(row_hi, max_y + 2)):
 			var base := (lx * H + y) * CS
 			for lz in CS:
 				var id := data[base + lz]

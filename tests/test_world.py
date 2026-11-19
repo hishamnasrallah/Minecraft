@@ -116,21 +116,32 @@ def test_atlas_has_every_tile():
             assert img.getpixel((5, 5))[:3] != (255, 0, 255)  # not the empty-slot filler
 
 
-def _find(w, predicate, radius=6):
+def _find(w, predicate, keys):
+    for key in keys:
+        w.ensure_chunk(key)
+    for key in keys:
+        for (x, y, z) in w.chunks[key]:
+            if predicate(x, y, z, w.blocks[(x, y, z)]):
+                return (x, y, z)
+    return None
+
+
+def _lake_chunk(w, radius=8):
+    """A chunk with a lake in it, found from the height map alone (no chunks generated)."""
     for cx in range(-radius, radius):
         for cz in range(-radius, radius):
-            w.ensure_chunk((cx, cz))
-    for (x, y, z), b in list(w.blocks.items()):
-        if predicate(x, y, z, b):
-            return (x, y, z)
+            if w.height_at(cx * CHUNK_SIZE + 8, cz * CHUNK_SIZE + 8) < WATER_LEVEL - 1:
+                return (cx, cz)
     return None
 
 
 def test_world_has_lakes_and_caves():
     w = World(seed=11)
-    lake = _find(w, lambda x, y, z, b: b == WATER)
+    key = _lake_chunk(w)
+    lake = _find(w, lambda x, y, z, b: b == WATER, [key])
     assert lake and lake[1] <= WATER_LEVEL
-    cave = _find(w, lambda x, y, z, b: 2 < y < w.height_at(x, z) - 3 and w.get(x, y + 1, z) == 0 and b == 3)
+    cave = _find(w, lambda x, y, z, b: 2 < y < w.height_at(x, z) - 3 and w.get(x, y + 1, z) == 0 and b == 3,
+                 [(0, 0), (1, 0)])
     assert cave, "expected an air pocket under the surface"
 
 
@@ -146,9 +157,13 @@ def test_chunk_order_does_not_change_caves():
 
 def test_breaking_next_to_water_floods_the_gap():
     w = World(seed=11)
+    cx, cz = _lake_chunk(w)
+    for dx in (-1, 0, 1):
+        for dz in (-1, 0, 1):
+            w.ensure_chunk((cx + dx, cz + dz))
     pos = _find(w, lambda x, y, z, b: b != WATER and b not in (9,) and y > 1
                 and w.get(x + 1, y, z) == WATER and w.get(x, y + 1, z) in (0, WATER)
-                and all(w.chunk_key(x + d, z + e) in w.chunks for d in (-1, 0, 1) for e in (-1, 0, 1)))
+                and all(w.chunk_key(x + d, z + e) in w.chunks for d in (-1, 0, 1) for e in (-1, 0, 1)), [(cx, cz)])
     assert pos
     keys = w.set(*pos, 0)
     assert w.get(*pos) == WATER
@@ -250,3 +265,83 @@ def test_player_data_is_saved(tmp_path):
     w = World(seed=2)
     w.save(tmp_path / "s.json", player={"inventory": [[2, 5]]})
     assert World.load(tmp_path / "s.json").player_data == {"inventory": [[2, 5]]}
+
+
+def test_world_is_deep_with_layers():
+    from collections import Counter
+    from world import MAX_HEIGHT, SURFACE_OFFSET, SNOW_LINE, SLATE_LINE, BEDROCK_TOP, SLATE
+    assert MAX_HEIGHT == 320 and WATER_LEVEL == 11 + SURFACE_OFFSET and SNOW_LINE == 27 + SURFACE_OFFSET
+    w = World(seed=424242)
+    w.ensure_chunk((0, 0))
+    deep, mid, ragged = Counter(), Counter(), 0
+    for x in range(CHUNK_SIZE):
+        for z in range(CHUNK_SIZE):
+            assert w.height_at(x, z) > SURFACE_OFFSET
+            assert w.get(x, 0, z) == 9                       # a bedrock floor ...
+            ragged += sum(w.get(x, y, z) == 9 for y in range(1, BEDROCK_TOP))
+            for y in range(BEDROCK_TOP, MAX_HEIGHT):
+                assert w.get(x, y, z) != 9                   # ... and none above the bottom layers
+            deep.update(w.get(x, y, z) for y in range(BEDROCK_TOP, SLATE_LINE - 6))
+            mid.update(w.get(x, y, z) for y in range(SLATE_LINE + 6, 170))
+    assert 0 < ragged < 3 * CHUNK_SIZE * CHUNK_SIZE          # random bedrock in y 1..3
+    assert deep[SLATE] > 10000 and deep[3] == 0              # slate deep down ...
+    assert mid[3] > 5000 and mid[SLATE] == 0                 # ... stone above it
+
+
+def test_ores_are_banded_by_depth():
+    from world import COAL_ORE
+    deepest = {ore: max_y for ore, _, max_y in World.ORES}
+    assert deepest[29] < 40 and deepest[28] < 100 and deepest[COAL_ORE] >= WATER_LEVEL   # diamond, gold, coal
+    w = World(seed=4)
+    for key in ((0, 0), (1, 0)):
+        w.ensure_chunk(key)
+    found = {}
+    for (x, y, z), b in w.blocks.items():
+        if b in deepest:
+            assert y <= deepest[b]
+            found.setdefault(b, []).append(y)
+    assert max(found[COAL_ORE]) > 150 and min(found[COAL_ORE]) < 50   # coal everywhere
+    assert 29 in found                                                 # diamonds deep down
+
+
+def test_big_caverns_deep_down():
+    from world import CAVERN_TOP, CAVE_FLOOR
+    w = World(seed=11)
+    # the export picks the chunk with the most deep hollow space; seed 11 has one at (-2, -1)
+    w.ensure_chunk((-2, -1))
+    tallest = 0
+    for x in range(-32, -16):
+        for z in range(-16, 0):
+            run = 0
+            for y in range(CAVE_FLOOR, CAVERN_TOP):
+                run = run + 1 if w.get(x, y, z) == 0 else 0
+                tallest = max(tallest, run)
+    assert tallest >= 15, tallest
+
+
+def test_old_saves_are_moved_up_to_the_deep_world(tmp_path):
+    import json
+    from world import SURFACE_OFFSET, SAVE_VERSION
+    old = {"version": 3, "seed": 7, "time_of_day": 0.3,
+           "changes": [[3, 20, 3, 8], [4, 1, 4, 0]],
+           "containers": [[[5, 21, 6], [[2, 5], None]]],
+           "player": {"position": [8.5, 22.1, 8.5], "spawn": [8, 21.5, 8], "growing": [[1, 15, 2]],
+                      "mode": "survival", "inventory": [[2, 5]]}}
+    path = tmp_path / "old.json"
+    path.write_text(json.dumps(old))
+    w = World.load(path)
+    off = SURFACE_OFFSET
+    assert w.changes[(0, 0)] == {(3, 20 + off, 3): 8, (4, 1 + off, 4): 0}
+    assert list(w.containers) == [(5, 21 + off, 6)]
+    pd = w.player_data
+    assert pd["position"] == [8.5, 22.1 + off, 8.5] and pd["spawn"] == [8, 21.5 + off, 8]
+    assert pd["growing"] == [[1, 15 + off, 2]] and pd["inventory"] == [[2, 5]] and pd["mode"] == "survival"
+    # the terrain moved up by exactly the same amount, so old builds still sit on their ground
+    from world import fbm
+    for x, z in ((0, 0), (37, -12)):
+        old_h = int(3 + fbm(x / 28, z / 28, 7) * 12 + fbm(x / 90, z / 90, 7 + 7) ** 2 * 22)
+        assert w.height_at(x, z) == old_h + off
+    w.save(path, pd)
+    assert json.loads(path.read_text())["version"] == SAVE_VERSION
+    again = World.load(path)                       # a current save is not moved again
+    assert again.changes == w.changes and again.player_data["spawn"] == [8, 21.5 + off, 8]

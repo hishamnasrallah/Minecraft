@@ -10,7 +10,7 @@ func _flat(ground := 3) -> WorldData:
 			w.chunks[Vector2i(dx, dz)] = WorldData.Chunk.new()
 	for x in range(-16, 32):
 		for z in range(-16, 32):
-			for y in ground + 1:
+			for y in range(maxi(ground - 4, 0), ground + 1):   # (just the top layers of a high field)
 				w._put(x, y, z, 9 if y == 0 else (1 if y == ground else 2))
 	return w
 
@@ -178,21 +178,22 @@ func test_goats_jump_two_blocks() -> String:
 
 
 func test_biome_spawning() -> String:
-	var meadow := Wildlife.new(_flat(14))
+	var g := WorldData.SURFACE_OFFSET + 14              # a little above the sea
+	var meadow := Wildlife.new(_flat(g))
 	var seen := {}
 	for i in 60:
 		seen[meadow.pick_kind(5, 5)[0]] = true
 	for k in seen:
 		if not k in ["woolly", "hen", "rabbit", "deer"]:
 			return "odd meadow creature " + k
-	var sand := _flat(14)
+	var sand := _flat(g)
 	for x in range(-16, 32):
 		for z in range(-16, 32):
-			sand._put(x, 14, z, 6)
+			sand._put(x, g, z, 6)
 	if Wildlife.new(sand).pick_kind(5, 5)[0] != "lizard":
 		return "deserts have lizards"
-	var lake := _flat(14)
-	_pond(lake, 14, 3)
+	var lake := _flat(g)
+	_pond(lake, g, 3)
 	var wet := {}
 	for i in 40:
 		wet[Wildlife.new(lake).pick_kind(8, 8)[0]] = true

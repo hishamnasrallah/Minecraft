@@ -41,6 +41,11 @@ def export_blocks():
             "CHUNK_SIZE": w.CHUNK_SIZE, "MAX_HEIGHT": w.MAX_HEIGHT, "WATER_LEVEL": w.WATER_LEVEL,
             "TREE_CHANCE": w.TREE_CHANCE, "MAX_LIGHT": w.MAX_LIGHT, "CAVE_THRESHOLD": w.CAVE_THRESHOLD,
             "CAVE_GRID": w.CAVE_GRID, "SNOW_LINE": w.SNOW_LINE, "ATLAS_COLS": w.ATLAS_COLS,
+            # the deep world: surface offset, underground layers and caverns (see world.py)
+            "SURFACE_OFFSET": w.SURFACE_OFFSET, "SAVE_VERSION": w.SAVE_VERSION, "CAVE_FLOOR": w.CAVE_FLOOR,
+            "BEDROCK_TOP": w.BEDROCK_TOP, "SLATE_LINE": w.SLATE_LINE, "BASALT_LINE": w.BASALT_LINE,
+            "LIMESTONE_LINE": w.LIMESTONE_LINE, "CAVERN_TOP": w.CAVERN_TOP, "CAVERN_MID": w.CAVERN_MID,
+            "CAVERN_LIMIT": w.CAVERN_LIMIT,
             "ORES": [list(o) for o in w.World.ORES],
             # tree species in kind-index order (Godot stores the index), and their shapes
             "TREE_KINDS": TREE_KINDS,
@@ -110,14 +115,38 @@ def export_fixtures():
                 if key not in chunks:
                     chunks.append(key)
                 break
+    # and the chunk with the most hollow space below CAVERN_TOP: a big cavern deep down
+    caverns = {}
+    for key in ((cx, cz) for cx in range(-3, 3) for cz in range(-3, 3)):
+        probe.ensure_chunk(key)
+        x0, z0 = key[0] * 16, key[1] * 16
+        caverns[key] = sum(1 for x in range(x0, x0 + 16) for z in range(z0, z0 + 16)
+                           for y in range(w.CAVE_FLOOR, w.CAVERN_TOP) if (x, y, z) not in probe.blocks)
+    cavern = max(caverns, key=caverns.get)
+    if cavern not in chunks:
+        chunks.append(cavern)
     for key in chunks:
         world.ensure_chunk(key)
-    out = {"seed": 11, "chunks": {}}
+    # every chunk whole, top to bottom, run-length encoded in Godot's cell order (lx, y, lz):
+    # [id, count, id, count, ...]
+    out = {"seed": 11, "height": w.MAX_HEIGHT, "cavern_chunk": list(cavern), "chunks": {}}
     for key in chunks:
-        cells = sorted([x, y, z, world.blocks[(x, y, z)]] for (x, y, z) in world.chunks[key])
-        out["chunks"][f"{key[0]},{key[1]}"] = cells
+        runs = []
+        x0, z0 = key[0] * 16, key[1] * 16
+        for lx in range(16):
+            for y in range(w.MAX_HEIGHT):
+                for lz in range(16):
+                    b = world.blocks.get((x0 + lx, y, z0 + lz), 0)
+                    if runs and runs[-2] == b:
+                        runs[-1] += 1
+                    else:
+                        runs += [b, 1]
+        out["chunks"][f"{key[0]},{key[1]}"] = runs
     out["noise"] = [[x, z, w.fbm(x / 28, z / 28, 11), w._hash(x, z, 11)] for x, z in ((0, 0), (5, -7), (-123, 456))]
     out["noise3"] = [[x, y, z, w.cave_density(x, y, z, 11)] for x, y, z in ((0, 0, 0), (4, 8, -12), (-40, 20, 33))]
+    out["noise3_cavern"] = [[x, y, z, w.value_noise3(x / 32, y / 16, z / 32, 11 + 900)]
+                            for x, y, z in ((0, 0, 0), (36, 44, -20), (-200, 100, 77))]
+    out["slate_lines"] = [[x, z, world.slate_line(x, z)] for x, z in ((0, 0), (17, -3), (-50, 60))]
     out["heights"] = [[x, z, world.height_at(x, z)] for x, z in ((0, 0), (17, -3), (-50, 60))]
     return out
 
