@@ -76,7 +76,7 @@ jobs:
           echo "SDK: $ANDROID_SDK_ROOT"; ls "$ANDROID_SDK_ROOT/build-tools" | tail -3
           ls "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable" | grep -i android
           mkdir -p build
-          timeout 900 "$HOME/godot" --headless --path . --export-debug "Android" build/BlockWorld.apk < /dev/null
+          timeout 900 "$HOME/godot" --headless --verbose --path . --export-debug "Android" build/BlockWorld.apk < /dev/null 2>&1 | grep -v "^Loaded\|^EditorSettings\|^TextServer" | tail -60
           ls -la build
           test -s build/BlockWorld.apk
 

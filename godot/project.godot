@@ -11,6 +11,7 @@ config/features=PackedStringArray("4.3", "GL Compatibility")
 [autoload]
 
 Blocks="*res://scripts/blocks.gd"
+Items="*res://scripts/items.gd"
 
 [display]
 
@@ -30,3 +31,4 @@ renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/canvas_textures/default_texture_filter=0
 anti_aliasing/quality/msaa_3d=0
+textures/vram_compression/import_etc2_astc=true
