@@ -71,6 +71,12 @@ func _ready() -> void:
 	fps.toggled.connect(func(on): I18n.settings["show_fps"] = on)
 	box.add_child(fps)
 
+	var safe := CheckBox.new()
+	safe.text = I18n.t("safe_mode")
+	safe.button_pressed = Boot.safe_mode
+	safe.toggled.connect(func(on): Boot.set_safe_mode(on))
+	box.add_child(safe)
+
 	var done := Button.new()
 	done.text = I18n.t("done")
 	done.custom_minimum_size = Vector2(0, 50)

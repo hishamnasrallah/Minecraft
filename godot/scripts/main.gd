@@ -67,6 +67,7 @@ var _initial_look := Vector2.ZERO
 
 
 func _ready() -> void:
+	Boot.stage("world")
 	var args := OS.get_cmdline_user_args()
 	if FileAccess.file_exists(SAVE_PATH) and not "--new" in args:
 		world = WorldData.load_from(SAVE_PATH)
@@ -101,6 +102,7 @@ func _ready() -> void:
 	var sp = pd.get("spawn")
 	spawn_point = Vector3(sp[0], sp[1], sp[2]) if sp is Array else world.spawn_point()
 
+	Boot.stage("materials")
 	atlas = load("res://data/atlas.png")
 	var solid := ShaderMaterial.new()
 	solid.shader = load("res://shaders/block.gdshader")
@@ -121,12 +123,14 @@ func _ready() -> void:
 	sun = _sky_quad(Color(1, 0.95, 0.7), 40)
 	moon = _sky_quad(Color(0.85, 0.88, 1), 25)
 
+	Boot.stage("chunks")
 	chunks = ChunkManager.new()
 	var distance := int(I18n.settings["view_distance"])
-	chunks.setup(world, materials, distance if distance > 0 else (3 if use_touch else 4))
+	chunks.setup(world, materials, 2 if Boot.safe_mode else (distance if distance > 0 else (3 if use_touch else 4)))
 	add_child(chunks)
 	wildlife = Wildlife.new(world)
 
+	Boot.stage("player")
 	player = Player.new()
 	player.world = world
 	var start = pd.get("position")
@@ -152,6 +156,7 @@ func _ready() -> void:
 	crack.visible = false
 	add_child(crack)
 
+	Boot.stage("ui")
 	hud = Hud.new()
 	hud.atlas = atlas
 	add_child(hud)
@@ -203,6 +208,10 @@ func _ready() -> void:
 	_select(0)
 	_refresh_mode()
 	hud.flash(I18n.t("welcome_touch") if use_touch else I18n.t("welcome_desktop"))
+	if Boot.crashed_last_time:
+		hud.flash(I18n.f("crashed_note", Boot.last_stage))
+		hud._message_time = 15.0
+	Boot.stage("loading world")
 
 
 func _sky_quad(color: Color, size: float) -> MeshInstance3D:
@@ -904,6 +913,7 @@ func _process(delta: float) -> void:
 		_ready_frames += 1
 		if _ready_frames >= 3:                     # give the physics engine the new ground first
 			spawned = true
+			Boot.stage("playing")
 			player.set_physics_process(not screen.visible and not health.dead)
 	touch.hotbar_rect = hud.hotbar_rect()
 	if not screen.visible and not settings.visible:

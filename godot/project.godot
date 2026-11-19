@@ -10,6 +10,7 @@ config/features=PackedStringArray("4.3", "GL Compatibility")
 
 [autoload]
 
+Boot="*res://scripts/boot.gd"
 Blocks="*res://scripts/blocks.gd"
 Items="*res://scripts/items.gd"
 I18n="*res://scripts/i18n.gd"

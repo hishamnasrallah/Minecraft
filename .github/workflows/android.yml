@@ -3,10 +3,9 @@
 #   https://github.com/<owner>/<repo>/releases/tag/apk-latest
 name: Android APK
 
+# Started by hand only (Actions tab -> Android APK -> Run workflow), so builds happen
+# when a version is ready to try, not on every change.
 on:
-  push:
-    branches: [main]
-    paths: ["godot/**", ".github/workflows/android.yml"]
   workflow_dispatch:
 
 permissions:

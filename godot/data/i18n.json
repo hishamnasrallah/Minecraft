@@ -416,6 +416,14 @@
    "en": "Done",
    "ar": "تم"
   },
+  "crashed_note": {
+   "en": "The game closed unexpectedly last time (at: %s). Running in safe mode - you can turn it off in Settings.",
+   "ar": "اللعبة سكّرت فجأة المرة الماضية (عند: %s). شغالة بالوضع الآمن - بتقدر تطفيه من الإعدادات."
+  },
+  "safe_mode": {
+   "en": "Safe mode (slower, more stable)",
+   "ar": "الوضع الآمن (أبطأ وأثبت)"
+  },
   "creative_label": {
    "en": "creative",
    "ar": "إبداع"

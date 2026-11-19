@@ -100,6 +100,9 @@ UI = {
     "settings": ("Settings", "الإعدادات"), "language": ("Language", "اللغة"),
     "sensitivity": ("Look sensitivity", "حساسية النظر"), "view_distance": ("View distance", "مسافة الرؤية"),
     "show_fps": ("Show FPS", "إظهار FPS"), "done": ("Done", "تم"),
+    "crashed_note": ("The game closed unexpectedly last time (at: %s). Running in safe mode - you can turn it off in Settings.",
+                     "اللعبة سكّرت فجأة المرة الماضية (عند: %s). شغالة بالوضع الآمن - بتقدر تطفيه من الإعدادات."),
+    "safe_mode": ("Safe mode (slower, more stable)", "الوضع الآمن (أبطأ وأثبت)"),
     "creative_label": ("creative", "إبداع"), "flying_label": ("flying", "طيران"), "noclip_label": ("noclip", "عبر الجدران"),
 }
 

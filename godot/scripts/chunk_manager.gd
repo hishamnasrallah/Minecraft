@@ -25,7 +25,10 @@ func setup(w: WorldData, mats: Dictionary, distance: int) -> void:
 	world = w
 	materials = mats
 	render_distance = distance
-	max_jobs = clampi(OS.get_processor_count() - 1, 1, 3)
+	# shared tables must exist before any worker thread uses them (two threads building
+	# them at the same moment could corrupt memory and crash the app)
+	Mesher._static_setup()
+	max_jobs = 0 if Boot.safe_mode else clampi(OS.get_processor_count() - 1, 1, 3)
 
 
 func _exit_tree() -> void:
@@ -87,6 +90,9 @@ func _jobs() -> int:
 func _schedule() -> void:
 	if _dirty.is_empty():
 		return
+	if max_jobs == 0:
+		_schedule_inline()
+		return
 	var order: Array = _dirty.keys()
 	order.sort_custom(func(a, b):
 		var ua := _urgent.has(a)
@@ -112,6 +118,27 @@ func _schedule() -> void:
 			for k in missing:
 				if not _generating.has(k) and _jobs() < max_jobs:
 					_start_generation(k)
+
+
+## Safe mode: no threads. One piece of work per frame on the main thread.
+func _schedule_inline() -> void:
+	var order: Array = _dirty.keys()
+	order.sort_custom(func(a, b):
+		if _urgent.has(a) != _urgent.has(b):
+			return _urgent.has(a)
+		return (a - _center).length_squared() < (b - _center).length_squared())
+	var key: Vector2i = order[0]
+	for dx in [-1, 0, 1]:
+		for dz in [-1, 0, 1]:
+			var k := Vector2i(key.x + dx, key.y + dz)
+			if not world.chunks.has(k):
+				world.ensure_chunk(k)
+				return                         # one chunk generated this frame is enough
+	_dirty.erase(key)
+	_urgent.erase(key)
+	version[key] = version.get(key, 0) + 1
+	_apply(key, Mesher.new(world).build(key))
+	chunk_ready.emit(key)
 
 
 func _start_generation(key: Vector2i) -> void:
