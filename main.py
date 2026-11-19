@@ -2,7 +2,7 @@
 
 Controls:
   WASD / mouse   move / look        Space   jump
-  Hold left      mine block         Right click  place block
+  Hold left      mine / hit animal  Right click  place block / eat food
   1-9 / scroll   choose hotbar slot E      inventory & crafting
   T              fast-forward time  F5     save
   Esc            close inventory / save and quit
@@ -21,8 +21,10 @@ from ursina.prefabs.first_person_controller import FirstPersonController
 
 from world import World, WATER, UNBREAKABLE, TRANSPARENT, WATER_LEVEL
 from inventory import (Inventory, ITEMS, ITEM_ICONS, PLACEABLE, RECIPES, HOTBAR_SIZE, STACK_SIZE, TOOLS,
-                       NEEDS_TOOL, drop_for, mining, recipe_text)
-from textures import load_atlas, tile_image, crack_stages
+                       NEEDS_TOOL, FOOD, attack_damage, drop_for, mining, recipe_text)
+from textures import load_atlas, tile_image, crack_stages, hud_icons
+import survival as sv
+from survival import Survival, icons as bar_icons
 from lighting import block_shader
 from animals import Wildlife
 from animal_models import AnimalView
@@ -54,6 +56,7 @@ if CREATIVE:
         inventory.add(item, STACK_SIZE)
 else:
     inventory = Inventory.from_data(world.player_data.get("inventory"))
+health = Survival.from_data(world.player_data.get("survival"))
 
 atlas_image = load_atlas()
 atlas = Texture(atlas_image)
@@ -178,7 +181,7 @@ class SlotView:
 selected = 0
 hud = Entity(parent=camera.ui)
 hotbar_views = [SlotView(hud, ((i - (HOTBAR_SIZE - 1) / 2) * 0.07, -0.44)) for i in range(HOTBAR_SIZE)]
-label = Text(parent=camera.ui, position=(0, -0.38), origin=(0, 0), scale=1.1)
+label = Text(parent=camera.ui, position=(0, -0.345), origin=(0, 0), scale=1.1)
 status = Text(parent=camera.ui, position=(-0.85, 0.47), text="", scale=1)
 
 # inventory + crafting screen (E)
@@ -256,14 +259,90 @@ def flash(msg):
 def save():
     world.save(SAVE_FILE, player={
         "inventory": world.player_data.get("inventory") if CREATIVE else inventory.to_data(),
+        "survival": world.player_data.get("survival") if CREATIVE else health.to_data(),
         "position": [player.x, player.y + 0.1, player.z],
     })
+
+
+# ---------------------------------------------------------------- health & hunger HUD
+HUD_TEX = {}
+for name, image in hud_icons().items():
+    HUD_TEX[name] = Texture(image)
+    HUD_TEX[name].filtering = None
+ICON = 0.028
+left_edge = -(HOTBAR_SIZE * 0.07) / 2 + ICON / 2
+hearts = [Entity(parent=hud, model="quad", scale=ICON, position=(left_edge + i * ICON * 1.05, -0.385)) for i in range(10)]
+food_icons = [Entity(parent=hud, model="quad", scale=ICON, position=(-left_edge - i * ICON * 1.05, -0.385))
+              for i in range(10)]
+bubbles = [Entity(parent=hud, model="quad", scale=ICON, texture=HUD_TEX["bubble"],
+                  position=(-left_edge - i * ICON * 1.05, -0.355)) for i in range(10)]
+hurt_overlay = Entity(parent=camera.ui, model="quad", scale=(3, 2), color=Color(0.8, 0, 0, 0), z=0.5)
+death_root = Entity(parent=camera.ui, enabled=False)
+Entity(parent=death_root, model="quad", scale=(3, 2), color=Color(0.45, 0, 0, 0.6), z=0.3)
+Text(parent=death_root, text="You died", origin=(0, 0), y=0.1, scale=3)
+death_cause = Text(parent=death_root, text="", origin=(0, 0), y=0.0, scale=1.3)
+Text(parent=death_root, text="Press R to respawn", origin=(0, 0), y=-0.1, scale=1.3)
+for e in hearts + food_icons + bubbles:
+    e.enabled = not CREATIVE
+
+
+def refresh_bars():
+    if CREATIVE:
+        return
+    for e, state in zip(hearts, bar_icons(health.health, sv.MAX_HEALTH)):
+        e.texture = HUD_TEX[f"heart_{state}"]
+    for e, state in zip(food_icons, bar_icons(health.hunger, sv.MAX_HUNGER)):
+        e.texture = HUD_TEX[f"food_{state}"]
+    under = health.air < sv.MAX_AIR
+    for i, e in enumerate(bubbles):
+        e.enabled = under and i < math.ceil(health.air / sv.MAX_AIR * 10)
+
+
+def hurt(amount):
+    if amount > 0:
+        hurt_overlay.color = Color(0.8, 0, 0, 0.35)
+        hurt_overlay.animate_color(Color(0.8, 0, 0, 0), duration=0.4)
+    if health.dead and not death_root.enabled:
+        death_cause.text = f"You {health.cause}."
+        death_root.enabled = True
+        player.disable()
+
+
+def respawn():
+    health.respawn()
+    death_root.enabled = False
+    target_pos = world.spawn_point()
+    key = world.chunk_key(round(target_pos[0]), round(target_pos[2]))
+    for dx in (-1, 0, 1):
+        for dz in (-1, 0, 1):
+            if (key[0] + dx, key[1] + dz) not in chunk_entities:
+                build_chunk((key[0] + dx, key[1] + dz))
+    player.enable()
+    player.position = Vec3(*target_pos)
+    player.air_time = 0
+    refresh_bars()
 
 
 # ---------------------------------------------------------------- animals
 wildlife = Wildlife(world)
 animal_views = {}
 daylight, sky_tint = 1.0, Vec3(1, 1, 1)
+
+
+def attack(animal):
+    item = inventory.item_at(selected)
+    drops = animal.hit(player.x, player.z, damage=attack_damage(item))
+    if CREATIVE:
+        return
+    health.exert(sv.ATTACK)
+    if item in TOOLS and inventory.wear(selected):
+        flash(f"Your {ITEMS[item]} broke!")
+    for drop, count in drops:
+        if inventory.add(drop, count):
+            flash("Inventory full")
+        else:
+            flash(f"+{count} {ITEMS[drop]}")
+    refresh_items()
 
 
 def update_animals():
@@ -323,6 +402,7 @@ def break_at(pos):
     _, drops, wears = mining(block_id, tool)
     if not edit(pos, 0) or CREATIVE:
         return
+    health.exert(sv.MINE)
     drop = drop_for(block_id) if drops else None
     if drop and inventory.add(drop):
         flash("Inventory full")
@@ -369,6 +449,15 @@ def update_mining():
 
 def place_block():
     item = inventory.item_at(selected)
+    if item in FOOD and not CREATIVE:
+        if health.eat(FOOD[item]):
+            inventory.use_one(selected)
+            flash(f"Ate {ITEMS[item]}")
+            refresh_items()
+            refresh_bars()
+        else:
+            flash("You're not hungry")
+        return
     _, outside = target()
     if item not in PLACEABLE or not outside or overlaps_player(outside):
         return
@@ -396,6 +485,15 @@ def inventory_click(right):
 
 def input(key):
     global time_speed
+    if death_root.enabled:
+        if key == "r":
+            respawn()
+        elif key == "escape":
+            save()
+            application.quit()
+        return
+    if key == "space" and player.grounded and not CREATIVE:
+        health.exert(sv.JUMP)
     if inv_root.enabled:
         if key in ("e", "escape"):
             toggle_inventory()
@@ -403,7 +501,7 @@ def input(key):
             inventory_click(right=key.startswith("right"))
         return
     if key == "left mouse down" and looked_at_animal():
-        looked_at_animal().hit(player.x, player.z)
+        attack(looked_at_animal())
     elif key == "left mouse down" and CREATIVE:
         inside, _ = target()
         if inside:
@@ -493,6 +591,29 @@ def update():
         player.air_time = 0
     if player.y < -20:  # fell through the world somehow
         player.position = Vec3(*world.spawn_point())
+    update_health(swimming)
+
+
+last_position = None
+
+
+def update_health(swimming):
+    """Hunger, healing, drowning and fall damage (survival mode only)."""
+    global last_position
+    if CREATIVE or health.dead:
+        return
+    here = Vec3(player.x, player.y, player.z)
+    moved = 0.0
+    if last_position is not None:
+        moved = math.hypot(here.x - last_position.x, here.z - last_position.z)
+        if moved > 5:            # teleported / respawned, not walked
+            moved = 0.0
+            health.fall_top = None
+    last_position = here
+    taken = health.tick(time.dt, moved=moved, head_under_water=water_at(*camera.world_position))
+    taken += health.track_fall(player.y, on_ground=player.grounded, in_water=swimming)
+    hurt(taken)
+    refresh_bars()
 
 
 app.run()

@@ -8,6 +8,7 @@ import math
 import random
 
 from world import WATER, WATER_LEVEL
+from inventory import RAW_MEAT
 
 GRAVITY = 20.0
 MAX_ANIMALS = 12
@@ -17,10 +18,12 @@ DESPAWN_DISTANCE = 70
 
 SPECIES = {
     #          speed  height width  flee when the player is this close, swims, group size
-    "rabbit": dict(speed=3.4, height=0.5, width=0.4, flee_range=5.0, swims=False, group=(1, 3)),
-    "deer": dict(speed=2.6, height=1.4, width=0.6, flee_range=3.0, swims=False, group=(1, 3)),
-    "duck": dict(speed=1.4, height=0.5, width=0.4, flee_range=2.0, swims=True, group=(2, 4)),
+    "rabbit": dict(speed=3.4, height=0.5, width=0.4, flee_range=5.0, swims=False, group=(1, 3), health=3),
+    "deer": dict(speed=2.6, height=1.4, width=0.6, flee_range=3.0, swims=False, group=(1, 3), health=8),
+    "duck": dict(speed=1.4, height=0.5, width=0.4, flee_range=2.0, swims=True, group=(2, 4), health=3),
 }
+# what each animal leaves behind: (item, min, max)
+DROPS = {"rabbit": (RAW_MEAT, 1, 1), "deer": (RAW_MEAT, 2, 3), "duck": (RAW_MEAT, 1, 2)}
 
 
 def cell(v):
@@ -42,6 +45,9 @@ class Animal:
         self.knock = (0.0, 0.0)               # horizontal push after being hit
         self.walk_phase = 0.0                 # drives the leg animation
         self.moving = False
+        self.health = self.spec["health"]
+        self.dead = False
+        self.hurt_time = 0.0                  # >0 right after being hit (drawn red)
 
     # -- helpers
     @property
@@ -71,14 +77,21 @@ class Animal:
         return True
 
     # -- behaviour
-    def hit(self, from_x, from_z):
-        """The player hit us: hop away and run."""
+    def hit(self, from_x, from_z, damage=1):
+        """The player hit us: lose health, hop away and run. Returns the drops if it died."""
+        self.health -= damage
+        self.hurt_time = 0.25
+        if self.health <= 0:
+            self.dead = True
+            item, lo, hi = DROPS[self.kind]
+            return [(item, self.rng.randint(lo, hi))]
         dx, dz = self.x - from_x, self.z - from_z
         d = math.hypot(dx, dz) or 1.0
         self.knock = (dx / d * 6, dz / d * 6)
         if self.on_ground or self.in_water:
             self.vy = 5.0
         self.state, self.timer = "flee", 4.0
+        return []
 
     def _think(self, dt, player):
         px, _, pz = player
@@ -106,6 +119,7 @@ class Animal:
 
     def update(self, dt, world, player):
         dt = min(dt, 0.1)                      # keep the physics stable during lag spikes
+        self.hurt_time = max(0.0, self.hurt_time - dt)
         if world.chunk_key(cell(self.x), cell(self.z)) not in world.chunks:
             return
         self._think(dt, player)
@@ -174,7 +188,7 @@ class Wildlife:
         for a in list(self.animals):
             a.update(dt, self.world, player)
             gone = self.world.chunk_key(cell(a.x), cell(a.z)) not in self.world.chunks
-            if gone or math.hypot(a.x - px, a.z - pz) > DESPAWN_DISTANCE or a.y < -10:
+            if a.dead or gone or math.hypot(a.x - px, a.z - pz) > DESPAWN_DISTANCE or a.y < -10:
                 self.animals.remove(a)
         self._spawn_timer -= dt
         if self._spawn_timer <= 0:

@@ -5,7 +5,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from inventory import (Inventory, RECIPES, STACK_SIZE, HOTBAR_SIZE, STICK, COAL, ITEMS, ITEM_ICONS,  # noqa: E402
-                       TOOLS, WOOD_PICKAXE, STONE_PICKAXE, WOOD_AXE, drop_for, mining, recipe_text)
+                       TOOLS, WOOD_PICKAXE, STONE_PICKAXE, WOOD_AXE, STONE_AXE, APPLE, RAW_MEAT,
+                       COOKED_MEAT, FOOD, attack_damage, drop_for, mining, recipe_text)
 from world import TILES, GLASS, LAMP, COAL_ORE  # noqa: E402
 
 
@@ -103,8 +104,9 @@ def test_drops():
     assert drop_for(1, rng) == 2
     assert drop_for(COAL_ORE, rng) == COAL
     assert drop_for(3, rng) == 3
-    leaves = [drop_for(5, rng) for _ in range(500)]
-    assert set(leaves) == {None, STICK} and 50 < leaves.count(STICK) < 150
+    leaves = [drop_for(5, rng) for _ in range(1000)]
+    assert set(leaves) == {None, STICK, APPLE}
+    assert 100 < leaves.count(STICK) < 300 and 40 < leaves.count(APPLE) < 130
 
 
 def test_every_item_has_an_icon_and_recipes_read_well():
@@ -172,3 +174,13 @@ def test_craft_tools():
     assert inv.craft(recipe)
     assert inv.count(WOOD_PICKAXE) == 1 and inv.count(7) == 0 and inv.count(STICK) == 0
     assert inv.slots[next(i for i, s in enumerate(inv.slots) if s)][2] == TOOLS[WOOD_PICKAXE][2]
+
+
+def test_weapons_and_cooking():
+    assert attack_damage(None) == 1 and attack_damage(3) == 1
+    assert attack_damage(WOOD_PICKAXE) == 2 < attack_damage(WOOD_AXE) == 3 < attack_damage(STONE_AXE) == 4
+    inv = Inventory()
+    inv.add(RAW_MEAT, 2)
+    inv.add(COAL, 1)
+    assert inv.craft(next(r for r in RECIPES if r[1][0] == COOKED_MEAT))
+    assert inv.count(COOKED_MEAT) == 2 and FOOD[COOKED_MEAT] > FOOD[RAW_MEAT]

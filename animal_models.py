@@ -101,7 +101,11 @@ class AnimalView:
             for hip in self.legs:
                 hip.rotation_x = 0
         self._light_timer -= dt
-        if world is not None and self._light_timer <= 0:
+        if a.hurt_time > 0:                      # flash red when hit
+            for part, _ in self.parts:
+                part.color = Color(1, 0.25, 0.25, 1)
+            self._light_timer = 0
+        elif world is not None and self._light_timer <= 0:
             self._light_timer = 0.3
             col = world.column(cell(a.x), cell(a.z))
             open_sky = col is not None and cell(a.y + 0.3) > col[0]

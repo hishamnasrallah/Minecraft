@@ -110,3 +110,21 @@ def test_wildlife_spawns_and_despawns():
         assert not w.solid(math.floor(a.x + 0.5), math.floor(a.y + 0.6), math.floor(a.z + 0.5))
     life.update(0.1, (DESPAWN_DISTANCE * 3, 20, 0))
     assert all(math.hypot(a.x - DESPAWN_DISTANCE * 3, a.z) <= DESPAWN_DISTANCE for a in life.animals)
+
+
+def test_animals_die_after_enough_hits_and_drop_meat():
+    from inventory import RAW_MEAT
+    from animals import SPECIES
+    w = flat()
+    deer = Animal("deer", 8, 3.5, 8, random.Random(9))
+    hits = 0
+    drops = []
+    while not deer.dead:
+        drops = deer.hit(0, 8, damage=3)
+        hits += 1
+    assert hits == math.ceil(SPECIES["deer"]["health"] / 3)
+    assert drops and drops[0][0] == RAW_MEAT and 2 <= drops[0][1] <= 3
+    life = Wildlife(w, random.Random(1))
+    life.animals.append(deer)
+    life.update(0.1, FAR)
+    assert deer not in life.animals

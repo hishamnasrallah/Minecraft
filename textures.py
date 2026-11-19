@@ -240,6 +240,85 @@ def stone_axe(rng):
     return _axe(rng, STONE_HEAD)
 
 
+def raw_meat(rng):
+    img = Image.new("RGBA", (TILE, TILE), (0, 0, 0, 0))
+    for x in range(TILE):
+        for y in range(TILE):
+            d = ((x - 8) / 6.0) ** 2 + ((y - 7) / 4.5) ** 2
+            if d < 1:
+                base = (226, 214, 200) if d > 0.75 else (196, 70, 70)   # fat rim, red middle
+                img.putpixel((x, y), _shade(base, 1 + rng.uniform(-0.1, 0.1)) + (255,))
+    for x in range(3, 6):                        # bone sticking out
+        img.putpixel((x, 12 + (x - 3) // 2), (236, 230, 216, 255))
+    return img
+
+
+def cooked_meat(rng):
+    img = raw_meat(rng)
+    for x in range(TILE):
+        for y in range(TILE):
+            r, g, b, a = img.getpixel((x, y))
+            if a and r > g + 60:                 # browned instead of red
+                img.putpixel((x, y), _shade((150, 88, 48), 1 + rng.uniform(-0.12, 0.12)) + (255,))
+    return img
+
+
+def apple(rng):
+    img = Image.new("RGBA", (TILE, TILE), (0, 0, 0, 0))
+    for x in range(TILE):
+        for y in range(TILE):
+            if (x - 7.5) ** 2 + (y - 9) ** 2 < 30:
+                shine = 1.35 if (x - 5) ** 2 + (y - 7) ** 2 < 3 else 1
+                img.putpixel((x, y), _shade((200, 36, 40), shine * (1 + rng.uniform(-0.08, 0.08))) + (255,))
+    for y in range(1, 4):
+        img.putpixel((8, y), (96, 66, 36, 255))
+    for x in (9, 10, 11):
+        img.putpixel((x, 2), (70, 150, 60, 255))
+    return img
+
+
+def hud_icons(size=9):
+    """Icons for the health / hunger bars: heart_*, food_*, bubble (full, half, empty variants)."""
+    def shape(inside, color, half=False, empty=False):
+        img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        for x in range(size):
+            for y in range(size):
+                if inside(x, y):
+                    outline = any(not inside(x + dx, y + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+                    if outline:
+                        c = (20, 20, 20, 255)
+                    elif empty or (half and x >= size // 2):
+                        c = (40, 40, 44, 200)
+                    else:
+                        c = color + (255,)
+                    img.putpixel((x, y), c)
+        return img
+
+    def heart(x, y):
+        if not (0 <= x < size and 0 <= y < size):
+            return False
+        top = y <= 2 and (x in range(1, 4) or x in range(5, 8)) or (y == 0 and False)
+        body = 2 <= y and abs(x - 4) <= 4 - max(0, y - 3) and y < 8
+        return top or body
+
+    def food(x, y):
+        if not (0 <= x < size and 0 <= y < size):
+            return False
+        meat = (x - 5) ** 2 + (y - 3.5) ** 2 < 10
+        bone = x + y in (8, 9) and x < 4
+        return meat or bone
+
+    def bubble(x, y):
+        return 0 <= x < size and 0 <= y < size and (x - 4) ** 2 + (y - 4) ** 2 < 17
+
+    icons = {}
+    for state in ("full", "half", "empty"):
+        icons[f"heart_{state}"] = shape(heart, (220, 40, 44), state == "half", state == "empty")
+        icons[f"food_{state}"] = shape(food, (178, 104, 56), state == "half", state == "empty")
+    icons["bubble"] = shape(bubble, (120, 180, 240))
+    return icons
+
+
 def crack_stages(stages=6, seed=99):
     """Transparent overlays with more and more cracks, shown while a block is being mined."""
     rng = random.Random(seed)

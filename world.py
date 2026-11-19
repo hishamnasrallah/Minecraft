@@ -49,6 +49,7 @@ TILES = [
     "planks", "brick", "bedrock", "water",
     "lamp", "glass", "coal_ore", "stick", "coal",
     "wood_pickaxe", "stone_pickaxe", "wood_axe", "stone_axe",
+    "raw_meat", "cooked_meat", "apple",
 ]
 # id -> (top, side, bottom) tile names
 BLOCK_TILES = {

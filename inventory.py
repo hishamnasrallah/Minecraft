@@ -8,6 +8,8 @@ HOTBAR_SIZE = 9
 INVENTORY_SIZE = 36          # 9 hotbar slots + 27 storage slots
 
 STICK, COAL = 101, 102
+RAW_MEAT, COOKED_MEAT, APPLE = 103, 104, 105
+FOOD = {RAW_MEAT: 2, COOKED_MEAT: 6, APPLE: 4}      # item -> hunger points restored
 WOOD_PICKAXE, STONE_PICKAXE, WOOD_AXE, STONE_AXE = 201, 202, 203, 204
 
 # tool id: (kind, speed multiplier, durability, name, icon tile)
@@ -18,9 +20,11 @@ TOOLS = {
     STONE_AXE: ("axe", 4.0, 130, "stone axe", "stone_axe"),
 }
 
-ITEMS = {**BLOCKS, STICK: "stick", COAL: "coal", **{t: v[3] for t, v in TOOLS.items()}}
+ITEMS = {**BLOCKS, STICK: "stick", COAL: "coal", RAW_MEAT: "raw meat", COOKED_MEAT: "cooked meat",
+         APPLE: "apple", **{t: v[3] for t, v in TOOLS.items()}}
 # atlas tile used as the icon of each item
 ITEM_ICONS = {**{b: tiles[1] for b, tiles in BLOCK_TILES.items()}, STICK: "stick", COAL: "coal",
+              RAW_MEAT: "raw_meat", COOKED_MEAT: "cooked_meat", APPLE: "apple",
               **{t: v[4] for t, v in TOOLS.items()}}
 PLACEABLE = set(BLOCKS) - {WATER, 9}
 
@@ -41,6 +45,14 @@ def mining(block_id, tool_item=None):
     return hardness * 1.5, True, False
 
 
+def attack_damage(item):
+    """Damage dealt to animals with what's in your hand."""
+    tool = TOOLS.get(item)
+    if not tool:
+        return 1
+    return (3 if tool[0] == "axe" else 2) + (1 if tool[1] > 2 else 0)
+
+
 def max_stack(item):
     return 1 if item in TOOLS else STACK_SIZE
 
@@ -56,8 +68,9 @@ def drop_for(block_id, rng=random):
         return 2                  # grass -> dirt
     if block_id == COAL_ORE:
         return COAL
-    if block_id == 5:
-        return STICK if rng.random() < 0.2 else None   # leaves sometimes drop a stick
+    if block_id == 5:                 # leaves sometimes drop a stick or an apple
+        roll = rng.random()
+        return STICK if roll < 0.2 else APPLE if roll < 0.28 else None
     return block_id
 
 
@@ -69,6 +82,7 @@ RECIPES = [
     ({2: 2, 6: 2}, (8, 2)),                    # 2 dirt + 2 sand -> 2 brick
     ({3: 4}, (8, 1)),                          # 4 stone -> 1 brick
     ({COAL: 1, STICK: 1, GLASS: 1}, (LAMP, 2)),
+    ({RAW_MEAT: 2, COAL: 1}, (COOKED_MEAT, 2)),   # cook over coal
     ({7: 3, STICK: 2}, (WOOD_PICKAXE, 1)),
     ({3: 3, STICK: 2}, (STONE_PICKAXE, 1)),
     ({7: 2, STICK: 2}, (WOOD_AXE, 1)),
