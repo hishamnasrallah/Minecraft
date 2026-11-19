@@ -2293,6 +2293,22 @@ func _process_inner(delta: float) -> void:
 				", prize on the ground: ", drops.drops.map(func(d): return d["stack"]), ", in bag: storm core ", inv.count(132), ", shards ", inv.count(130))
 			if not _shot_path:
 				get_tree().quit()
+	if "--journey" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: fly far in a straight line, watch memory
+		if _st_frame == 2:
+			set_mode(true)
+			set_flying(true)
+		player.position += Vector3(0.35, 0, 0.2)       # ~20 blocks per second at 60 fps
+		var top := world.top_y(floori(player.position.x + 0.5), floori(player.position.z + 0.5))
+		if top > 0:
+			player.position.y = maxf(player.position.y, top + 12.0)
+		if _st_frame % 500 == 0:
+			print("JOURNEY frame %d at %d,%d: chunks %d, views %d, sections %d, animals %d, drops %d, memory %.0f MB, script %.2f ms" % [
+				_st_frame, int(player.position.x), int(player.position.z), world.chunks.size(), chunks.views.size(),
+				chunks.sections.size(), wildlife.animals.size(), drops.drops.size(),
+				Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0, _perf_ms.get("main", 0.0)])
+		if _st_frame == 4000:
+			get_tree().quit()
 	if "--torchtest" in OS.get_cmdline_user_args() and spawned:
 		_st_frame += 1                                  # testing: torches on every side of a pillar, at night
 		if _st_frame == 5:
@@ -2365,6 +2381,21 @@ func _process_inner(delta: float) -> void:
 		_st["health0"] = health.health
 	if _st.has("gloom") and _shot_frames == 1:
 		print("GLOOM distance to player: ", snappedf(Vector2(_st["gloom"].pos.x - player.position.x, _st["gloom"].pos.z - player.position.z).length(), 0.1), ", player health ", _st["health0"], " -> ", health.health)
+	if _shot_path != "" and spawned and _shot_frames == 20:
+		for a in OS.get_cmdline_user_args():        # testing: a screen open in the screenshot
+			if a.begins_with("--open="):
+				var what := a.substr(7)
+				match what:
+					"settings":
+						open_settings()
+					"chest":
+						var cp := Vector3i(player.position) + Vector3i(2, 0, 0)
+						world.containers[cp] = [[3, 12], [106, 5], null, [50, 30]]
+						open_screen(cp)
+					"inventory":
+						open_screen()
+					_:
+						open_screen(null, what)
 	if _shot_path != "" and spawned:
 		_shot_frames -= 1
 		if _shot_frames <= 0:

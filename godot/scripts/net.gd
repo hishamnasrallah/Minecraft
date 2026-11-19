@@ -70,7 +70,12 @@ func _my_name() -> String:
 	if player_name != "":
 		return player_name
 	var n := str(I18n.settings.get("player_name", ""))
-	return n if n != "" else OS.get_model_name()
+	if n == "":
+		# a friendly name the first time (not the phone's model code), kept from then on
+		n = "%s %d" % [I18n.t("default_player"), randi_range(10, 99)]
+		I18n.settings["player_name"] = n
+		I18n.save_settings()
+	return n
 
 
 # ---------------------------------------------------------------- hosting

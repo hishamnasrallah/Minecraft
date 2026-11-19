@@ -98,8 +98,7 @@ func _ready() -> void:
 	var name_label := _caption(I18n.t("your_name"), "")
 	name_row.add_child(name_label)
 	var name_edit := LineEdit.new()
-	name_edit.text = str(I18n.settings.get("player_name", ""))
-	name_edit.placeholder_text = OS.get_model_name()
+	name_edit.text = Net._my_name()
 	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_edit.max_length = 20
 	name_edit.custom_minimum_size.y = 46

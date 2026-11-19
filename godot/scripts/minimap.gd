@@ -5,7 +5,7 @@ extends Control
 ## (your bed, or where you started), stuck to the edge when it is far away.
 ## Only chunks already loaded are drawn, and the work is spread over several frames.
 
-const R := 16                        # blocks from the centre to the edge
+const R := 24                        # blocks from the centre to the edge
 const N := R * 2 + 1
 const ROWS_PER_FRAME := 3
 

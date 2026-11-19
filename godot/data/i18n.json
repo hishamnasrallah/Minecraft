@@ -600,6 +600,10 @@
    "en": "%s left",
    "ar": "%s طلع"
   },
+  "default_player": {
+   "en": "Player",
+   "ar": "لاعب"
+  },
   "net_searching": {
    "en": "Looking for games on this Wi-Fi...",
    "ar": "عم دوّر على ألعاب على هالواي فاي..."

@@ -33,6 +33,8 @@ func _init() -> void:
 
 func stage(name: String) -> void:
 	current_stage = name
+	_ok = false                       # a new load (e.g. through the portal): watch it again
+	_running_time = 0.0
 	_write({"state": "starting", "stage": name, "safe_mode": safe_mode})
 
 

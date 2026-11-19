@@ -286,7 +286,7 @@ func _build_join() -> void:
 	head.add_child(close)
 	_join_name = LineEdit.new()
 	_join_name.placeholder_text = I18n.t("your_name")
-	_join_name.text = str(I18n.settings.get("player_name", ""))
+	_join_name.text = Net._my_name()
 	_join_name.custom_minimum_size.y = 50
 	box.add_child(_join_name)
 	var hint := Label.new()

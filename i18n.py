@@ -198,7 +198,7 @@ UI = {
     "ip_hint": ("Host IP, e.g. 192.168.1.20", "IP المضيف، مثلاً 192.168.1.20"), "join": ("Join", "انضم"),
     "open_to_friends": ("Open this world to friends (Wi-Fi)", "افتح العالم لأصحابك (واي فاي)"),
     "hosting": ("Open to friends: %s", "مفتوح لأصحابك: %s"),
-    "player_joined": ("%s joined", "%s انضم"), "player_left": ("%s left", "%s طلع"),
+    "player_joined": ("%s joined", "%s انضم"), "player_left": ("%s left", "%s طلع"), "default_player": ("Player", "لاعب"),
     "net_searching": ("Looking for games on this Wi-Fi...", "عم دوّر على ألعاب على هالواي فاي..."),
     "net_players": ("%d playing", "%d لاعبين"), "net_connecting": ("Connecting to %s...", "عم يتصل بـ %s..."),
     "net_receiving": ("Connected - receiving the world...", "اتصل - عم يستلم العالم..."),

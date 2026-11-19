@@ -166,6 +166,7 @@ func _ready() -> void:
 	cv.add_child(_recipe_panel)
 	_chest_grid = GridContainer.new()
 	_chest_grid.columns = 9
+	_chest_grid.layout_direction = Control.LAYOUT_DIRECTION_LTR   # same order as the hotbar on screen
 	_chest_grid.add_theme_constant_override("h_separation", int(GAP))
 	_chest_grid.add_theme_constant_override("v_separation", int(GAP))
 	cv.add_child(_chest_grid)
@@ -184,11 +185,13 @@ func _ready() -> void:
 	bag.add_child(bv)
 	var storage := GridContainer.new()
 	storage.columns = 9
+	storage.layout_direction = Control.LAYOUT_DIRECTION_LTR   # same order as the hotbar on screen
 	storage.add_theme_constant_override("h_separation", int(GAP))
 	storage.add_theme_constant_override("v_separation", int(GAP))
 	bv.add_child(storage)
 	var hotbar := GridContainer.new()
 	hotbar.columns = 9
+	hotbar.layout_direction = Control.LAYOUT_DIRECTION_LTR   # same order as the hotbar on screen
 	hotbar.add_theme_constant_override("h_separation", int(GAP))
 	bv.add_child(hotbar)
 	_inv_slots.resize(36)
