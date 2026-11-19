@@ -1710,6 +1710,8 @@ func _update_building() -> void:
 func _take_damage(damage: int, cause := "gloom") -> void:
 	if damage <= 0 or creative or health.dead:
 		return
+	if _spawn_shield > 0.0 and cause != "fall" and cause != "void":
+		return                                        # a few calm seconds after coming back
 	health.damage(damage, cause)
 	hud.hurt_flash()
 	Sfx.play("hurt")
@@ -1768,11 +1770,15 @@ func _update_health(delta: float) -> void:
 	hud.show_bars(health, creative)
 
 
+var _spawn_shield := 0.0
+
+
 func respawn() -> void:
 	health.respawn()
+	_spawn_shield = 3.0
 	# no night creature waiting at the spawn point to hit you again straight away
 	for a in wildlife.animals:
-		if a.hostile and a.pos.distance_to(spawn_point) < 16.0:
+		if a.hostile and a.pos.distance_to(spawn_point) < 24.0:
 			a.dead = true
 	hud.death.visible = false
 	player.position = spawn_point
@@ -1835,6 +1841,7 @@ func _process(delta: float) -> void:
 
 
 func _process_inner(delta: float) -> void:
+	_spawn_shield = maxf(0.0, _spawn_shield - delta)
 	var tc := Time.get_ticks_usec()
 	chunks.update_center(player.position)
 	_perf("world", Time.get_ticks_usec() - tc)
