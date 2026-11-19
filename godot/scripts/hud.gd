@@ -210,6 +210,12 @@ func _make_death_screen() -> void:
 	death_cause.add_theme_font_size_override("font_size", 26)
 	death_cause.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(death_cause)
+	var safe := Label.new()
+	safe.text = I18n.t("items_safe")
+	safe.add_theme_font_size_override("font_size", 18)
+	safe.modulate = Color(1, 1, 1, 0.75)
+	safe.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(safe)
 	var b := Button.new()
 	b.text = I18n.t("respawn")
 	b.custom_minimum_size = Vector2(260, 80)

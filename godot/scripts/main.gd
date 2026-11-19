@@ -941,8 +941,11 @@ func use_block(pos: Vector3i) -> bool:
 			var b := world.get_block(p.x, p.y, p.z)
 			if Blocks.defs.get(b, {}).has("door"):
 				edit(p, b - 2 if Blocks.defs[b]["door"]["open"] else b + 2)
+		Sfx.play("dig_wood", -3.0, 0.8 if d["door"]["open"] else 1.15)   # creak shut / swing open
+		buzz(12)
 		return true
 	if d.get("container", false):
+		Sfx.play("click", -4.0, 0.7)
 		open_screen(pos)
 		return true
 	if id == 47:
@@ -1839,6 +1842,7 @@ func _take_damage(damage: int, cause := "gloom") -> void:
 	if health.dead:
 		hud.show_death(health.cause)
 		player.set_physics_process(false)
+		touch.visible = false                         # only the "back" button while dead
 
 
 func _update_animals(delta: float) -> void:
@@ -1885,6 +1889,7 @@ func _update_health(delta: float) -> void:
 	if health.dead:
 		hud.show_death(health.cause)
 		player.set_physics_process(false)
+		touch.visible = false                         # only the "back" button while dead
 		if not use_touch:
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	hud.show_bars(health, creative)
@@ -1901,6 +1906,7 @@ func respawn() -> void:
 		if a.hostile and a.pos.distance_to(spawn_point) < 24.0:
 			a.dead = true
 	hud.death.visible = false
+	touch.visible = use_touch
 	player.position = spawn_point
 	player.velocity = Vector3.ZERO
 	player.set_physics_process(true)
@@ -2417,6 +2423,8 @@ func _process_inner(delta: float) -> void:
 				match what:
 					"settings":
 						open_settings()
+					"death":
+						_take_damage(100)
 					"chest":
 						var cp := Vector3i(player.position) + Vector3i(2, 0, 0)
 						world.containers[cp] = [[3, 12], [106, 5], null, [50, 30]]

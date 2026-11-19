@@ -184,7 +184,33 @@ func _set_button(name: String, down: bool) -> void:
 			down_held = down
 
 
-var blocked := false        # true while a full-screen menu is open: let the menu have the touches
+var blocked := false:       # true while a full-screen menu is open: let the menu have the touches
+	set(v):
+		blocked = v
+		if v:
+			release_all()
+
+
+## Forget every finger (a menu opened or the controls were hidden while touched): their
+## "lift" would never reach us, and the player would keep walking or breaking by itself.
+func release_all() -> void:
+	move = Vector2.ZERO
+	_joy_finger = -1
+	if _joy_base != null:
+		_joy_base.visible = false
+	_end_look()
+	for f in _button_fingers:
+		_set_button(_button_fingers[f], false)
+	_button_fingers.clear()
+	jump_held = false
+	break_held = false
+	up_held = false
+	down_held = false
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_VISIBILITY_CHANGED and not visible:
+		release_all()
 var ui_rects: Array = []    # other on-screen controls (e.g. the build buttons) that keep their touches
 
 

@@ -188,6 +188,7 @@ UI = {
     "portal_opened": ("A portal opened - step in and wait", "انفتحت بوابة - فوت فيها واستنى"),
     "portal_needs_frame": ("Use the sky key on a closed frame of amethyst blocks", "استعمل مفتاح السماء على إطار مسكّر من بلوكات الجمشت"),
     "portal_with_friends": ("Portals do not work while playing with friends yet", "البوابات لسا ما بتشتغل وإنتو عم تلعبوا مع بعض"),
+    "items_safe": ("Your things are safe in your bag.", "أغراضك محفوظة معك."),
     "cause_void": ("You fell off the sky islands.", "وقعت عن جزر السما."),
     "wind_saved": ("The wind carried you back to the island.", "الريح رجّعتك عالجزيرة."),
     "cause_storm": ("The Storm Ray got you.", "رعّاد العاصفة قتلك."),

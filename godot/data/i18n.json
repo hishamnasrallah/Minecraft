@@ -540,6 +540,10 @@
    "en": "Portals do not work while playing with friends yet",
    "ar": "البوابات لسا ما بتشتغل وإنتو عم تلعبوا مع بعض"
   },
+  "items_safe": {
+   "en": "Your things are safe in your bag.",
+   "ar": "أغراضك محفوظة معك."
+  },
   "cause_void": {
    "en": "You fell off the sky islands.",
    "ar": "وقعت عن جزر السما."
