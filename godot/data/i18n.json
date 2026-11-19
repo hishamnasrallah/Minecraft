@@ -540,6 +540,14 @@
    "en": "Portals do not work while playing with friends yet",
    "ar": "البوابات لسا ما بتشتغل وإنتو عم تلعبوا مع بعض"
   },
+  "cause_void": {
+   "en": "You fell off the sky islands.",
+   "ar": "وقعت عن جزر السما."
+  },
+  "wind_saved": {
+   "en": "The wind carried you back to the island.",
+   "ar": "الريح رجّعتك عالجزيرة."
+  },
   "cause_storm": {
    "en": "The Storm Ray got you.",
    "ar": "رعّاد العاصفة قتلك."

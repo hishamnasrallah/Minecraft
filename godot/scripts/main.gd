@@ -797,9 +797,23 @@ func break_at(pos: Vector3i) -> void:
 	var m := Items.mining(id, tool)
 	var contents = world.containers.get(pos)
 	world.containers.erase(pos)
+	var on_top := []                          # what stands on it: the world removes it with the block
+	var ay := pos.y + 1
+	while true:
+		var a := world.get_block(pos.x, ay, pos.z)
+		if not (Blocks.plants_need_soil.has(a) or a in [50, 60]):
+			break
+		on_top.append([Vector3i(pos.x, ay, pos.z), a])
+		ay += 1
 	if not edit(pos, 0):
 		return
 	_drop_attached(pos)
+	if not creative:
+		for t in on_top:
+			if world.get_block(t[0].x, t[0].y, t[0].z) == 0:
+				var dr := Items.drop_for(t[1])
+				if dr != 0:
+					drops.spawn([dr, 1], Vector3(t[0]))
 	if creative:
 		return
 	health.exert(float(Items.survival["MINE"]))
@@ -1987,6 +2001,12 @@ func _process_inner(delta: float) -> void:
 	_update_tutorial()
 	if spawned:
 		_update_portal(delta)
+		if world.dimension == "sky" and player.position.y < WorldData.SKY_BASE - 40:
+			# fell off the islands: the wind carries you back to the main island (it stings a little)
+			player.position = spawn_point
+			player.velocity = Vector3.ZERO
+			hud.flash(I18n.t("wind_saved"))
+			_take_damage(4, "void")
 		if not is_inside_tree():
 			return                                    # travelled: this scene is already gone
 		if boss != null and not boss.dead:
@@ -2309,6 +2329,14 @@ func _process_inner(delta: float) -> void:
 				Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0, _perf_ms.get("main", 0.0)])
 		if _st_frame == 4000:
 			get_tree().quit()
+	if "--voidtest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: step off the edge of the sky islands
+		if _st_frame == 5:
+			player.position = Vector3(300, WorldData.SKY_BASE + 10, 300)
+		if _st_frame in [60, 200, 400, 600]:
+			print("VOID frame %d: y %.0f, health %d, dead %s" % [_st_frame, player.position.y, health.health, health.dead])
+		if _st_frame == 600:
+			get_tree().quit()
 	if "--torchtest" in OS.get_cmdline_user_args() and spawned:
 		_st_frame += 1                                  # testing: torches on every side of a pillar, at night
 		if _st_frame == 5:
@@ -2337,8 +2365,9 @@ func _process_inner(delta: float) -> void:
 				var q: Vector3i = o + n
 				left += int(world.get_block(q.x, q.y, q.z) != 0)
 			print("TORCH after breaking the wall: hanging left ", left, ", dropped ", drops.drops.size() - before)
+			var n0 := drops.drops.size()
 			break_at(o + Vector3i(0, 2, 0))
-			print("TORCH standing one fell: ", world.get_block(o.x, o.y + 3, o.z) == 0)
+			print("TORCH standing one fell: ", world.get_block(o.x, o.y + 3, o.z) == 0, ", dropped ", drops.drops.size() - n0)
 			get_tree().quit()
 	if "--debristest" in OS.get_cmdline_user_args() and spawned and Engine.get_process_frames() % 12 == 0:
 		debris.burst(player.eye() + player.forward() * 3.0, 1)        # testing: pieces in front of the camera
