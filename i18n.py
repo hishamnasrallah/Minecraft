@@ -57,6 +57,7 @@ NAMES_AR.update({
     "lavender": "خزامى", "marigold": "قطيفة", "pink tulip": "توليب زهري", "orchid": "سحلبية", "daisy": "أقحوان",
     "bluebell": "جريس", "dark iris": "سوسن داكن", "sunflower": "دوّار الشمس",
     "leafy bush": "شجيرة", "berry bush": "شجيرة توت", "dry bush": "شجيرة يابسة",
+    "egg": "بيضة", "feather": "ريشة", "raw fish": "سمكة نيّة", "cooked fish": "سمكة مشوية",
 })
 # colour families: "<family word> <colour>"
 DYED_AR = {"concrete": "خرسانة", "terracotta": "فخار", "glazed_tiles": "بلاط مزجّج", "carpet": "سجادة",

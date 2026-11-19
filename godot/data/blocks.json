@@ -611,7 +611,11 @@
   "seeds",
   "wheat",
   "bread",
-  "carrot"
+  "carrot",
+  "egg",
+  "feather",
+  "raw_fish",
+  "cooked_fish"
  ],
  "plants_need_soil": [
   51,

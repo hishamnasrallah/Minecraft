@@ -1481,6 +1481,65 @@ for (_cname, _letter), _id in __import__("blocks").NEON.items():
     EXTRA_GENERATORS[f"neon_{_cname}_{_letter}"] = neon_letter(_letter, dict(__import__("blocks").NEON_COLORS)[_cname])
 
 
+# ================================================================ animal items
+def egg(rng):
+    img = _blank()
+    for x in range(TILE):
+        for y in range(TILE):
+            d = ((x - 7.5) / 4.6) ** 2 + ((y - 8.5) / (6.2 if y < 9 else 5.4)) ** 2
+            if d < 1:
+                shine = 1.12 if (x - 6) ** 2 + (y - 6) ** 2 < 4 else (0.84 if d > 0.7 and x > 8 else 1.0)
+                _px(img, x, y, _shade((236, 222, 196), shine * (1 + rng.uniform(-0.03, 0.03))))
+    for _ in range(4):                            # a few freckles
+        _px(img, rng.randrange(5, 11), rng.randrange(6, 13), (196, 170, 132))
+    return img
+
+
+def feather(rng):
+    img = _blank()
+    for i in range(12):                           # the quill runs from bottom left to top right
+        x, y = 3 + i, 13 - i
+        _px(img, x, y, (226, 220, 206))
+        if i > 1:
+            w = 3 if 3 < i < 10 else 2
+            for k in range(1, w + 1):
+                _px(img, x - k, y - k, _shade((246, 244, 238), 1 - 0.04 * k + rng.uniform(-0.04, 0.04)))
+                _px(img, x + k, y + k, _shade((214, 210, 200), 1 - 0.04 * k + rng.uniform(-0.04, 0.04)))
+    _px(img, 2, 14, (150, 130, 100))
+    return img
+
+
+def raw_fish(rng):
+    img = _blank()
+    for x in range(1, 12):
+        half = 4 - abs(x - 6) * 0.55
+        for y in range(TILE):
+            if abs(y - 8) < half:
+                c = (150, 170, 186) if y < 8 else (214, 222, 228)
+                _px(img, x, y, _shade(c, 1 + rng.uniform(-0.06, 0.06)))
+    for x in range(11, 15):                        # tail
+        for y in range(8 - (x - 10), 9 + (x - 10)):
+            _px(img, x, y, (120, 140, 158))
+    _px(img, 3, 7, (20, 20, 24))                   # eye
+    for x in (5, 7, 9):
+        _px(img, x, 6, (122, 146, 164))
+    return img
+
+
+def cooked_fish(rng):
+    img = raw_fish(rng)
+    for x in range(TILE):
+        for y in range(TILE):
+            r, g, b, a = img.getpixel((x, y))
+            if a and (r, g, b) != (20, 20, 24):
+                img.putpixel((x, y), _shade((196, 132, 66) if y < 8 else (226, 176, 104),
+                                            (r + g + b) / 3 / 170 + rng.uniform(-0.05, 0.05)) + (255,))
+    for x in (4, 7, 10):                           # grill marks
+        _px(img, x, 8, (110, 64, 30))
+        _px(img, x + 1, 7, (110, 64, 30))
+    return img
+
+
 GENERATORS = {name: EXTRA_GENERATORS.get(name) or globals()[name] for name in TILES}
 
 

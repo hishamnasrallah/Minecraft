@@ -16,7 +16,8 @@ STICK, COAL = 101, 102
 RAW_MEAT, COOKED_MEAT, APPLE = 103, 104, 105
 IRON_INGOT, COPPER_INGOT, TIN_INGOT, GOLD_INGOT, BRONZE_INGOT, DIAMOND = 106, 107, 108, 109, 110, 111
 BUCKET, WATER_BUCKET = 112, 113
-FOOD = {RAW_MEAT: 2, COOKED_MEAT: 6, APPLE: 4, BREAD: 5, CARROT: 3}      # item -> hunger points restored
+EGG, FEATHER, RAW_FISH, COOKED_FISH = 124, 125, 126, 127          # from animals (animals.py)
+FOOD = {RAW_MEAT: 2, COOKED_MEAT: 6, APPLE: 4, BREAD: 5, CARROT: 3, RAW_FISH: 2, COOKED_FISH: 5}      # item -> hunger points restored
 
 MATERIAL_ITEMS = {
     STICK: ("stick", "stick"), COAL: ("coal", "coal"), IRON_INGOT: ("iron ingot", "iron_ingot"),
@@ -25,9 +26,11 @@ MATERIAL_ITEMS = {
     DIAMOND: ("diamond", "diamond"), RUBY: ("ruby", "ruby"), SAPPHIRE: ("sapphire", "sapphire"),
     AMETHYST: ("amethyst shard", "amethyst"), QUARTZ: ("quartz", "quartz"),
     SEEDS: ("seeds", "seeds"), WHEAT_ITEM: ("wheat", "wheat"),
+    EGG: ("egg", "egg"), FEATHER: ("feather", "feather"),
 }
 FOOD_ITEMS = {RAW_MEAT: ("raw meat", "raw_meat"), COOKED_MEAT: ("cooked meat", "cooked_meat"),
-              APPLE: ("apple", "apple"), BREAD: ("bread", "bread"), CARROT: ("carrot", "carrot")}
+              APPLE: ("apple", "apple"), BREAD: ("bread", "bread"), CARROT: ("carrot", "carrot"),
+              RAW_FISH: ("raw fish", "raw_fish"), COOKED_FISH: ("cooked fish", "cooked_fish")}
 OTHER_ITEMS = {BUCKET: ("bucket", "bucket"), WATER_BUCKET: ("water bucket", "water_bucket")}
 
 # ---------------------------------------------------------------- tools
@@ -274,6 +277,9 @@ RECIPES = [
     ({STICK: 7}, (500, 3)),                    # ladders
     *[({w["planks"]: 6}, (w["door"], 2)) for w in WOODS.values()],      # a door of each wood
     ({WHEAT_ITEM: 3}, (BREAD, 1)), ({WHEAT_ITEM: 9}, (950, 1)), ({950: 1}, (WHEAT_ITEM, 9)),
+    ({EGG: 1, WHEAT_ITEM: 2}, (BREAD, 2)),     # egg bread
+    ({RAW_FISH: 2, COAL: 1}, (COOKED_FISH, 2)),
+    ({FEATHER: 4}, (70, 1)),                   # feathers stuffed into white wool
     ({STICK: 4, "planks": 2}, (61, 3)),        # fence
     ({"wool": 3, "planks": 3}, (62, 1)),       # bed
     ({IRON_INGOT: 3}, (BUCKET, 1)),
@@ -303,6 +309,7 @@ SMELTING = [
     ({6: 1, "fuel": 1}, (GLASS, 1)), ({22: 1, "fuel": 1}, (3, 1)), ({RAW_MEAT: 1, "fuel": 1}, (COOKED_MEAT, 1)),
     ({15: 1, "fuel": 1}, (664, 1)), ({COBBLED_SLATE: 1, "fuel": 1}, (SLATE, 1)),
     ({"logs": 1, "fuel": 1}, (COAL, 1)), ({24: 1, "fuel": 1}, (GLASS, 1)),
+    ({RAW_FISH: 1, "fuel": 1}, (COOKED_FISH, 1)),
 ]
 
 

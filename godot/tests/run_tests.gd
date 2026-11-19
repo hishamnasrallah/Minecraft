@@ -2,7 +2,8 @@ extends SceneTree
 ## Headless test runner:  godot --headless --path godot -s res://tests/run_tests.gd
 ## Each test_* function in the test files returns "" when it passes, or a failure message.
 
-const TEST_FILES := ["res://tests/test_world.gd", "res://tests/test_gameplay.gd", "res://tests/test_weather.gd"]
+const TEST_FILES := ["res://tests/test_world.gd", "res://tests/test_gameplay.gd", "res://tests/test_weather.gd",
+	"res://tests/test_animals.gd"]
 
 
 func _initialize() -> void:

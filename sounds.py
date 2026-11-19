@@ -154,10 +154,61 @@ def rain(rng):
     return out[:n]
 
 
+def _tone(n, freq_at, amp_at, harmonics=((1, 1.0),)):
+    """A tone whose pitch and loudness follow freq_at(t) and amp_at(t) (t in seconds)."""
+    phase, out = 0.0, []
+    for i in range(n):
+        t = i / RATE
+        phase += 2 * math.pi * freq_at(t) / RATE
+        out.append(sum(a * math.sin(phase * h) for h, a in harmonics) * amp_at(t))
+    return out
+
+
+def cluck(rng):
+    """Two short throaty clucks."""
+    out = []
+    for k, f0 in enumerate((620, 540)):
+        n = int(RATE * 0.07)
+        tone = _tone(n, lambda t, f0=f0: f0 - 1800 * t, lambda t: _env(t, 0.004, 0.022),
+                     ((1, 1.0), (2, 0.5), (3, 0.25)))
+        grit = _lowpass(_noise(n, rng), 2400)
+        out += [s + 0.25 * g * _env(i / RATE, 0.002, 0.015) for i, (s, g) in enumerate(zip(tone, grit))]
+        out += [0.0] * int(RATE * 0.06)
+    return out
+
+
+def bleat(rng):
+    """A wavering nasal call (vibrato on a buzzy tone)."""
+    n = int(RATE * 0.42)
+    tone = _tone(n, lambda t: 330 + 25 * math.sin(2 * math.pi * 11 * t) - 40 * t,
+                 lambda t: min(1.0, t / 0.04) * math.exp(-max(0.0, t - 0.25) / 0.06),
+                 ((1, 1.0), (2, 0.6), (3, 0.45), (4, 0.3), (5, 0.2)))
+    return _lowpass(tone, 2600)
+
+
+def croak(rng):
+    """A low creaky ribbit: a buzz chopped into pulses."""
+    n = int(RATE * 0.26)
+    tone = _tone(n, lambda t: 150 + 60 * t, lambda t: _env(t, 0.01, 0.12) * (0.55 + 0.45 * math.sin(2 * math.pi * 38 * t)),
+                 ((1, 1.0), (2, 0.7), (3, 0.5), (5, 0.3)))
+    return _lowpass(tone, 1400)
+
+
+def chirp(rng):
+    """A quick upward whistle, twice."""
+    out = []
+    for f0 in (2400, 2900):
+        n = int(RATE * 0.06)
+        out += _tone(n, lambda t, f0=f0: f0 + 26000 * t, lambda t: math.sin(math.pi * t / 0.06) ** 2)
+        out += [0.0] * int(RATE * 0.03)
+    return out
+
+
 SOUNDS = {
     "dig_stone": dig_stone, "dig_dirt": dig_dirt, "dig_wood": dig_wood, "dig_glass": dig_glass,
     "dig_soft": dig_soft, "place": place, "step": step, "splash": splash, "hurt": hurt, "eat": eat,
     "pop": pop, "click": click, "rain": rain,
+    "cluck": cluck, "bleat": bleat, "croak": croak, "chirp": chirp,
 }
 LOOPS = {"rain"}          # ambient loops (longer; the game plays them with looping on)
 
