@@ -59,20 +59,35 @@ func _color_of(id: int) -> Color:
 	return c
 
 
+var _rest := 0.0                     # time since the last full pass while standing still
+var _drawn := [Vector2i.ZERO, Vector2.ZERO]
+
+
 func update_map(player_pos: Vector3, forward: Vector3, home_pos: Vector3) -> void:
 	center = Vector2i(floori(player_pos.x + 0.5), floori(player_pos.z + 0.5))
 	var f := Vector2(forward.x, forward.z)
 	facing = f.normalized() if f.length() > 0.01 else facing
 	home = home_pos
-	if _row == 0:
-		_scan_center = center
-	for i in ROWS_PER_FRAME:
-		_scan_row(_row)
-		_row = (_row + 1) % N
+	# standing still with a finished map: only refresh every 2 s (blocks may change)
+	var scanning := _row != 0 or center != _scan_center
+	if not scanning:
+		_rest += get_process_delta_time()
+		scanning = _rest > 2.0
+	if scanning:
 		if _row == 0:
-			_tex.update(_img)
-			break
-	queue_redraw()
+			_scan_center = center
+			_rest = 0.0
+		for i in ROWS_PER_FRAME:
+			_scan_row(_row)
+			_row = (_row + 1) % N
+			if _row == 0:
+				_tex.update(_img)
+				_drawn[0] = Vector2i(-99999, 0)      # force a redraw
+				break
+	var key := [center, facing.snapped(Vector2(0.05, 0.05))]
+	if key != _drawn:
+		_drawn = key
+		queue_redraw()
 
 
 ## The top block of a column from the world's per-chunk height cache (2 lookups, no scan).

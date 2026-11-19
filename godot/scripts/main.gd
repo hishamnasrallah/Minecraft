@@ -147,6 +147,8 @@ func _ready() -> void:
 	add_child(player)
 	player.look(-_initial_look)
 
+	debris = Debris.new()
+	add_child(debris)
 	ghost = MeshInstance3D.new()
 	var gm := BoxMesh.new()
 	gm.size = Vector3.ONE * 0.98
@@ -680,6 +682,7 @@ func break_at(pos: Vector3i) -> void:
 		edit(pos, 0, true)
 		return
 	Sfx.play(Sfx.dig_sound(id))
+	debris.burst(Vector3(pos), id, clampf(daylight + 0.2, 0.3, 1.0))
 	buzz(30)
 	tutorial.report("break")
 	var tool := inv.item_at(selected)
@@ -1059,9 +1062,12 @@ func _update_mining(delta: float) -> void:
 		ghost.position = Vector3(ghost_pos)
 	if held and (Blocks.hardness[id] >= 0 or creative):
 		if creative:
-			if mine_pos != pos:
-				break_at(pos)                  # creative: instant, one block per press
-				mine_pos = pos
+			# creative: the first block breaks at once, then one every 0.22 s while held
+			_creative_cd -= delta
+			if _creative_cd <= 0.0:
+				break_at(pos)
+				_creative_cd = 0.22
+			mine_pos = pos
 			return
 		if mine_pos != pos:
 			mine_pos = pos
@@ -1078,6 +1084,7 @@ func _update_mining(delta: float) -> void:
 	else:
 		mine_pos = null
 		mine_progress = 0.0
+		_creative_cd = 0.0
 	crack.visible = not creative and mine_pos != null and mine_progress > 0
 	if crack.visible:
 		crack.position = Vector3(pos)
@@ -1160,7 +1167,9 @@ var tutorial: Tutorial
 var drops: Drops
 var weather: Weather
 var power: Power
-var ghost: MeshInstance3D           # where the held block would go
+var ghost: MeshInstance3D
+var debris: Debris
+var _creative_cd := 0.0             # creative: time until holding breaks the next block           # where the held block would go
 var _tut_last = null              # [yaw, pitch, position] last frame, for the tutorial
 
 
@@ -1357,6 +1366,8 @@ func _process(delta: float) -> void:
 			get_tree().quit()
 	if "--selftest" in OS.get_cmdline_user_args() and spawned:
 		_selftest_step()
+	if "--debristest" in OS.get_cmdline_user_args() and spawned and Engine.get_process_frames() % 12 == 0:
+		debris.burst(player.eye() + player.forward() * 3.0, 1)        # testing: pieces in front of the camera
 	if "--machines" in OS.get_cmdline_user_args() and spawned and not _st.has("machines"):
 		# testing: a small machine demo in front of the player, for screenshots
 		_st["machines"] = true

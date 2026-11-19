@@ -668,8 +668,13 @@ func _fill_creative() -> void:
 
 
 func _clear_grid() -> void:
+	# hide now, free at the end of the frame: removing a slot while its own tap is still being
+	# delivered makes Godot complain ("can_process ... !is_inside_tree")
 	for c in _grid.get_children():
-		_grid.remove_child(c)
+		if c.is_queued_for_deletion():
+			continue
+		c.visible = false
+		_grid.move_child(c, _grid.get_child_count() - 1)
 		c.queue_free()
 
 
@@ -861,7 +866,7 @@ func _fill_book() -> void:
 
 func _fill_recipe_panel() -> void:
 	for c in _recipe_panel.get_children():
-		_recipe_panel.remove_child(c)
+		c.visible = false
 		c.queue_free()
 	if recipe == null:
 		return
