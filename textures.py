@@ -141,6 +141,21 @@ def water(rng):
     return img
 
 
+def lamp(rng):
+    img = Image.new("RGB", (TILE, TILE))
+    for x in range(TILE):
+        for y in range(TILE):
+            edge = min(x, y, TILE - 1 - x, TILE - 1 - y)
+            if edge == 0:
+                color = (96, 72, 40)
+            elif (x in (5, 10) or y in (5, 10)):
+                color = (150, 110, 52)
+            else:
+                color = (255, 222, 130)
+            img.putpixel((x, y), _shade(color, 1 + rng.uniform(-0.06, 0.06)))
+    return img
+
+
 GENERATORS = {name: globals()[name] for name in TILES}
 
 

@@ -6,6 +6,7 @@ without opening a window.
 import json
 import math
 import random
+from collections import deque
 from pathlib import Path
 
 CHUNK_SIZE = 16
@@ -13,6 +14,9 @@ MAX_HEIGHT = 64
 WATER_LEVEL = 11
 TREE_CHANCE = 0.012
 WATER = 10
+LAMP = 11
+MAX_LIGHT = 15
+LIGHT_EMIT = {LAMP: 14}      # block id -> light level it gives off
 CAVE_THRESHOLD = 0.016     # bigger = more/wider caves
 CAVE_GRID = 4              # cave noise is sampled every N blocks and interpolated
 
@@ -28,8 +32,9 @@ BLOCKS = {
     8: "brick",
     9: "bedrock",
     10: "water",
+    11: "lamp",
 }
-HOTBAR = [1, 2, 3, 4, 5, 6, 7, 8]
+HOTBAR = [1, 2, 3, 4, 5, 6, 7, 8, 11]
 UNBREAKABLE = {9, WATER}
 TRANSPARENT = {WATER}        # blocks you can see (and walk) through
 
@@ -39,6 +44,7 @@ TILES = [
     "grass_top", "grass_side", "dirt", "stone",
     "log_side", "log_top", "leaves", "sand",
     "planks", "brick", "bedrock", "water",
+    "lamp",
 ]
 # id -> (top, side, bottom) tile names
 BLOCK_TILES = {
@@ -52,7 +58,9 @@ BLOCK_TILES = {
     8: ("brick",) * 3,
     9: ("bedrock",) * 3,
     10: ("water",) * 3,
+    11: ("lamp",) * 3,
 }
+NEIGHBOURS = ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1))
 
 # (normal, brightness) — simple fake lighting so cube edges are visible.
 FACES = [
@@ -194,6 +202,9 @@ class World:
         self.blocks = {}          # (x, y, z) -> block id, for loaded chunks only
         self.chunks = {}          # (cx, cz) -> set of (x, y, z)
         self.changes = {}         # player edits: (cx, cz) -> {(x, y, z): id (0 = removed)}
+        self.lamps = set()        # positions of light-emitting blocks in loaded chunks
+        self._columns = {}        # cache: (cx, cz) -> {(x, z): (top solid y, water surface y)}
+        self.time_of_day = 0.2    # 0 = sunrise, 0.25 = noon, 0.5 = sunset, 0.75 = midnight
 
     # -- basic access
     @staticmethod
@@ -211,6 +222,10 @@ class World:
         elif pos in self.blocks:
             del self.blocks[pos]
             self.chunks[key].discard(pos)
+        if block_id in LIGHT_EMIT:
+            self.lamps.add(pos)
+        else:
+            self.lamps.discard(pos)
 
     def set(self, x, y, z, block_id):
         """Player edit. Returns the loaded chunk keys whose mesh must be rebuilt."""
@@ -231,6 +246,7 @@ class World:
 
     def _edit(self, pos, block_id):
         self._put(pos, block_id)
+        self._columns.pop(self.chunk_key(pos[0], pos[2]), None)
         self.changes.setdefault(self.chunk_key(pos[0], pos[2]), {})[pos] = block_id
 
     def _flood(self, start, limit=64):
@@ -361,6 +377,8 @@ class World:
     def unload_chunk(self, key):
         for pos in self.chunks.pop(key, ()):
             del self.blocks[pos]
+            self.lamps.discard(pos)
+        self._columns.pop(key, None)
 
     def spawn_point(self):
         return (8, self.top_y(8, 8) + 1.5, 8)
@@ -368,6 +386,86 @@ class World:
     def top_y(self, x, z):
         self.ensure_chunk(self.chunk_key(x, z))
         return max((y for (bx, y, bz) in self.chunks[self.chunk_key(x, z)] if bx == x and bz == z), default=0)
+
+    # -- lighting
+    def _column_info(self, key):
+        """Per column: highest light-blocking block and highest water block (-1 if none)."""
+        info = self._columns.get(key)
+        if info is None:
+            cx, cz = key
+            info = {(x, z): [-1, -1] for x in range(cx * CHUNK_SIZE, (cx + 1) * CHUNK_SIZE)
+                    for z in range(cz * CHUNK_SIZE, (cz + 1) * CHUNK_SIZE)}
+            blocks = self.blocks
+            for pos in self.chunks[key]:
+                col = info[(pos[0], pos[2])]
+                if blocks[pos] == WATER:
+                    col[1] = max(col[1], pos[1])
+                elif pos[1] > col[0]:
+                    col[0] = pos[1]
+            self._columns[key] = info
+        return info
+
+    @staticmethod
+    def _open_sky(y, water_top):
+        """Light of a cell with nothing solid above it; water dims it 2 levels per block."""
+        if y > water_top:
+            return MAX_LIGHT
+        return max(MAX_LIGHT - 2 * (water_top - y + 1), 2)
+
+    def compute_light(self, cx, cz):
+        """Sky and block light for the chunk and its 8 neighbours.
+
+        Cells with open sky above them are lit by formula; light then spreads (BFS,
+        -1 per block, -2 through water) into caves, overhangs and under trees.
+        Returns a function (x, y, z) -> (sky level, block level).
+        """
+        columns = {}
+        for dx in (-1, 0, 1):
+            for dz in (-1, 0, 1):
+                columns.update(self._column_info((cx + dx, cz + dz)))
+        x_lo, x_hi = (cx - 1) * CHUNK_SIZE, (cx + 2) * CHUNK_SIZE
+        z_lo, z_hi = (cz - 1) * CHUNK_SIZE, (cz + 2) * CHUNK_SIZE
+        blocks = self.blocks
+
+        def spread(queue, light, sky):
+            while queue:
+                x, y, z, level = queue.popleft()
+                for dx, dy, dz in NEIGHBOURS:
+                    nx, ny, nz = x + dx, y + dy, z + dz
+                    if not (x_lo <= nx < x_hi and z_lo <= nz < z_hi and 0 < ny < MAX_HEIGHT):
+                        continue
+                    if sky and ny > columns[(nx, nz)][0]:
+                        continue                    # already fully lit by the open sky
+                    b = blocks.get((nx, ny, nz), 0)
+                    if b and b != WATER:
+                        continue
+                    new = level - (2 if b == WATER else 1)
+                    if new > light.get((nx, ny, nz), 0):
+                        light[(nx, ny, nz)] = new
+                        if new > 1:
+                            queue.append((nx, ny, nz, new))
+
+        # sky light: seed from open-sky cells that sit next to a taller neighbour column
+        sky_light, queue = {}, deque()
+        for (x, z), (top, water_top) in columns.items():
+            highest = max(columns.get((x + dx, z + dz), (top,))[0] for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+            for y in range(top + 1, highest + 1):
+                queue.append((x, y, z, self._open_sky(y, water_top)))
+        spread(queue, sky_light, sky=True)
+
+        block_light, queue = {}, deque()
+        for (x, y, z) in self.lamps:
+            if x_lo <= x < x_hi and z_lo <= z < z_hi:
+                level = LIGHT_EMIT[blocks[(x, y, z)]]
+                queue.append((x, y, z, level + 1))  # +1: the lamp cell itself, neighbours get `level`
+        spread(queue, block_light, sky=False)
+
+        def light_at(x, y, z):
+            top, water_top = columns.get((x, z), (MAX_HEIGHT, -1))
+            sky = self._open_sky(y, water_top) if y > top else sky_light.get((x, y, z), 0)
+            return sky, block_light.get((x, y, z), 0)
+
+        return light_at
 
     # -- meshing
     def chunk_mesh(self, cx, cz):
@@ -381,6 +479,7 @@ class World:
                 self.ensure_chunk((cx + dx, cz + dz))
         out = {"solid": ([], [], []), "water": ([], [], [])}
         blocks = self.blocks
+        light_at = self.compute_light(cx, cz)
         for pos in self.chunks[(cx, cz)]:
             x, y, z = pos
             block_id = blocks[pos]
@@ -395,7 +494,11 @@ class World:
                         continue
                 elif (neighbour and neighbour not in TRANSPARENT) or (ny == -1 and y == 0):
                     continue
-                col = (shade, shade, shade, 1.0)
+                # vertex colour carries the light for the shader: r = sky, g = block light, b = face shade
+                sky, lamp = light_at(x + nx, y + ny, z + nz)
+                if block_id in LIGHT_EMIT:
+                    lamp = MAX_LIGHT
+                col = (sky / MAX_LIGHT, lamp / MAX_LIGHT, shade, 1.0)
                 for vx, vy, vz in corners:
                     if lowered and vy > 0:
                         vy = 0.4
@@ -407,8 +510,9 @@ class World:
     # -- persistence (only the seed + player edits are stored)
     def save(self, path):
         data = {
-            "version": 2,
+            "version": 3,
             "seed": self.seed,
+            "time_of_day": self.time_of_day,
             "changes": [[x, y, z, b] for edits in self.changes.values() for (x, y, z), b in edits.items()],
         }
         Path(path).write_text(json.dumps(data))
@@ -417,6 +521,7 @@ class World:
     def load(cls, path):
         data = json.loads(Path(path).read_text())
         world = cls(seed=data["seed"])
+        world.time_of_day = data.get("time_of_day", world.time_of_day)
         for x, y, z, b in data["changes"]:
             world.changes.setdefault(cls.chunk_key(x, z), {})[(x, y, z)] = b
         return world

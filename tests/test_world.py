@@ -4,7 +4,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from world import (World, FACE_VERTS, BLOCK_TILES, TILES, ATLAS_COLS, CHUNK_SIZE,  # noqa: E402
-                   WATER, WATER_LEVEL, _cross, _sub, _dot, tile_uv)
+                   WATER, WATER_LEVEL, LAMP, MAX_LIGHT, _cross, _sub, _dot, tile_uv)
 from textures import generate_atlas, tile_image  # noqa: E402
 
 
@@ -156,3 +156,67 @@ def test_breaking_next_to_water_floods_the_gap():
     assert w.set(*pos, 0) == set()     # water itself can't be "broken"
     w.set(*pos, 7)                     # but you can place a block into it
     assert w.get(*pos) == 7
+
+
+def _flat_world():
+    """A 3x3-chunk world: bedrock floor plus a flat stone ground at y=1..4."""
+    w = World(seed=1)
+    for cx in (-1, 0, 1):
+        for cz in (-1, 0, 1):
+            w.chunks[(cx, cz)] = set()
+    for x in range(-CHUNK_SIZE, 2 * CHUNK_SIZE):
+        for z in range(-CHUNK_SIZE, 2 * CHUNK_SIZE):
+            for y in range(5):
+                w._put((x, y, z), 9 if y == 0 else 3)
+    return w
+
+
+def test_open_sky_is_fully_lit_and_sealed_cave_is_dark():
+    w = _flat_world()
+    w._put((5, 2, 5), 0)  # sealed one-block pocket
+    light = w.compute_light(0, 0)
+    assert light(5, 5, 5) == (MAX_LIGHT, 0)
+    assert light(5, 2, 5) == (0, 0)
+
+
+def test_sky_light_fades_into_a_tunnel():
+    w = _flat_world()
+    for x in range(3, 10):
+        w._put((x, 3, 5), 0)  # tunnel at y=3 ...
+    w._put((3, 4, 5), 0)      # ... opening to the sky above x=3
+    light = w.compute_light(0, 0)
+    levels = [light(x, 3, 5)[0] for x in range(3, 10)]
+    assert levels[0] == MAX_LIGHT
+    assert levels == sorted(levels, reverse=True) and levels[-1] == MAX_LIGHT - 6
+
+
+def test_lamp_lights_up_a_cave_and_the_mesh():
+    w = _flat_world()
+    for x in range(3, 8):
+        w._put((x, 2, 5), 0)
+    w._put((3, 2, 5), LAMP)
+    light = w.compute_light(0, 0)
+    assert light(4, 2, 5) == (0, 14)
+    assert light(7, 2, 5) == (0, 11)
+    solid = w.chunk_mesh(0, 0)["solid"]
+    lamp_lit = [c for v, c in zip(solid[0], solid[1]) if 3.5 <= v[0] <= 7.5 and 1.5 <= v[1] <= 2.5 and c[1] > 0]
+    assert lamp_lit  # cave walls get block light in their vertex colours
+    w.set(3, 2, 5, 0)
+    assert w.compute_light(0, 0)(4, 2, 5) == (0, 0)
+
+
+def test_light_dims_under_water():
+    w = _flat_world()
+    for y in (5, 6, 7):
+        w._put((5, y, 5), WATER)
+    w._columns.clear()
+    light = w.compute_light(0, 0)
+    assert light(5, 8, 5)[0] == MAX_LIGHT
+    assert [light(5, y, 5)[0] for y in (7, 6, 5)] == [13, 11, 9]
+
+
+def test_time_of_day_is_saved(tmp_path):
+    w = World(seed=2)
+    w.time_of_day = 0.61
+    w.save(tmp_path / "s.json")
+    assert World.load(tmp_path / "s.json").time_of_day == 0.61
