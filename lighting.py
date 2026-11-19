@@ -33,6 +33,7 @@ float curve(float level) { return pow(level, 1.6); }
 
 void main() {
     vec4 tex = texture(p3d_Texture0, uvs);
+    if (tex.a < 0.5) discard;               // see-through pixels (glass)
     vec3 sky = vec3(curve(light.r) * daylight) * sky_tint;
     vec3 lamp = vec3(curve(light.g)) * vec3(1.0, 0.86, 0.62);
     vec3 total = max(max(sky, lamp), vec3(0.03));

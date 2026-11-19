@@ -3,19 +3,25 @@
 Controls:
   WASD / mouse   move / look        Space   jump
   Left click     break block        Right click  place block
-  1-9 / scroll   choose block       F5      save
-  T              fast-forward time  Esc     save and quit
+  1-9 / scroll   choose hotbar slot E      inventory & crafting
+  T              fast-forward time  F5     save
+  Esc            close inventory / save and quit
+
+  python main.py --new        start a new world
+  python main.py --creative   unlimited blocks
 """
 import math
 import sys
 from pathlib import Path
 
 from ursina import (Ursina, Entity, Mesh, Sky, Text, Texture, Color, Vec3, camera, color,
-                    raycast, destroy, application, window, held_keys, time, scene, lerp, clamp)
+                    raycast, destroy, application, window, held_keys, time, scene, lerp, clamp, mouse)
 from ursina.shaders import unlit_shader
 from ursina.prefabs.first_person_controller import FirstPersonController
 
-from world import World, BLOCKS, BLOCK_TILES, HOTBAR, WATER
+from world import World, WATER, UNBREAKABLE, TRANSPARENT, WATER_LEVEL
+from inventory import (Inventory, ITEMS, ITEM_ICONS, PLACEABLE, RECIPES, HOTBAR_SIZE, STACK_SIZE,
+                       drop_for, recipe_text)
 from textures import load_atlas, tile_image
 from lighting import block_shader
 
@@ -33,10 +39,19 @@ app = Ursina(title="BlockWorld", borderless=False, development_mode=False)
 window.fps_counter.enabled = True
 window.color = DAY_SKY
 
+CREATIVE = "--creative" in sys.argv
+
 if SAVE_FILE.exists() and "--new" not in sys.argv:
     world = World.load(SAVE_FILE)
 else:
     world = World()
+
+if CREATIVE:
+    inventory = Inventory()
+    for item in [1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13]:
+        inventory.add(item, STACK_SIZE)
+else:
+    inventory = Inventory.from_data(world.player_data.get("inventory"))
 
 atlas_image = load_atlas()
 atlas = Texture(atlas_image)
@@ -91,10 +106,11 @@ def refresh_chunks(center):
 
 
 # ground under the spawn point must exist before the player starts falling
-spawn = world.spawn_point()
+spawn = tuple(world.player_data.get("position") or world.spawn_point())
+spawn_chunk = world.chunk_key(round(spawn[0]), round(spawn[2]))
 for dx in (-1, 0, 1):
     for dz in (-1, 0, 1):
-        build_chunk((dx, dz))
+        build_chunk((spawn_chunk[0] + dx, spawn_chunk[1] + dz))
 
 # shader inputs set on the scene root are inherited by every chunk
 scene.set_shader_input("daylight", 1.0)
@@ -117,26 +133,98 @@ def cell(v):
 def water_at(x, y, z):
     return world.get(cell(x), cell(y), cell(z)) == WATER
 
-# ---------------------------------------------------------------- hotbar UI
+# ---------------------------------------------------------------- item UI
+ICONS = {}
+for item_id, tile in ITEM_ICONS.items():
+    ICONS[item_id] = Texture(tile_image(atlas_image, tile))
+    ICONS[item_id].filtering = None
+
+
+class SlotView:
+    """A square slot showing an item icon and a stack count. Clickable if it has an index."""
+
+    def __init__(self, parent, position, size=0.065, index=None):
+        x, y = position
+        self.frame = Entity(parent=parent, model="quad", color=color.black66, scale=size, position=(x, y, 0),
+                            collider="box" if index is not None else None)
+        self.frame.slot_index = index
+        self.icon = Entity(parent=parent, model="quad", scale=size * 0.78, position=(x, y, -0.01), enabled=False)
+        self.count = Text(parent=parent, text="", position=(x + size * 0.5, y - size * 0.3, -0.02),
+                          origin=(0.5, -0.5), scale=0.8)
+
+    def show(self, stack):
+        self.icon.enabled = bool(stack)
+        if stack:
+            self.icon.texture = ICONS[stack[0]]
+        self.count.text = str(stack[1]) if stack and stack[1] > 1 and not CREATIVE else ""
+
+
+# hotbar along the bottom of the screen
 selected = 0
-slots = []
-for i, block_id in enumerate(HOTBAR):
-    x = (i - (len(HOTBAR) - 1) / 2) * 0.07
-    frame = Entity(parent=camera.ui, model="quad", color=color.black66, scale=0.065, position=(x, -0.44))
-    icon = Texture(tile_image(atlas_image, BLOCK_TILES[block_id][1]))
-    icon.filtering = None
-    Entity(parent=frame, model="quad", texture=icon, scale=0.8, z=-0.01)
-    slots.append(frame)
+hud = Entity(parent=camera.ui)
+hotbar_views = [SlotView(hud, ((i - (HOTBAR_SIZE - 1) / 2) * 0.07, -0.44)) for i in range(HOTBAR_SIZE)]
 label = Text(parent=camera.ui, position=(0, -0.38), origin=(0, 0), scale=1.1)
 status = Text(parent=camera.ui, position=(-0.85, 0.47), text="", scale=1)
+
+# inventory + crafting screen (E)
+inv_root = Entity(parent=camera.ui, enabled=False)
+Entity(parent=inv_root, model="quad", scale=(4, 2), color=Color(0, 0, 0, 0.45), z=0.2)
+Entity(parent=inv_root, model="quad", scale=(0.74, 0.5), position=(-0.33, 0.03, 0.1), color=Color(0.15, 0.15, 0.18, 0.92))
+Entity(parent=inv_root, model="quad", scale=(0.74, 0.58), position=(0.44, 0.03, 0.1), color=Color(0.15, 0.15, 0.18, 0.92))
+Text(parent=inv_root, text="Inventory", position=(-0.68, 0.25), scale=1.2)
+Text(parent=inv_root, text="Crafting", position=(0.1, 0.29), scale=1.2)
+inventory_views = []
+for i in range(len(inventory.slots)):
+    col = i % HOTBAR_SIZE
+    # storage rows on top, the hotbar row separated at the bottom (like the HUD)
+    y = -0.15 if i < HOTBAR_SIZE else 0.17 - (i // HOTBAR_SIZE - 1) * 0.08
+    inventory_views.append(SlotView(inv_root, (-0.65 + col * 0.08, y), size=0.072, index=i))
+tooltip = Text(parent=inv_root, text="", position=(-0.68, -0.21), scale=1)
+
+recipe_rows = []
+for r, recipe in enumerate(RECIPES):
+    y = 0.22 - r * 0.075
+    row = Entity(parent=inv_root, model="quad", scale=(0.7, 0.065), position=(0.44, y, 0), collider="box")
+    row.recipe_index = r
+    icon = Entity(parent=inv_root, model="quad", texture=ICONS[recipe[1][0]], scale=0.05, position=(0.125, y, -0.01))
+    text = Text(parent=inv_root, text=recipe_text(recipe), position=(0.165, y, -0.01), origin=(-0.5, 0), scale=0.9)
+    recipe_rows.append(row)
+Text(parent=inv_root, text="click a recipe to craft (shift = up to 16)", position=(0.1, -0.25), scale=0.8,
+     color=color.light_gray)
+
+cursor_view = SlotView(camera.ui, (0, 0), size=0.06)
+cursor_view.frame.enabled = False
+cursor_stack = None
+
+
+def refresh_items():
+    for i, view in enumerate(hotbar_views):
+        view.show(inventory.slots[i])
+        view.frame.color = color.white if i == selected else color.black66
+    stack = inventory.slots[selected]
+    label.text = ITEMS[stack[0]] if stack else ""
+    if inv_root.enabled:
+        for i, view in enumerate(inventory_views):
+            view.show(inventory.slots[i])
+        for row, recipe in zip(recipe_rows, RECIPES):
+            row.color = Color(0.2, 0.45, 0.25, 1) if inventory.can_craft(recipe) else Color(0.25, 0.25, 0.28, 1)
+    cursor_view.show(cursor_stack)
 
 
 def select(i):
     global selected
-    selected = i % len(HOTBAR)
-    for j, s in enumerate(slots):
-        s.color = color.white if j == selected else color.black66
-    label.text = BLOCKS[HOTBAR[selected]]
+    selected = i % HOTBAR_SIZE
+    refresh_items()
+
+
+def toggle_inventory():
+    global cursor_stack
+    inv_root.enabled = not inv_root.enabled
+    player.enabled = not inv_root.enabled          # frees the mouse while the screen is open
+    if not inv_root.enabled and cursor_stack:      # put back whatever was held on the cursor
+        inventory.add(*cursor_stack)
+        cursor_stack = None
+    refresh_items()
 
 
 select(0)
@@ -146,6 +234,13 @@ def flash(msg):
     status.text = msg
     status.alpha = 1
     status.fade_out(delay=1.5, duration=0.5)
+
+
+def save():
+    world.save(SAVE_FILE, player={
+        "inventory": world.player_data.get("inventory") if CREATIVE else inventory.to_data(),
+        "position": [player.x, player.y + 0.1, player.z],
+    })
 
 
 # ---------------------------------------------------------------- interaction
@@ -177,32 +272,77 @@ def edit(pos, block_id):
     for key in [(cx + dx, cz + dz) for dx in (-1, 0, 1) for dz in (-1, 0, 1)]:
         if changed and key not in changed and key in chunk_entities and key not in relight_queue:
             relight_queue.append(key)
+    return bool(changed)
+
+
+def break_block():
+    inside, _ = target()
+    if not inside:
+        return
+    block_id = world.get(*inside)
+    if not block_id or block_id in UNBREAKABLE or not edit(inside, 0) or CREATIVE:
+        return
+    drop = drop_for(block_id)
+    if drop and inventory.add(drop):
+        flash("Inventory full")
+    refresh_items()
+
+
+def place_block():
+    item = inventory.item_at(selected)
+    _, outside = target()
+    if item not in PLACEABLE or not outside or overlaps_player(outside):
+        return
+    if edit(outside, item) and not CREATIVE:
+        inventory.use_one(selected)
+        refresh_items()
+
+
+def inventory_click(right):
+    global cursor_stack
+    hovered = mouse.hovered_entity
+    if getattr(hovered, "slot_index", None) is not None:
+        if held_keys["shift"] and not right:
+            inventory.quick_move(hovered.slot_index)
+        else:
+            cursor_stack = inventory.click(hovered.slot_index, cursor_stack, right=right)
+    elif getattr(hovered, "recipe_index", None) is not None:
+        recipe = RECIPES[hovered.recipe_index]
+        times = 16 if held_keys["shift"] else 1
+        made = sum(1 for _ in range(times) if inventory.craft(recipe))
+        if not made:
+            flash("Missing ingredients" if not inventory.can_craft(recipe) else "Inventory full")
+    refresh_items()
 
 
 def input(key):
     global time_speed
+    if inv_root.enabled:
+        if key in ("e", "escape"):
+            toggle_inventory()
+        elif key in ("left mouse down", "right mouse down"):
+            inventory_click(right=key.startswith("right"))
+        return
     if key == "left mouse down":
-        inside, _ = target()
-        if inside:
-            edit(inside, 0)
+        break_block()
     elif key == "right mouse down":
-        _, outside = target()
-        if outside and not overlaps_player(outside):
-            edit(outside, HOTBAR[selected])
+        place_block()
+    elif key == "e":
+        toggle_inventory()
     elif key == "t":
         time_speed = 1 if time_speed > 1 else 40
         flash("Time x40" if time_speed > 1 else "Time x1")
-    elif key in [str(i + 1) for i in range(len(HOTBAR))]:
+    elif key in [str(i + 1) for i in range(HOTBAR_SIZE)]:
         select(int(key) - 1)
     elif key == "scroll up":
         select(selected - 1)
     elif key == "scroll down":
         select(selected + 1)
     elif key == "f5":
-        world.save(SAVE_FILE)
+        save()
         flash("Saved")
     elif key == "escape":
-        world.save(SAVE_FILE)
+        save()
         application.quit()
 
 
@@ -241,6 +381,13 @@ def update():
         elif build_queue:
             build_chunk(build_queue.pop(0))
     update_sky()
+    if inv_root.enabled:
+        cursor_view.icon.position = (mouse.x, mouse.y, -0.2)
+        cursor_view.count.position = (mouse.x + 0.028, mouse.y - 0.012, -0.21)
+        hovered = mouse.hovered_entity
+        index = getattr(hovered, "slot_index", None)
+        tooltip.text = ITEMS[inventory.slots[index][0]] if index is not None and inventory.slots[index] else ""
+        return
     # swimming: sink slowly, hold Space to rise; checking below the feet too lets you climb out onto the shore
     swimming = water_at(player.x, player.y + 0.6, player.z) or water_at(player.x, player.y - 1.1, player.z)
     player.speed = SWIM_SPEED if swimming else WALK_SPEED
@@ -250,6 +397,12 @@ def update():
             player.y += 4 * time.dt
             player.air_time = 0
     underwater.enabled = water_at(*camera.world_position)
+    # safety net: a lag spike can make a fall skip past the ground; climb back out on top
+    feet = (cell(player.x), cell(player.y + 0.3), cell(player.z))
+    inside = world.get(*feet)
+    if inside and inside not in TRANSPARENT:
+        player.y = feet[1] + 0.5
+        player.air_time = 0
     if player.y < -20:  # fell through the world somehow
         player.position = Vec3(*world.spawn_point())
 

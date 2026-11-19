@@ -1,7 +1,7 @@
 """Procedural pixel-art textures packed into a single atlas image.
 
 Run `python textures.py` to export the atlas to textures/atlas.png. Edit that
-file in any image editor (keep the 4x4 grid layout from world.TILES) and the
+file in any image editor (keep the 5x5 grid layout from world.TILES) and the
 game will use your version instead of the generated one.
 """
 import random
@@ -156,6 +156,45 @@ def lamp(rng):
     return img
 
 
+def glass(rng):
+    img = Image.new("RGBA", (TILE, TILE), (0, 0, 0, 0))   # transparent centre
+    for x in range(TILE):
+        for y in range(TILE):
+            if min(x, y, TILE - 1 - x, TILE - 1 - y) == 0:
+                img.putpixel((x, y), _clamp((205 + rng.uniform(-15, 15),) * 2 + (225, 255)))
+    for i in range(3):                                      # a couple of glints
+        img.putpixel((3 + i, 5 - i), (235, 245, 255, 255))
+        img.putpixel((9 + i, 12 - i), (235, 245, 255, 255))
+    return img
+
+
+def coal_ore(rng):
+    img = stone(rng)
+    for _ in range(5):
+        cx, cy = rng.randrange(2, TILE - 3), rng.randrange(2, TILE - 3)
+        for dx, dy in ((0, 0), (1, 0), (0, 1), (1, 1), (2, 1)):
+            img.putpixel((cx + dx, cy + dy), _shade((30, 30, 32), 1 + rng.uniform(-0.2, 0.2)))
+    return img
+
+
+def stick(rng):
+    img = Image.new("RGBA", (TILE, TILE), (0, 0, 0, 0))
+    for i in range(3, 13):
+        img.putpixel((i, TILE - 1 - i), _shade((120, 86, 48), 1 + rng.uniform(-0.1, 0.1)) + (255,))
+        img.putpixel((i + 1, TILE - 1 - i), _shade((90, 62, 34), 1) + (255,))
+    return img
+
+
+def coal(rng):
+    img = Image.new("RGBA", (TILE, TILE), (0, 0, 0, 0))
+    c = (TILE - 1) / 2
+    for x in range(TILE):
+        for y in range(TILE):
+            if (x - c) ** 2 + (y - c) ** 2 * 1.3 < 26 + rng.uniform(-4, 4):
+                img.putpixel((x, y), _shade((58, 58, 64), 1 + rng.uniform(-0.3, 0.4)) + (255,))
+    return img
+
+
 GENERATORS = {name: globals()[name] for name in TILES}
 
 
@@ -164,7 +203,7 @@ def generate_atlas(seed=1234):
     atlas = Image.new("RGBA", (ATLAS_COLS * TILE, max(rows, ATLAS_COLS) * TILE), (255, 0, 255, 255))
     for index, name in enumerate(TILES):
         tile = GENERATORS[name](random.Random(seed + index))
-        atlas.paste(tile, ((index % ATLAS_COLS) * TILE, (index // ATLAS_COLS) * TILE))
+        atlas.paste(tile.convert("RGBA"), ((index % ATLAS_COLS) * TILE, (index // ATLAS_COLS) * TILE))
     return atlas
 
 

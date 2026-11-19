@@ -15,6 +15,8 @@ WATER_LEVEL = 11
 TREE_CHANCE = 0.012
 WATER = 10
 LAMP = 11
+GLASS = 12
+COAL_ORE = 13
 MAX_LIGHT = 15
 LIGHT_EMIT = {LAMP: 14}      # block id -> light level it gives off
 CAVE_THRESHOLD = 0.016     # bigger = more/wider caves
@@ -33,18 +35,19 @@ BLOCKS = {
     9: "bedrock",
     10: "water",
     11: "lamp",
+    12: "glass",
+    13: "coal ore",
 }
-HOTBAR = [1, 2, 3, 4, 5, 6, 7, 8, 11]
 UNBREAKABLE = {9, WATER}
-TRANSPARENT = {WATER}        # blocks you can see (and walk) through
+TRANSPARENT = {WATER, GLASS}  # blocks you can see through (light passes, faces behind them are drawn)
 
 # Texture atlas layout: ATLAS_COLS x ATLAS_COLS tiles, read left-to-right, top-to-bottom.
-ATLAS_COLS = 4
+ATLAS_COLS = 5
 TILES = [
     "grass_top", "grass_side", "dirt", "stone",
     "log_side", "log_top", "leaves", "sand",
     "planks", "brick", "bedrock", "water",
-    "lamp",
+    "lamp", "glass", "coal_ore", "stick", "coal",
 ]
 # id -> (top, side, bottom) tile names
 BLOCK_TILES = {
@@ -59,6 +62,8 @@ BLOCK_TILES = {
     9: ("bedrock",) * 3,
     10: ("water",) * 3,
     11: ("lamp",) * 3,
+    12: ("glass",) * 3,
+    13: ("coal_ore",) * 3,
 }
 NEIGHBOURS = ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1))
 
@@ -205,6 +210,7 @@ class World:
         self.lamps = set()        # positions of light-emitting blocks in loaded chunks
         self._columns = {}        # cache: (cx, cz) -> {(x, z): (top solid y, water surface y)}
         self.time_of_day = 0.2    # 0 = sunrise, 0.25 = noon, 0.5 = sunset, 0.75 = midnight
+        self.player_data = {}     # inventory etc., stored by the game in the save file
 
     # -- basic access
     @staticmethod
@@ -292,7 +298,9 @@ class World:
                     if y == 0:
                         b = 9
                     elif y < h - 3:
-                        b = 3
+                        # coal comes in small clusters: a coarse 2x2x2 cell decides, then each block
+                        b = COAL_ORE if (_hash3(x >> 1, y >> 1, z >> 1, self.seed + 55) < 0.05
+                                         and _hash3(x, y, z, self.seed + 56) < 0.6) else 3
                     elif y < h:
                         b = 6 if beach and y >= h - 2 else 2
                     else:
@@ -398,8 +406,11 @@ class World:
             blocks = self.blocks
             for pos in self.chunks[key]:
                 col = info[(pos[0], pos[2])]
-                if blocks[pos] == WATER:
+                b = blocks[pos]
+                if b == WATER:
                     col[1] = max(col[1], pos[1])
+                elif b in TRANSPARENT:
+                    continue
                 elif pos[1] > col[0]:
                     col[0] = pos[1]
             self._columns[key] = info
@@ -437,7 +448,7 @@ class World:
                     if sky and ny > columns[(nx, nz)][0]:
                         continue                    # already fully lit by the open sky
                     b = blocks.get((nx, ny, nz), 0)
-                    if b and b != WATER:
+                    if b and b not in TRANSPARENT:
                         continue
                     new = level - (2 if b == WATER else 1)
                     if new > light.get((nx, ny, nz), 0):
@@ -490,10 +501,10 @@ class World:
             for i, ((nx, ny, nz), shade, corners, _) in enumerate(FACE_VERTS):
                 neighbour = blocks.get((x + nx, y + ny, z + nz), 0)
                 if water:
-                    if neighbour:          # water only shows against air
-                        continue
-                elif (neighbour and neighbour not in TRANSPARENT) or (ny == -1 and y == 0):
-                    continue
+                    if neighbour == WATER or (neighbour and neighbour not in TRANSPARENT):
+                        continue           # water shows against air and glass
+                elif (neighbour and (neighbour not in TRANSPARENT or neighbour == block_id)) or (ny == -1 and y == 0):
+                    continue               # hidden behind an opaque block, or glass next to glass
                 # vertex colour carries the light for the shader: r = sky, g = block light, b = face shade
                 sky, lamp = light_at(x + nx, y + ny, z + nz)
                 if block_id in LIGHT_EMIT:
@@ -508,8 +519,9 @@ class World:
         return out
 
     # -- persistence (only the seed + player edits are stored)
-    def save(self, path):
+    def save(self, path, player=None):
         data = {
+            "player": player or {},
             "version": 3,
             "seed": self.seed,
             "time_of_day": self.time_of_day,
@@ -522,6 +534,7 @@ class World:
         data = json.loads(Path(path).read_text())
         world = cls(seed=data["seed"])
         world.time_of_day = data.get("time_of_day", world.time_of_day)
+        world.player_data = data.get("player", {})
         for x, y, z, b in data["changes"]:
             world.changes.setdefault(cls.chunk_key(x, z), {})[(x, y, z)] = b
         return world

@@ -220,3 +220,33 @@ def test_time_of_day_is_saved(tmp_path):
     w.time_of_day = 0.61
     w.save(tmp_path / "s.json")
     assert World.load(tmp_path / "s.json").time_of_day == 0.61
+
+
+def test_glass_lets_light_through_and_shows_what_is_behind():
+    from world import GLASS
+    w = _flat_world()
+    w._put((5, 5, 5), GLASS)       # glass roof over a pocket
+    w._put((5, 4, 5), 0)
+    w._columns.clear()
+    assert w.compute_light(0, 0)(5, 4, 5)[0] == MAX_LIGHT
+    w._put((6, 5, 5), GLASS)
+    solid = w.chunk_mesh(0, 0)["solid"][0]
+    pocket_floor = [v for v in solid if v[1] == 3.5 and 4.5 <= v[0] <= 5.5 and 4.5 <= v[2] <= 5.5]
+    assert pocket_floor            # floor below the glass is drawn
+    between = [v for v in solid if v[0] == 5.5 and v[1] > 4.5 and 4.5 < v[2] < 5.5]
+    assert not between             # no face between two glass blocks
+
+
+def test_coal_ore_appears_underground():
+    from world import COAL_ORE
+    w = World(seed=4)
+    for cx in range(3):
+        w.ensure_chunk((cx, 0))
+    ores = [p for p, b in w.blocks.items() if b == COAL_ORE]
+    assert ores and all(p[1] < w.height_at(p[0], p[2]) - 2 for p in ores)
+
+
+def test_player_data_is_saved(tmp_path):
+    w = World(seed=2)
+    w.save(tmp_path / "s.json", player={"inventory": [[2, 5]]})
+    assert World.load(tmp_path / "s.json").player_data == {"inventory": [[2, 5]]}
