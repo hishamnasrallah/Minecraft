@@ -3,47 +3,99 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from world import World, FACE_VERTS, _cross, _sub, _dot, CHUNK_SIZE  # noqa: E402
+from world import (World, FACE_VERTS, BLOCK_TILES, TILES, ATLAS_COLS, CHUNK_SIZE,  # noqa: E402
+                   _cross, _sub, _dot, tile_uv)
+from textures import generate_atlas, tile_image  # noqa: E402
 
 
 def test_faces_wind_like_ursina_quad():
-    for normal, _, (c0, c1, c2, *_rest) in FACE_VERTS:
+    for normal, _, corners, _ in FACE_VERTS:
+        c0, c1, c2 = corners[:3]
         assert _dot(_cross(_sub(c1, c0), _sub(c2, c0)), normal) < 0
 
 
-def test_generation_is_deterministic():
-    a = World(seed=42, size_chunks=1).generate()
-    b = World(seed=42, size_chunks=1).generate()
+def test_side_face_uvs_are_upright():
+    for normal, _, corners, uvs in FACE_VERTS:
+        if normal[1] == 0:
+            for (_, y, _), (_, v) in zip(corners, uvs):
+                assert v == y + 0.5
+
+
+def test_tile_uvs_stay_inside_their_tile():
+    for index, tile in enumerate(TILES):
+        col, row = index % ATLAS_COLS, index // ATLAS_COLS
+        for u, v in ((0, 0), (1, 1)):
+            au, av = tile_uv(tile, u, v)
+            assert col / ATLAS_COLS < au < (col + 1) / ATLAS_COLS
+            # v is flipped: row 0 is at the top of the image, i.e. v near 1
+            assert 1 - (row + 1) / ATLAS_COLS < av < 1 - row / ATLAS_COLS
+
+
+def test_generation_is_deterministic_and_infinite():
+    a, b = World(seed=42), World(seed=42)
+    for key in [(0, 0), (-3, 7), (100, -250)]:
+        a.ensure_chunk(key)
+        b.ensure_chunk(key)
+        assert a.chunks[key] == b.chunks[key]
+        assert a.chunks[key]  # far away chunks have terrain too
+    x0, z0 = 100 * CHUNK_SIZE, -250 * CHUNK_SIZE
+    assert a.get(x0, 0, z0) == 9
+
+
+def test_chunk_order_does_not_change_terrain():
+    keys = [(0, 0), (1, 0), (0, 1), (1, 1), (-1, -1)]
+    a, b = World(seed=5), World(seed=5)
+    for k in keys:
+        a.ensure_chunk(k)
+    for k in reversed(keys):
+        b.ensure_chunk(k)
     assert a.blocks == b.blocks
-    assert all(a.get(x, 0, z) == 9 for x in range(CHUNK_SIZE) for z in range(CHUNK_SIZE))
 
 
 def test_hidden_faces_are_culled():
-    w = World(seed=1, size_chunks=1)
+    w = World(seed=1)
+    for dx in (-1, 0, 1):
+        for dz in (-1, 0, 1):
+            w.chunks[(dx, dz)] = set()  # empty, already "generated"
     w._put((1, 1, 1), 3)
-    verts, _ = w.chunk_mesh(0, 0)
-    assert len(verts) == 6 * 6
+    verts, colors, uvs = w.chunk_mesh(0, 0)
+    assert len(verts) == len(colors) == len(uvs) == 6 * 6
     w._put((2, 1, 1), 3)
-    verts, _ = w.chunk_mesh(0, 0)
-    assert len(verts) == 10 * 6  # two shared faces removed
+    assert len(w.chunk_mesh(0, 0)[0]) == 10 * 6  # two shared faces removed
 
 
-def test_edit_rebuilds_neighbour_chunk_and_bedrock_is_unbreakable():
-    w = World(seed=3, size_chunks=2).generate()
-    keys = w.set(CHUNK_SIZE - 1, 30, 5, 7)
+def test_edits_survive_unload_and_bedrock_is_unbreakable():
+    w = World(seed=3)
+    w.chunk_mesh(0, 0)
+    keys = w.set(CHUNK_SIZE - 1, 50, 5, 7)
     assert (0, 0) in keys and (1, 0) in keys
     assert w.set(0, 0, 0, 0) == set()
     assert w.get(0, 0, 0) == 9
+    w.unload_chunk((0, 0))
+    assert w.get(CHUNK_SIZE - 1, 50, 5) == 0
+    w.ensure_chunk((0, 0))
+    assert w.get(CHUNK_SIZE - 1, 50, 5) == 7
 
 
 def test_save_and_load_keep_edits(tmp_path):
-    w = World(seed=7, size_chunks=1).generate()
-    w.set(3, 40, 3, 8)
+    w = World(seed=7)
     top = w.top_y(5, 5)
+    w.set(3, 50, 3, 8)
     w.set(5, top, 5, 0)
     path = tmp_path / "save.json"
     w.save(path)
     loaded = World.load(path)
-    assert loaded.get(3, 40, 3) == 8
+    loaded.ensure_chunk((0, 0))
+    assert loaded.get(3, 50, 3) == 8
     assert loaded.get(5, top, 5) == 0
-    assert loaded.blocks == w.blocks
+    assert loaded.chunks[(0, 0)] == w.chunks[(0, 0)]
+
+
+def test_atlas_has_every_tile():
+    atlas = generate_atlas()
+    assert atlas.width == ATLAS_COLS * 16
+    for tiles in BLOCK_TILES.values():
+        for name in tiles:
+            img = tile_image(atlas, name)
+            assert img.size == (16, 16)
+            assert img.getpixel((5, 5))[:3] != (255, 0, 255)  # not the empty-slot filler

@@ -1,4 +1,4 @@
-"""World data, terrain generation, chunk meshing and save/load.
+"""World data, infinite chunked terrain generation, meshing and save/load.
 
 Pure Python — no Ursina import here, so this module can be unit-tested
 without opening a window.
@@ -9,31 +9,53 @@ import random
 from pathlib import Path
 
 CHUNK_SIZE = 16
+MAX_HEIGHT = 64
 WATER_LEVEL = 6
+TREE_CHANCE = 0.012
 
-# id: (name, (r, g, b))
+# id -> name
 BLOCKS = {
-    1: ("grass", (0.37, 0.70, 0.25)),
-    2: ("dirt", (0.55, 0.38, 0.22)),
-    3: ("stone", (0.52, 0.52, 0.55)),
-    4: ("wood", (0.45, 0.30, 0.15)),
-    5: ("leaves", (0.18, 0.52, 0.18)),
-    6: ("sand", (0.90, 0.84, 0.55)),
-    7: ("planks", (0.76, 0.58, 0.34)),
-    8: ("brick", (0.70, 0.27, 0.22)),
-    9: ("bedrock", (0.15, 0.15, 0.17)),
+    1: "grass",
+    2: "dirt",
+    3: "stone",
+    4: "wood",
+    5: "leaves",
+    6: "sand",
+    7: "planks",
+    8: "brick",
+    9: "bedrock",
 }
 HOTBAR = [1, 2, 3, 4, 5, 6, 7, 8]
 UNBREAKABLE = {9}
 
+# Texture atlas layout: ATLAS_COLS x ATLAS_COLS tiles, read left-to-right, top-to-bottom.
+ATLAS_COLS = 4
+TILES = [
+    "grass_top", "grass_side", "dirt", "stone",
+    "log_side", "log_top", "leaves", "sand",
+    "planks", "brick", "bedrock",
+]
+# id -> (top, side, bottom) tile names
+BLOCK_TILES = {
+    1: ("grass_top", "grass_side", "dirt"),
+    2: ("dirt",) * 3,
+    3: ("stone",) * 3,
+    4: ("log_top", "log_side", "log_top"),
+    5: ("leaves",) * 3,
+    6: ("sand",) * 3,
+    7: ("planks",) * 3,
+    8: ("brick",) * 3,
+    9: ("bedrock",) * 3,
+}
+
 # (normal, brightness) — simple fake lighting so cube edges are visible.
 FACES = [
     ((0, 1, 0), 1.00),
-    ((0, -1, 0), 0.50),
-    ((1, 0, 0), 0.80),
-    ((-1, 0, 0), 0.80),
-    ((0, 0, 1), 0.65),
-    ((0, 0, -1), 0.65),
+    ((0, -1, 0), 0.55),
+    ((1, 0, 0), 0.82),
+    ((-1, 0, 0), 0.82),
+    ((0, 0, 1), 0.68),
+    ((0, 0, -1), 0.68),
 ]
 
 
@@ -50,25 +72,51 @@ def _dot(a, b):
 
 
 def _face_corners(normal):
-    """Four corners of a unit-cube face, ordered so the face is front-facing in Ursina.
+    """Corners (as two triangles) of a unit-cube face, front-facing in Ursina, plus tile UVs.
 
     Ursina's built-in Quad (normal -Z, visible from the default camera) has
     cross(v1 - v0, v2 - v0) pointing opposite to its normal, so we match that.
+    Side faces get v along +Y so textures stay upright.
     """
-    u, v = [axis for axis in range(3) if normal[axis] == 0]
+    u_axis, v_axis = [axis for axis in range(3) if normal[axis] == 0]
     corners = []
     for du, dv in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
         c = [normal[0] * 0.5, normal[1] * 0.5, normal[2] * 0.5]
-        c[u] = du * 0.5
-        c[v] = dv * 0.5
+        c[u_axis] = du * 0.5
+        c[v_axis] = dv * 0.5
         corners.append(tuple(c))
     if _dot(_cross(_sub(corners[1], corners[0]), _sub(corners[2], corners[0])), normal) > 0:
         corners.reverse()
-    c0, c1, c2, c3 = corners
-    return (c0, c1, c2, c2, c3, c0)  # two triangles
+
+    def uv(c):
+        if normal[1] != 0:
+            return (c[0] + 0.5, c[2] + 0.5)
+        horizontal = 2 if normal[0] != 0 else 0
+        return (c[horizontal] + 0.5, c[1] + 0.5)
+
+    order = (0, 1, 2, 2, 3, 0)
+    return [corners[i] for i in order], [uv(corners[i]) for i in order]
 
 
-FACE_VERTS = [(normal, shade, _face_corners(normal)) for normal, shade in FACES]
+FACE_VERTS = [(normal, shade) + tuple(_face_corners(normal)) for normal, shade in FACES]
+
+
+def tile_uv(tile, u, v, inset=0.01):
+    """Map a (u, v) in 0..1 inside a tile to atlas UVs (Panda3D: v=0 is the image bottom)."""
+    index = TILES.index(tile)
+    col, row = index % ATLAS_COLS, index // ATLAS_COLS
+    u = inset + u * (1 - 2 * inset)
+    v = inset + v * (1 - 2 * inset)
+    return ((col + u) / ATLAS_COLS, 1 - (row + 1 - v) / ATLAS_COLS)
+
+
+# Pre-computed atlas UVs per (block id, face index).
+_FACE_UVS = {
+    (block_id, i): [tile_uv(tiles[0] if normal[1] > 0 else tiles[2] if normal[1] < 0 else tiles[1], u, v)
+                    for u, v in uvs]
+    for block_id, tiles in BLOCK_TILES.items()
+    for i, (normal, _shade, _corners, uvs) in enumerate(FACE_VERTS)
+}
 
 
 # ---------------------------------------------------------------- noise
@@ -106,21 +154,19 @@ def fbm(x, z, seed, octaves=4):
 
 # ---------------------------------------------------------------- world
 class World:
-    def __init__(self, seed=None, size_chunks=5):
+    """An endless world. Chunks are generated on demand from the seed and can be
+    unloaded again; player edits are kept separately so they survive both."""
+
+    def __init__(self, seed=None):
         self.seed = random.randint(0, 999_999) if seed is None else seed
-        self.size_chunks = size_chunks
-        self.size = size_chunks * CHUNK_SIZE
-        self.blocks = {}          # (x, y, z) -> block id
+        self.blocks = {}          # (x, y, z) -> block id, for loaded chunks only
         self.chunks = {}          # (cx, cz) -> set of (x, y, z)
-        self.changes = {}         # player edits: (x, y, z) -> id (0 = removed)
+        self.changes = {}         # player edits: (cx, cz) -> {(x, y, z): id (0 = removed)}
 
     # -- basic access
     @staticmethod
     def chunk_key(x, z):
         return (x // CHUNK_SIZE, z // CHUNK_SIZE)
-
-    def in_bounds(self, x, y, z):
-        return 0 <= x < self.size and 0 <= z < self.size and 0 <= y < 64
 
     def get(self, x, y, z):
         return self.blocks.get((x, y, z), 0)
@@ -129,32 +175,43 @@ class World:
         key = self.chunk_key(pos[0], pos[2])
         if block_id:
             self.blocks[pos] = block_id
-            self.chunks.setdefault(key, set()).add(pos)
+            self.chunks[key].add(pos)
         elif pos in self.blocks:
             del self.blocks[pos]
             self.chunks[key].discard(pos)
 
     def set(self, x, y, z, block_id):
-        """Player edit. Returns the chunk keys whose mesh must be rebuilt."""
+        """Player edit. Returns the loaded chunk keys whose mesh must be rebuilt."""
         pos = (x, y, z)
-        if not self.in_bounds(*pos):
+        key = self.chunk_key(x, z)
+        if not 0 <= y < MAX_HEIGHT or key not in self.chunks:
             return set()
         if block_id == 0 and self.get(*pos) in UNBREAKABLE:
             return set()
         self._put(pos, block_id)
-        self.changes[pos] = block_id
+        self.changes.setdefault(key, {})[pos] = block_id
         # neighbours across a chunk border also need a rebuild
-        return {self.chunk_key(x + dx, z + dz) for dx, dz in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1))
-                if 0 <= x + dx < self.size and 0 <= z + dz < self.size}
+        return {k for k in (self.chunk_key(x + dx, z + dz) for dx, dz in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)))
+                if k in self.chunks}
 
     # -- generation
     def height_at(self, x, z):
-        return int(4 + fbm(x / 28, z / 28, self.seed) * 14)
+        hills = fbm(x / 28, z / 28, self.seed)
+        mountains = fbm(x / 90, z / 90, self.seed + 7) ** 2
+        return int(3 + hills * 12 + mountains * 22)
 
-    def generate(self):
-        rng = random.Random(self.seed)
-        for x in range(self.size):
-            for z in range(self.size):
+    def has_tree(self, x, z):
+        return _hash(x, z, self.seed + 777) < TREE_CHANCE and self.height_at(x, z) > WATER_LEVEL
+
+    def ensure_chunk(self, key):
+        """Generate a chunk (and re-apply the player's edits in it) if it isn't loaded."""
+        if key in self.chunks:
+            return False
+        self.chunks[key] = set()
+        cx, cz = key
+        x0, z0 = cx * CHUNK_SIZE, cz * CHUNK_SIZE
+        for x in range(x0, x0 + CHUNK_SIZE):
+            for z in range(z0, z0 + CHUNK_SIZE):
                 h = self.height_at(x, z)
                 for y in range(h + 1):
                     if y == 0:
@@ -166,59 +223,76 @@ class World:
                     else:
                         b = 6 if h <= WATER_LEVEL else 1
                     self._put((x, y, z), b)
-        for _ in range(self.size * self.size // 120):
-            x, z = rng.randrange(2, self.size - 2), rng.randrange(2, self.size - 2)
-            h = self.height_at(x, z)
-            if h > WATER_LEVEL:
-                self._tree(x, h + 1, z)
-        return self
+        # trees near the border overlap neighbouring chunks; each chunk keeps only its part
+        for tx in range(x0 - 2, x0 + CHUNK_SIZE + 2):
+            for tz in range(z0 - 2, z0 + CHUNK_SIZE + 2):
+                if self.has_tree(tx, tz):
+                    self._tree(tx, self.height_at(tx, tz) + 1, tz, key)
+        for pos, b in self.changes.get(key, {}).items():
+            self._put(pos, b)
+        return True
 
-    def _tree(self, x, y, z):
+    def _tree(self, x, y, z, key):
+        def put(p, b):
+            if self.chunk_key(p[0], p[2]) == key and p[1] < MAX_HEIGHT and not self.get(*p):
+                self._put(p, b)
+
         for dy in range(4):
-            self._put((x, y + dy, z), 4)
+            put((x, y + dy, z), 4)
         for dy, r in ((2, 2), (3, 2), (4, 1)):
             for dx in range(-r, r + 1):
                 for dz in range(-r, r + 1):
-                    p = (x + dx, y + dy, z + dz)
-                    if self.in_bounds(*p) and not self.get(*p) and abs(dx) + abs(dz) < r * 2:
-                        self._put(p, 5)
+                    if abs(dx) + abs(dz) < r * 2:
+                        put((x + dx, y + dy, z + dz), 5)
+
+    def unload_chunk(self, key):
+        for pos in self.chunks.pop(key, ()):
+            del self.blocks[pos]
 
     def spawn_point(self):
-        c = self.size // 2
-        return (c, self.top_y(c, c) + 1.5, c)
+        return (8, self.top_y(8, 8) + 1.5, 8)
 
     def top_y(self, x, z):
-        return max((y for (bx, y, bz) in self.chunks.get(self.chunk_key(x, z), ()) if bx == x and bz == z), default=0)
+        self.ensure_chunk(self.chunk_key(x, z))
+        return max((y for (bx, y, bz) in self.chunks[self.chunk_key(x, z)] if bx == x and bz == z), default=0)
 
     # -- meshing
     def chunk_mesh(self, cx, cz):
-        """Vertices + colors for all visible faces in a chunk (hidden faces culled)."""
-        verts, colors = [], []
-        for (x, y, z) in self.chunks.get((cx, cz), ()):
-            r, g, b = BLOCKS[self.blocks[(x, y, z)]][1]
-            for (nx, ny, nz), shade, corners in FACE_VERTS:
-                if (x + nx, y + ny, z + nz) in self.blocks or (ny == -1 and y == 0):
+        """Vertices, colors (shading) and atlas UVs for all visible faces in a chunk.
+
+        Neighbouring chunks are generated first so faces on the border are culled correctly.
+        """
+        for dx in (-1, 0, 1):
+            for dz in (-1, 0, 1):
+                self.ensure_chunk((cx + dx, cz + dz))
+        verts, colors, uvs = [], [], []
+        blocks = self.blocks
+        for pos in self.chunks[(cx, cz)]:
+            x, y, z = pos
+            block_id = blocks[pos]
+            for i, ((nx, ny, nz), shade, corners, _) in enumerate(FACE_VERTS):
+                if (x + nx, y + ny, z + nz) in blocks or (ny == -1 and y == 0):
                     continue
-                col = (r * shade, g * shade, b * shade, 1.0)
+                col = (shade, shade, shade, 1.0)
                 for vx, vy, vz in corners:
                     verts.append((x + vx, y + vy, z + vz))
-                    colors.append(col)
-        return verts, colors
+                colors.extend((col,) * 6)
+                uvs.extend(_FACE_UVS[(block_id, i)])
+        return verts, colors, uvs
 
     # -- persistence (only the seed + player edits are stored)
     def save(self, path):
         data = {
+            "version": 2,
             "seed": self.seed,
-            "size_chunks": self.size_chunks,
-            "changes": [[x, y, z, b] for (x, y, z), b in self.changes.items()],
+            "changes": [[x, y, z, b] for edits in self.changes.values() for (x, y, z), b in edits.items()],
         }
         Path(path).write_text(json.dumps(data))
 
     @classmethod
     def load(cls, path):
         data = json.loads(Path(path).read_text())
-        world = cls(seed=data["seed"], size_chunks=data["size_chunks"]).generate()
+        world = cls(seed=data["seed"])
         for x, y, z, b in data["changes"]:
-            world._put((x, y, z), b)
-            world.changes[(x, y, z)] = b
+            world.changes.setdefault(cls.chunk_key(x, z), {})[(x, y, z)] = b
         return world
