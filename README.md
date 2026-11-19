@@ -4,6 +4,8 @@
 
 A 3D voxel sandbox written in Python with the Ursina engine. Runs locally.
 
+> **نسخة الموبايل (أندرويد):** بمجلد [`godot/`](godot/README.md)، بمحرك Godot. نفس العالم ونفس البيانات.
+
 ## التشغيل / Run
 
 ```bash
@@ -198,6 +200,6 @@ python textures.py      # بيطلع textures/atlas.png
 
 ## أفكار للخطوات الجاية / Next steps
 
-- نسخة للأندرويد (Godot) بتحكم باللمس
+- إكمال نسخة الأندرويد بمجلد `godot/`
 - أعداء بالليل وبالكهوف
 - multiplayer بسيرفر Python (WebSockets)

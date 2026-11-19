@@ -1,0 +1,3471 @@
+{
+ "constants": {
+  "CHUNK_SIZE": 16,
+  "MAX_HEIGHT": 64,
+  "WATER_LEVEL": 11,
+  "TREE_CHANCE": 0.012,
+  "MAX_LIGHT": 15,
+  "CAVE_THRESHOLD": 0.016,
+  "CAVE_GRID": 4,
+  "SNOW_LINE": 27,
+  "ATLAS_COLS": 12,
+  "ORES": [
+   [
+    13,
+    0.05,
+    64
+   ],
+   [
+    26,
+    0.064,
+    36
+   ],
+   [
+    27,
+    0.074,
+    36
+   ],
+   [
+    25,
+    0.086,
+    28
+   ],
+   [
+    28,
+    0.091,
+    14
+   ],
+   [
+    29,
+    0.094,
+    9
+   ],
+   [
+    14,
+    0.104,
+    64
+   ]
+  ]
+ },
+ "tiles": [
+  "grass_top",
+  "grass_side",
+  "dirt",
+  "stone",
+  "log_side",
+  "log_top",
+  "leaves",
+  "sand",
+  "planks",
+  "brick",
+  "bedrock",
+  "water",
+  "lamp",
+  "glass",
+  "coal_ore",
+  "stick",
+  "coal",
+  "wood_pickaxe",
+  "stone_pickaxe",
+  "wood_axe",
+  "stone_axe",
+  "raw_meat",
+  "cooked_meat",
+  "apple",
+  "gravel",
+  "clay",
+  "snow",
+  "ice",
+  "granite",
+  "basalt",
+  "sandstone",
+  "marble",
+  "cobblestone",
+  "mossy_cobblestone",
+  "red_sand",
+  "iron_ore",
+  "copper_ore",
+  "tin_ore",
+  "gold_ore",
+  "diamond_ore",
+  "birch_log_top",
+  "birch_log",
+  "birch_leaves",
+  "pine_log_top",
+  "pine_log",
+  "pine_leaves",
+  "iron_block",
+  "copper_block",
+  "gold_block",
+  "bronze_block",
+  "diamond_block",
+  "birch_planks",
+  "pine_planks",
+  "stone_bricks",
+  "sandstone_bricks",
+  "tiles",
+  "plaster",
+  "bookshelf",
+  "workbench_top",
+  "workbench_side",
+  "furnace_top",
+  "furnace_front",
+  "chest_top",
+  "chest_front",
+  "torch",
+  "bed_top",
+  "bed_side",
+  "ladder",
+  "door_bottom",
+  "door_top",
+  "tall_grass",
+  "fern",
+  "red_flower",
+  "yellow_flower",
+  "blue_flower",
+  "white_flower",
+  "red_mushroom",
+  "brown_mushroom",
+  "reeds",
+  "cactus_top",
+  "cactus",
+  "wool_0",
+  "wool_1",
+  "wool_2",
+  "wool_3",
+  "wool_4",
+  "wool_5",
+  "wool_6",
+  "wool_7",
+  "wool_8",
+  "wool_9",
+  "wool_10",
+  "wool_11",
+  "wool_12",
+  "wool_13",
+  "wool_14",
+  "wool_15",
+  "glass_0",
+  "glass_1",
+  "glass_2",
+  "glass_3",
+  "glass_4",
+  "glass_5",
+  "glass_6",
+  "glass_7",
+  "glass_8",
+  "glass_9",
+  "glass_10",
+  "glass_11",
+  "glass_12",
+  "glass_13",
+  "glass_14",
+  "glass_15",
+  "iron_ingot",
+  "copper_ingot",
+  "tin_ingot",
+  "gold_ingot",
+  "bronze_ingot",
+  "diamond",
+  "bucket",
+  "water_bucket",
+  "iron_pickaxe",
+  "diamond_pickaxe",
+  "iron_axe",
+  "diamond_axe",
+  "wood_shovel",
+  "stone_shovel",
+  "iron_shovel",
+  "diamond_shovel",
+  "wood_sword",
+  "stone_sword",
+  "iron_sword",
+  "diamond_sword"
+ ],
+ "plants_need_soil": [
+  51,
+  52,
+  53,
+  54,
+  55,
+  56,
+  57,
+  58,
+  59
+ ],
+ "dyes": [
+  [
+   "white",
+   [
+    232,
+    232,
+    232
+   ]
+  ],
+  [
+   "light gray",
+   [
+    160,
+    160,
+    158
+   ]
+  ],
+  [
+   "gray",
+   [
+    90,
+    92,
+    96
+   ]
+  ],
+  [
+   "black",
+   [
+    28,
+    28,
+    32
+   ]
+  ],
+  [
+   "brown",
+   [
+    112,
+    74,
+    44
+   ]
+  ],
+  [
+   "red",
+   [
+    176,
+    46,
+    40
+   ]
+  ],
+  [
+   "orange",
+   [
+    230,
+    124,
+    34
+   ]
+  ],
+  [
+   "yellow",
+   [
+    236,
+    200,
+    52
+   ]
+  ],
+  [
+   "lime",
+   [
+    120,
+    196,
+    40
+   ]
+  ],
+  [
+   "green",
+   [
+    72,
+    104,
+    30
+   ]
+  ],
+  [
+   "cyan",
+   [
+    34,
+    136,
+    150
+   ]
+  ],
+  [
+   "light blue",
+   [
+    96,
+    164,
+    222
+   ]
+  ],
+  [
+   "blue",
+   [
+    52,
+    64,
+    168
+   ]
+  ],
+  [
+   "purple",
+   [
+    122,
+    50,
+    174
+   ]
+  ],
+  [
+   "magenta",
+   [
+    186,
+    70,
+    180
+   ]
+  ],
+  [
+   "pink",
+   [
+    230,
+    140,
+    170
+   ]
+  ]
+ ],
+ "blocks": {
+  "1": {
+   "name": "grass",
+   "tab": "natural",
+   "hardness": 0.6,
+   "tool": "shovel",
+   "level": 0,
+   "drop": 2,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    0,
+    1,
+    2
+   ]
+  },
+  "2": {
+   "name": "dirt",
+   "tab": "natural",
+   "hardness": 0.5,
+   "tool": "shovel",
+   "level": 0,
+   "drop": 2,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    2,
+    2,
+    2
+   ]
+  },
+  "3": {
+   "name": "stone",
+   "tab": "natural",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 22,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    3,
+    3,
+    3
+   ]
+  },
+  "4": {
+   "name": "oak log",
+   "tab": "natural",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 4,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    5,
+    4,
+    5
+   ]
+  },
+  "5": {
+   "name": "oak leaves",
+   "tab": "natural",
+   "hardness": 0.2,
+   "tool": null,
+   "level": 0,
+   "drop": null,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "leaves": true,
+   "tiles": [
+    6,
+    6,
+    6
+   ]
+  },
+  "6": {
+   "name": "sand",
+   "tab": "natural",
+   "hardness": 0.5,
+   "tool": "shovel",
+   "level": 0,
+   "drop": 6,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    7,
+    7,
+    7
+   ]
+  },
+  "7": {
+   "name": "oak planks",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 7,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    8,
+    8,
+    8
+   ]
+  },
+  "8": {
+   "name": "brick",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 8,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    9,
+    9,
+    9
+   ]
+  },
+  "9": {
+   "name": "bedrock",
+   "tab": "natural",
+   "hardness": -1,
+   "tool": null,
+   "level": 0,
+   "drop": 9,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    10,
+    10,
+    10
+   ]
+  },
+  "10": {
+   "name": "water",
+   "tab": "natural",
+   "hardness": -1,
+   "tool": null,
+   "level": 0,
+   "drop": 10,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "tiles": [
+    11,
+    11,
+    11
+   ]
+  },
+  "11": {
+   "name": "lamp",
+   "tab": "functional",
+   "hardness": 0.3,
+   "tool": null,
+   "level": 0,
+   "drop": 11,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 14,
+   "creative": true,
+   "tiles": [
+    12,
+    12,
+    12
+   ]
+  },
+  "12": {
+   "name": "glass",
+   "tab": "building",
+   "hardness": 0.3,
+   "tool": null,
+   "level": 0,
+   "drop": 12,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    13,
+    13,
+    13
+   ]
+  },
+  "13": {
+   "name": "coal ore",
+   "tab": "natural",
+   "hardness": 3.0,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 102,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    14,
+    14,
+    14
+   ]
+  },
+  "14": {
+   "name": "gravel",
+   "tab": "natural",
+   "hardness": 0.6,
+   "tool": "shovel",
+   "level": 0,
+   "drop": 14,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    24,
+    24,
+    24
+   ]
+  },
+  "15": {
+   "name": "clay",
+   "tab": "natural",
+   "hardness": 0.6,
+   "tool": "shovel",
+   "level": 0,
+   "drop": 15,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    25,
+    25,
+    25
+   ]
+  },
+  "16": {
+   "name": "snow",
+   "tab": "natural",
+   "hardness": 0.2,
+   "tool": "shovel",
+   "level": 0,
+   "drop": 16,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    26,
+    26,
+    26
+   ]
+  },
+  "17": {
+   "name": "ice",
+   "tab": "natural",
+   "hardness": 0.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 17,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    27,
+    27,
+    27
+   ]
+  },
+  "18": {
+   "name": "granite",
+   "tab": "natural",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 18,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    28,
+    28,
+    28
+   ]
+  },
+  "19": {
+   "name": "basalt",
+   "tab": "natural",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 19,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    29,
+    29,
+    29
+   ]
+  },
+  "20": {
+   "name": "sandstone",
+   "tab": "natural",
+   "hardness": 0.8,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 20,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    30,
+    30,
+    30
+   ]
+  },
+  "21": {
+   "name": "marble",
+   "tab": "natural",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 21,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    31,
+    31,
+    31
+   ]
+  },
+  "22": {
+   "name": "cobblestone",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 22,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    32,
+    32,
+    32
+   ]
+  },
+  "23": {
+   "name": "mossy cobblestone",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 23,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    33,
+    33,
+    33
+   ]
+  },
+  "24": {
+   "name": "red sand",
+   "tab": "natural",
+   "hardness": 0.5,
+   "tool": "shovel",
+   "level": 0,
+   "drop": 24,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    34,
+    34,
+    34
+   ]
+  },
+  "25": {
+   "name": "iron ore",
+   "tab": "natural",
+   "hardness": 3.0,
+   "tool": "pickaxe",
+   "level": 2,
+   "drop": 25,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    35,
+    35,
+    35
+   ]
+  },
+  "26": {
+   "name": "copper ore",
+   "tab": "natural",
+   "hardness": 3.0,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 26,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    36,
+    36,
+    36
+   ]
+  },
+  "27": {
+   "name": "tin ore",
+   "tab": "natural",
+   "hardness": 3.0,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 27,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    37,
+    37,
+    37
+   ]
+  },
+  "28": {
+   "name": "gold ore",
+   "tab": "natural",
+   "hardness": 3.0,
+   "tool": "pickaxe",
+   "level": 3,
+   "drop": 28,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    38,
+    38,
+    38
+   ]
+  },
+  "29": {
+   "name": "diamond ore",
+   "tab": "natural",
+   "hardness": 3.0,
+   "tool": "pickaxe",
+   "level": 3,
+   "drop": 111,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    39,
+    39,
+    39
+   ]
+  },
+  "35": {
+   "name": "birch log",
+   "tab": "natural",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 35,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    40,
+    41,
+    40
+   ]
+  },
+  "37": {
+   "name": "birch leaves",
+   "tab": "natural",
+   "hardness": 0.2,
+   "tool": null,
+   "level": 0,
+   "drop": null,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "leaves": true,
+   "tiles": [
+    42,
+    42,
+    42
+   ]
+  },
+  "38": {
+   "name": "pine log",
+   "tab": "natural",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 38,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    43,
+    44,
+    43
+   ]
+  },
+  "40": {
+   "name": "pine leaves",
+   "tab": "natural",
+   "hardness": 0.2,
+   "tool": null,
+   "level": 0,
+   "drop": null,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "leaves": true,
+   "tiles": [
+    45,
+    45,
+    45
+   ]
+  },
+  "30": {
+   "name": "iron block",
+   "tab": "building",
+   "hardness": 5.0,
+   "tool": "pickaxe",
+   "level": 2,
+   "drop": 30,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    46,
+    46,
+    46
+   ]
+  },
+  "31": {
+   "name": "copper block",
+   "tab": "building",
+   "hardness": 5.0,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 31,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    47,
+    47,
+    47
+   ]
+  },
+  "32": {
+   "name": "gold block",
+   "tab": "building",
+   "hardness": 3.0,
+   "tool": "pickaxe",
+   "level": 3,
+   "drop": 32,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    48,
+    48,
+    48
+   ]
+  },
+  "33": {
+   "name": "bronze block",
+   "tab": "building",
+   "hardness": 5.0,
+   "tool": "pickaxe",
+   "level": 2,
+   "drop": 33,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    49,
+    49,
+    49
+   ]
+  },
+  "34": {
+   "name": "diamond block",
+   "tab": "building",
+   "hardness": 5.0,
+   "tool": "pickaxe",
+   "level": 3,
+   "drop": 34,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    50,
+    50,
+    50
+   ]
+  },
+  "36": {
+   "name": "birch planks",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 36,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    51,
+    51,
+    51
+   ]
+  },
+  "39": {
+   "name": "pine planks",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 39,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    52,
+    52,
+    52
+   ]
+  },
+  "41": {
+   "name": "stone bricks",
+   "tab": "building",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 41,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    53,
+    53,
+    53
+   ]
+  },
+  "42": {
+   "name": "sandstone bricks",
+   "tab": "building",
+   "hardness": 0.8,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 42,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    54,
+    54,
+    54
+   ]
+  },
+  "43": {
+   "name": "tiles",
+   "tab": "building",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 43,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    55,
+    55,
+    55
+   ]
+  },
+  "44": {
+   "name": "plaster",
+   "tab": "building",
+   "hardness": 1.0,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 44,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    56,
+    56,
+    56
+   ]
+  },
+  "45": {
+   "name": "bookshelf",
+   "tab": "functional",
+   "hardness": 1.5,
+   "tool": "axe",
+   "level": 0,
+   "drop": 45,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    8,
+    57,
+    8
+   ]
+  },
+  "46": {
+   "name": "workbench",
+   "tab": "functional",
+   "hardness": 2.5,
+   "tool": "axe",
+   "level": 0,
+   "drop": 46,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    58,
+    59,
+    8
+   ]
+  },
+  "47": {
+   "name": "furnace",
+   "tab": "functional",
+   "hardness": 3.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 47,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    60,
+    61,
+    60
+   ]
+  },
+  "48": {
+   "name": "chest",
+   "tab": "functional",
+   "hardness": 2.5,
+   "tool": "axe",
+   "level": 0,
+   "drop": 48,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "container": true,
+   "tiles": [
+    62,
+    63,
+    62
+   ]
+  },
+  "50": {
+   "name": "torch",
+   "tab": "functional",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 50,
+   "shape": "torch",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 13,
+   "creative": true,
+   "tiles": [
+    64,
+    64,
+    64
+   ]
+  },
+  "61": {
+   "name": "oak fence",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 61,
+   "shape": "fence",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    8,
+    8,
+    8
+   ]
+  },
+  "62": {
+   "name": "bed",
+   "tab": "functional",
+   "hardness": 0.2,
+   "tool": null,
+   "level": 0,
+   "drop": 62,
+   "shape": "bed",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    65,
+    66,
+    8
+   ]
+  },
+  "500": {
+   "name": "ladder",
+   "tab": "functional",
+   "hardness": 0.4,
+   "tool": "axe",
+   "level": 0,
+   "drop": 500,
+   "shape": "ladder",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": true,
+   "facing": 0,
+   "climbable": true,
+   "tiles": [
+    67,
+    67,
+    67
+   ]
+  },
+  "501": {
+   "name": "ladder",
+   "tab": "functional",
+   "hardness": 0.4,
+   "tool": "axe",
+   "level": 0,
+   "drop": 500,
+   "shape": "ladder",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "facing": 1,
+   "climbable": true,
+   "tiles": [
+    67,
+    67,
+    67
+   ]
+  },
+  "502": {
+   "name": "ladder",
+   "tab": "functional",
+   "hardness": 0.4,
+   "tool": "axe",
+   "level": 0,
+   "drop": 500,
+   "shape": "ladder",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "facing": 2,
+   "climbable": true,
+   "tiles": [
+    67,
+    67,
+    67
+   ]
+  },
+  "503": {
+   "name": "ladder",
+   "tab": "functional",
+   "hardness": 0.4,
+   "tool": "axe",
+   "level": 0,
+   "drop": 500,
+   "shape": "ladder",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "facing": 3,
+   "climbable": true,
+   "tiles": [
+    67,
+    67,
+    67
+   ]
+  },
+  "510": {
+   "name": "door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 510,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "door": {
+    "axis": 0,
+    "open": 0,
+    "top": 0
+   },
+   "tiles": [
+    68,
+    68,
+    68
+   ]
+  },
+  "511": {
+   "name": "door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 0,
+    "top": 1
+   },
+   "tiles": [
+    69,
+    69,
+    69
+   ]
+  },
+  "512": {
+   "name": "door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 510,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 1,
+    "top": 0
+   },
+   "tiles": [
+    68,
+    68,
+    68
+   ]
+  },
+  "513": {
+   "name": "door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 0,
+    "open": 1,
+    "top": 1
+   },
+   "tiles": [
+    69,
+    69,
+    69
+   ]
+  },
+  "514": {
+   "name": "door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 510,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 0,
+    "top": 0
+   },
+   "tiles": [
+    68,
+    68,
+    68
+   ]
+  },
+  "515": {
+   "name": "door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 0,
+    "top": 1
+   },
+   "tiles": [
+    69,
+    69,
+    69
+   ]
+  },
+  "516": {
+   "name": "door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 510,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 1,
+    "top": 0
+   },
+   "tiles": [
+    68,
+    68,
+    68
+   ]
+  },
+  "517": {
+   "name": "door",
+   "tab": "functional",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": null,
+   "shape": "door",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "door": {
+    "axis": 1,
+    "open": 1,
+    "top": 1
+   },
+   "tiles": [
+    69,
+    69,
+    69
+   ]
+  },
+  "51": {
+   "name": "tall grass",
+   "tab": "plants",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": null,
+   "shape": "cross",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    70,
+    70,
+    70
+   ]
+  },
+  "52": {
+   "name": "fern",
+   "tab": "plants",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": null,
+   "shape": "cross",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    71,
+    71,
+    71
+   ]
+  },
+  "53": {
+   "name": "red flower",
+   "tab": "plants",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 53,
+   "shape": "cross",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    72,
+    72,
+    72
+   ]
+  },
+  "54": {
+   "name": "yellow flower",
+   "tab": "plants",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 54,
+   "shape": "cross",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    73,
+    73,
+    73
+   ]
+  },
+  "55": {
+   "name": "blue flower",
+   "tab": "plants",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 55,
+   "shape": "cross",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    74,
+    74,
+    74
+   ]
+  },
+  "56": {
+   "name": "white flower",
+   "tab": "plants",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 56,
+   "shape": "cross",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    75,
+    75,
+    75
+   ]
+  },
+  "57": {
+   "name": "red mushroom",
+   "tab": "plants",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 57,
+   "shape": "cross",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    76,
+    76,
+    76
+   ]
+  },
+  "58": {
+   "name": "brown mushroom",
+   "tab": "plants",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 58,
+   "shape": "cross",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    77,
+    77,
+    77
+   ]
+  },
+  "59": {
+   "name": "reeds",
+   "tab": "plants",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 59,
+   "shape": "cross",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    78,
+    78,
+    78
+   ]
+  },
+  "60": {
+   "name": "cactus",
+   "tab": "plants",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 60,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    79,
+    80,
+    79
+   ]
+  },
+  "70": {
+   "name": "white wool",
+   "tab": "colored",
+   "hardness": 0.8,
+   "tool": null,
+   "level": 0,
+   "drop": 70,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    232,
+    232,
+    232
+   ],
+   "tiles": [
+    81,
+    81,
+    81
+   ]
+  },
+  "71": {
+   "name": "light gray wool",
+   "tab": "colored",
+   "hardness": 0.8,
+   "tool": null,
+   "level": 0,
+   "drop": 71,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    160,
+    160,
+    158
+   ],
+   "tiles": [
+    82,
+    82,
+    82
+   ]
+  },
+  "72": {
+   "name": "gray wool",
+   "tab": "colored",
+   "hardness": 0.8,
+   "tool": null,
+   "level": 0,
+   "drop": 72,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    90,
+    92,
+    96
+   ],
+   "tiles": [
+    83,
+    83,
+    83
+   ]
+  },
+  "73": {
+   "name": "black wool",
+   "tab": "colored",
+   "hardness": 0.8,
+   "tool": null,
+   "level": 0,
+   "drop": 73,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    28,
+    28,
+    32
+   ],
+   "tiles": [
+    84,
+    84,
+    84
+   ]
+  },
+  "74": {
+   "name": "brown wool",
+   "tab": "colored",
+   "hardness": 0.8,
+   "tool": null,
+   "level": 0,
+   "drop": 74,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    112,
+    74,
+    44
+   ],
+   "tiles": [
+    85,
+    85,
+    85
+   ]
+  },
+  "75": {
+   "name": "red wool",
+   "tab": "colored",
+   "hardness": 0.8,
+   "tool": null,
+   "level": 0,
+   "drop": 75,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    176,
+    46,
+    40
+   ],
+   "tiles": [
+    86,
+    86,
+    86
+   ]
+  },
+  "76": {
+   "name": "orange wool",
+   "tab": "colored",
+   "hardness": 0.8,
+   "tool": null,
+   "level": 0,
+   "drop": 76,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    230,
+    124,
+    34
+   ],
+   "tiles": [
+    87,
+    87,
+    87
+   ]
+  },
+  "77": {
+   "name": "yellow wool",
+   "tab": "colored",
+   "hardness": 0.8,
+   "tool": null,
+   "level": 0,
+   "drop": 77,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    236,
+    200,
+    52
+   ],
+   "tiles": [
+    88,
+    88,
+    88
+   ]
+  },
+  "78": {
+   "name": "lime wool",
+   "tab": "colored",
+   "hardness": 0.8,
+   "tool": null,
+   "level": 0,
+   "drop": 78,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    120,
+    196,
+    40
+   ],
+   "tiles": [
+    89,
+    89,
+    89
+   ]
+  },
+  "79": {
+   "name": "green wool",
+   "tab": "colored",
+   "hardness": 0.8,
+   "tool": null,
+   "level": 0,
+   "drop": 79,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    72,
+    104,
+    30
+   ],
+   "tiles": [
+    90,
+    90,
+    90
+   ]
+  },
+  "80": {
+   "name": "cyan wool",
+   "tab": "colored",
+   "hardness": 0.8,
+   "tool": null,
+   "level": 0,
+   "drop": 80,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    34,
+    136,
+    150
+   ],
+   "tiles": [
+    91,
+    91,
+    91
+   ]
+  },
+  "81": {
+   "name": "light blue wool",
+   "tab": "colored",
+   "hardness": 0.8,
+   "tool": null,
+   "level": 0,
+   "drop": 81,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    96,
+    164,
+    222
+   ],
+   "tiles": [
+    92,
+    92,
+    92
+   ]
+  },
+  "82": {
+   "name": "blue wool",
+   "tab": "colored",
+   "hardness": 0.8,
+   "tool": null,
+   "level": 0,
+   "drop": 82,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    52,
+    64,
+    168
+   ],
+   "tiles": [
+    93,
+    93,
+    93
+   ]
+  },
+  "83": {
+   "name": "purple wool",
+   "tab": "colored",
+   "hardness": 0.8,
+   "tool": null,
+   "level": 0,
+   "drop": 83,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    122,
+    50,
+    174
+   ],
+   "tiles": [
+    94,
+    94,
+    94
+   ]
+  },
+  "84": {
+   "name": "magenta wool",
+   "tab": "colored",
+   "hardness": 0.8,
+   "tool": null,
+   "level": 0,
+   "drop": 84,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    186,
+    70,
+    180
+   ],
+   "tiles": [
+    95,
+    95,
+    95
+   ]
+  },
+  "85": {
+   "name": "pink wool",
+   "tab": "colored",
+   "hardness": 0.8,
+   "tool": null,
+   "level": 0,
+   "drop": 85,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    230,
+    140,
+    170
+   ],
+   "tiles": [
+    96,
+    96,
+    96
+   ]
+  },
+  "400": {
+   "name": "white glass",
+   "tab": "colored",
+   "hardness": 0.3,
+   "tool": null,
+   "level": 0,
+   "drop": 400,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": true,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    232,
+    232,
+    232
+   ],
+   "tiles": [
+    97,
+    97,
+    97
+   ]
+  },
+  "401": {
+   "name": "light gray glass",
+   "tab": "colored",
+   "hardness": 0.3,
+   "tool": null,
+   "level": 0,
+   "drop": 401,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": true,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    160,
+    160,
+    158
+   ],
+   "tiles": [
+    98,
+    98,
+    98
+   ]
+  },
+  "402": {
+   "name": "gray glass",
+   "tab": "colored",
+   "hardness": 0.3,
+   "tool": null,
+   "level": 0,
+   "drop": 402,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": true,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    90,
+    92,
+    96
+   ],
+   "tiles": [
+    99,
+    99,
+    99
+   ]
+  },
+  "403": {
+   "name": "black glass",
+   "tab": "colored",
+   "hardness": 0.3,
+   "tool": null,
+   "level": 0,
+   "drop": 403,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": true,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    28,
+    28,
+    32
+   ],
+   "tiles": [
+    100,
+    100,
+    100
+   ]
+  },
+  "404": {
+   "name": "brown glass",
+   "tab": "colored",
+   "hardness": 0.3,
+   "tool": null,
+   "level": 0,
+   "drop": 404,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": true,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    112,
+    74,
+    44
+   ],
+   "tiles": [
+    101,
+    101,
+    101
+   ]
+  },
+  "405": {
+   "name": "red glass",
+   "tab": "colored",
+   "hardness": 0.3,
+   "tool": null,
+   "level": 0,
+   "drop": 405,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": true,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    176,
+    46,
+    40
+   ],
+   "tiles": [
+    102,
+    102,
+    102
+   ]
+  },
+  "406": {
+   "name": "orange glass",
+   "tab": "colored",
+   "hardness": 0.3,
+   "tool": null,
+   "level": 0,
+   "drop": 406,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": true,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    230,
+    124,
+    34
+   ],
+   "tiles": [
+    103,
+    103,
+    103
+   ]
+  },
+  "407": {
+   "name": "yellow glass",
+   "tab": "colored",
+   "hardness": 0.3,
+   "tool": null,
+   "level": 0,
+   "drop": 407,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": true,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    236,
+    200,
+    52
+   ],
+   "tiles": [
+    104,
+    104,
+    104
+   ]
+  },
+  "408": {
+   "name": "lime glass",
+   "tab": "colored",
+   "hardness": 0.3,
+   "tool": null,
+   "level": 0,
+   "drop": 408,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": true,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    120,
+    196,
+    40
+   ],
+   "tiles": [
+    105,
+    105,
+    105
+   ]
+  },
+  "409": {
+   "name": "green glass",
+   "tab": "colored",
+   "hardness": 0.3,
+   "tool": null,
+   "level": 0,
+   "drop": 409,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": true,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    72,
+    104,
+    30
+   ],
+   "tiles": [
+    106,
+    106,
+    106
+   ]
+  },
+  "410": {
+   "name": "cyan glass",
+   "tab": "colored",
+   "hardness": 0.3,
+   "tool": null,
+   "level": 0,
+   "drop": 410,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": true,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    34,
+    136,
+    150
+   ],
+   "tiles": [
+    107,
+    107,
+    107
+   ]
+  },
+  "411": {
+   "name": "light blue glass",
+   "tab": "colored",
+   "hardness": 0.3,
+   "tool": null,
+   "level": 0,
+   "drop": 411,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": true,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    96,
+    164,
+    222
+   ],
+   "tiles": [
+    108,
+    108,
+    108
+   ]
+  },
+  "412": {
+   "name": "blue glass",
+   "tab": "colored",
+   "hardness": 0.3,
+   "tool": null,
+   "level": 0,
+   "drop": 412,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": true,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    52,
+    64,
+    168
+   ],
+   "tiles": [
+    109,
+    109,
+    109
+   ]
+  },
+  "413": {
+   "name": "purple glass",
+   "tab": "colored",
+   "hardness": 0.3,
+   "tool": null,
+   "level": 0,
+   "drop": 413,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": true,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    122,
+    50,
+    174
+   ],
+   "tiles": [
+    110,
+    110,
+    110
+   ]
+  },
+  "414": {
+   "name": "magenta glass",
+   "tab": "colored",
+   "hardness": 0.3,
+   "tool": null,
+   "level": 0,
+   "drop": 414,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": true,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    186,
+    70,
+    180
+   ],
+   "tiles": [
+    111,
+    111,
+    111
+   ]
+  },
+  "415": {
+   "name": "pink glass",
+   "tab": "colored",
+   "hardness": 0.3,
+   "tool": null,
+   "level": 0,
+   "drop": 415,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": true,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "dye": [
+    230,
+    140,
+    170
+   ],
+   "tiles": [
+    112,
+    112,
+    112
+   ]
+  },
+  "300": {
+   "name": "stone slab",
+   "tab": "building",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 300,
+   "shape": "slab",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "material": 3,
+   "tiles": [
+    3,
+    3,
+    3
+   ]
+  },
+  "320": {
+   "name": "stone stairs",
+   "tab": "building",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 320,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "material": 3,
+   "facing": 0,
+   "tiles": [
+    3,
+    3,
+    3
+   ]
+  },
+  "321": {
+   "name": "stone stairs",
+   "tab": "building",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 320,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 3,
+   "facing": 1,
+   "tiles": [
+    3,
+    3,
+    3
+   ]
+  },
+  "322": {
+   "name": "stone stairs",
+   "tab": "building",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 320,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 3,
+   "facing": 2,
+   "tiles": [
+    3,
+    3,
+    3
+   ]
+  },
+  "323": {
+   "name": "stone stairs",
+   "tab": "building",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 320,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 3,
+   "facing": 3,
+   "tiles": [
+    3,
+    3,
+    3
+   ]
+  },
+  "301": {
+   "name": "cobblestone slab",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 301,
+   "shape": "slab",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "material": 22,
+   "tiles": [
+    32,
+    32,
+    32
+   ]
+  },
+  "324": {
+   "name": "cobblestone stairs",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 324,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "material": 22,
+   "facing": 0,
+   "tiles": [
+    32,
+    32,
+    32
+   ]
+  },
+  "325": {
+   "name": "cobblestone stairs",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 324,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 22,
+   "facing": 1,
+   "tiles": [
+    32,
+    32,
+    32
+   ]
+  },
+  "326": {
+   "name": "cobblestone stairs",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 324,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 22,
+   "facing": 2,
+   "tiles": [
+    32,
+    32,
+    32
+   ]
+  },
+  "327": {
+   "name": "cobblestone stairs",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 324,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 22,
+   "facing": 3,
+   "tiles": [
+    32,
+    32,
+    32
+   ]
+  },
+  "302": {
+   "name": "oak planks slab",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 302,
+   "shape": "slab",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "material": 7,
+   "tiles": [
+    8,
+    8,
+    8
+   ]
+  },
+  "328": {
+   "name": "oak planks stairs",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 328,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "material": 7,
+   "facing": 0,
+   "tiles": [
+    8,
+    8,
+    8
+   ]
+  },
+  "329": {
+   "name": "oak planks stairs",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 328,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 7,
+   "facing": 1,
+   "tiles": [
+    8,
+    8,
+    8
+   ]
+  },
+  "330": {
+   "name": "oak planks stairs",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 328,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 7,
+   "facing": 2,
+   "tiles": [
+    8,
+    8,
+    8
+   ]
+  },
+  "331": {
+   "name": "oak planks stairs",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 328,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 7,
+   "facing": 3,
+   "tiles": [
+    8,
+    8,
+    8
+   ]
+  },
+  "303": {
+   "name": "birch planks slab",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 303,
+   "shape": "slab",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "material": 36,
+   "tiles": [
+    51,
+    51,
+    51
+   ]
+  },
+  "332": {
+   "name": "birch planks stairs",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 332,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "material": 36,
+   "facing": 0,
+   "tiles": [
+    51,
+    51,
+    51
+   ]
+  },
+  "333": {
+   "name": "birch planks stairs",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 332,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 36,
+   "facing": 1,
+   "tiles": [
+    51,
+    51,
+    51
+   ]
+  },
+  "334": {
+   "name": "birch planks stairs",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 332,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 36,
+   "facing": 2,
+   "tiles": [
+    51,
+    51,
+    51
+   ]
+  },
+  "335": {
+   "name": "birch planks stairs",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 332,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 36,
+   "facing": 3,
+   "tiles": [
+    51,
+    51,
+    51
+   ]
+  },
+  "304": {
+   "name": "pine planks slab",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 304,
+   "shape": "slab",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "material": 39,
+   "tiles": [
+    52,
+    52,
+    52
+   ]
+  },
+  "336": {
+   "name": "pine planks stairs",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 336,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "material": 39,
+   "facing": 0,
+   "tiles": [
+    52,
+    52,
+    52
+   ]
+  },
+  "337": {
+   "name": "pine planks stairs",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 336,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 39,
+   "facing": 1,
+   "tiles": [
+    52,
+    52,
+    52
+   ]
+  },
+  "338": {
+   "name": "pine planks stairs",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 336,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 39,
+   "facing": 2,
+   "tiles": [
+    52,
+    52,
+    52
+   ]
+  },
+  "339": {
+   "name": "pine planks stairs",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "axe",
+   "level": 0,
+   "drop": 336,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 39,
+   "facing": 3,
+   "tiles": [
+    52,
+    52,
+    52
+   ]
+  },
+  "305": {
+   "name": "brick slab",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 305,
+   "shape": "slab",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "material": 8,
+   "tiles": [
+    9,
+    9,
+    9
+   ]
+  },
+  "340": {
+   "name": "brick stairs",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 340,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "material": 8,
+   "facing": 0,
+   "tiles": [
+    9,
+    9,
+    9
+   ]
+  },
+  "341": {
+   "name": "brick stairs",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 340,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 8,
+   "facing": 1,
+   "tiles": [
+    9,
+    9,
+    9
+   ]
+  },
+  "342": {
+   "name": "brick stairs",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 340,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 8,
+   "facing": 2,
+   "tiles": [
+    9,
+    9,
+    9
+   ]
+  },
+  "343": {
+   "name": "brick stairs",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 340,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 8,
+   "facing": 3,
+   "tiles": [
+    9,
+    9,
+    9
+   ]
+  },
+  "306": {
+   "name": "stone bricks slab",
+   "tab": "building",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 306,
+   "shape": "slab",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "material": 41,
+   "tiles": [
+    53,
+    53,
+    53
+   ]
+  },
+  "344": {
+   "name": "stone bricks stairs",
+   "tab": "building",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 344,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "material": 41,
+   "facing": 0,
+   "tiles": [
+    53,
+    53,
+    53
+   ]
+  },
+  "345": {
+   "name": "stone bricks stairs",
+   "tab": "building",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 344,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 41,
+   "facing": 1,
+   "tiles": [
+    53,
+    53,
+    53
+   ]
+  },
+  "346": {
+   "name": "stone bricks stairs",
+   "tab": "building",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 344,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 41,
+   "facing": 2,
+   "tiles": [
+    53,
+    53,
+    53
+   ]
+  },
+  "347": {
+   "name": "stone bricks stairs",
+   "tab": "building",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 344,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 41,
+   "facing": 3,
+   "tiles": [
+    53,
+    53,
+    53
+   ]
+  },
+  "307": {
+   "name": "sandstone slab",
+   "tab": "building",
+   "hardness": 0.8,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 307,
+   "shape": "slab",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "material": 20,
+   "tiles": [
+    30,
+    30,
+    30
+   ]
+  },
+  "348": {
+   "name": "sandstone stairs",
+   "tab": "building",
+   "hardness": 0.8,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 348,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "material": 20,
+   "facing": 0,
+   "tiles": [
+    30,
+    30,
+    30
+   ]
+  },
+  "349": {
+   "name": "sandstone stairs",
+   "tab": "building",
+   "hardness": 0.8,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 348,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 20,
+   "facing": 1,
+   "tiles": [
+    30,
+    30,
+    30
+   ]
+  },
+  "350": {
+   "name": "sandstone stairs",
+   "tab": "building",
+   "hardness": 0.8,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 348,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 20,
+   "facing": 2,
+   "tiles": [
+    30,
+    30,
+    30
+   ]
+  },
+  "351": {
+   "name": "sandstone stairs",
+   "tab": "building",
+   "hardness": 0.8,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 348,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 20,
+   "facing": 3,
+   "tiles": [
+    30,
+    30,
+    30
+   ]
+  },
+  "308": {
+   "name": "marble slab",
+   "tab": "building",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 308,
+   "shape": "slab",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "material": 21,
+   "tiles": [
+    31,
+    31,
+    31
+   ]
+  },
+  "352": {
+   "name": "marble stairs",
+   "tab": "building",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 352,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "material": 21,
+   "facing": 0,
+   "tiles": [
+    31,
+    31,
+    31
+   ]
+  },
+  "353": {
+   "name": "marble stairs",
+   "tab": "building",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 352,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 21,
+   "facing": 1,
+   "tiles": [
+    31,
+    31,
+    31
+   ]
+  },
+  "354": {
+   "name": "marble stairs",
+   "tab": "building",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 352,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 21,
+   "facing": 2,
+   "tiles": [
+    31,
+    31,
+    31
+   ]
+  },
+  "355": {
+   "name": "marble stairs",
+   "tab": "building",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 352,
+   "shape": "stair",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "material": 21,
+   "facing": 3,
+   "tiles": [
+    31,
+    31,
+    31
+   ]
+  }
+ }
+}
