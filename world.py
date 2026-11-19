@@ -389,6 +389,20 @@ class World:
             self.lamps.discard(pos)
         self._columns.pop(key, None)
 
+    def column(self, x, z):
+        """(top solid y, water surface y) of a loaded column, or None if its chunk isn't loaded."""
+        key = self.chunk_key(x, z)
+        if key not in self.chunks:
+            return None
+        return tuple(self._column_info(key)[(x, z)])
+
+    def solid(self, x, y, z):
+        """Can something stand on / bump into this cell? (Unloaded chunks count as solid walls.)"""
+        if self.chunk_key(x, z) not in self.chunks:
+            return True
+        b = self.blocks.get((x, y, z), 0)
+        return bool(b) and b != WATER
+
     def spawn_point(self):
         return (8, self.top_y(8, 8) + 1.5, 8)
 

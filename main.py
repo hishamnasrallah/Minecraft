@@ -24,6 +24,8 @@ from inventory import (Inventory, ITEMS, ITEM_ICONS, PLACEABLE, RECIPES, HOTBAR_
                        NEEDS_TOOL, drop_for, mining, recipe_text)
 from textures import load_atlas, tile_image, crack_stages
 from lighting import block_shader
+from animals import Wildlife
+from animal_models import AnimalView
 
 SAVE_FILE = Path(__file__).with_name("save.json")
 REACH = 6
@@ -258,9 +260,32 @@ def save():
     })
 
 
+# ---------------------------------------------------------------- animals
+wildlife = Wildlife(world)
+animal_views = {}
+daylight, sky_tint = 1.0, Vec3(1, 1, 1)
+
+
+def update_animals():
+    wildlife.update(time.dt, (player.x, player.y, player.z))
+    alive = set(wildlife.animals)
+    for animal in [a for a in animal_views if a not in alive]:
+        animal_views.pop(animal).destroy()
+    for animal in wildlife.animals:
+        if animal not in animal_views:
+            animal_views[animal] = AnimalView(animal)
+        animal_views[animal].sync(time.dt, daylight, sky_tint, world)
+
+
+def looked_at_animal():
+    hit = raycast(camera.world_position, camera.forward, distance=REACH, ignore=[player])
+    return getattr(hit.entity, "animal", None) if hit.hit else None
+
+
 # ---------------------------------------------------------------- interaction
 def target():
-    hit = raycast(camera.world_position, camera.forward, distance=REACH, ignore=[player])
+    ignore = [player] + [v.root for v in animal_views.values()]
+    hit = raycast(camera.world_position, camera.forward, distance=REACH, ignore=ignore)
     if not hit.hit:
         return None, None
     p, n = hit.world_point, hit.world_normal
@@ -320,7 +345,8 @@ mine_pos, mine_progress = None, 0.0
 
 def update_mining():
     global mine_pos, mine_progress
-    inside, _ = target() if player.enabled else (None, None)
+    looking_at_animal = player.enabled and looked_at_animal() is not None
+    inside, _ = target() if player.enabled and not looking_at_animal else (None, None)
     highlight.enabled = inside is not None
     if inside:
         highlight.position = inside
@@ -376,7 +402,9 @@ def input(key):
         elif key in ("left mouse down", "right mouse down"):
             inventory_click(right=key.startswith("right"))
         return
-    if key == "left mouse down" and CREATIVE:
+    if key == "left mouse down" and looked_at_animal():
+        looked_at_animal().hit(player.x, player.z)
+    elif key == "left mouse down" and CREATIVE:
         inside, _ = target()
         if inside:
             break_at(inside)
@@ -412,9 +440,12 @@ def update_sky():
     sky_color = lerp(lerp(NIGHT_SKY, DAY_SKY, day), DUSK_SKY, dusk * 0.7 * max(day, 0.5))
     sky.color = sky_color
     window.color = sky_color
-    scene.set_shader_input("daylight", 0.16 + 0.84 * day)
+    global daylight, sky_tint
+    daylight = 0.16 + 0.84 * day
     tint = lerp(Vec3(0.65, 0.75, 1.0), Vec3(1, 1, 1), day)
-    scene.set_shader_input("sky_tint", lerp(tint, Vec3(1.0, 0.78, 0.6), dusk * 0.5))
+    sky_tint = lerp(tint, Vec3(1.0, 0.78, 0.6), dusk * 0.5)
+    scene.set_shader_input("daylight", daylight)
+    scene.set_shader_input("sky_tint", sky_tint)
 
     direction = Vec3(math.cos(angle), sun_height, 0.3).normalized()
     sun.world_position = camera.world_position + direction * 300
@@ -436,6 +467,7 @@ def update():
         elif build_queue:
             build_chunk(build_queue.pop(0))
     update_sky()
+    update_animals()
     update_mining()
     if inv_root.enabled:
         cursor_view.icon.position = (mouse.x, mouse.y, -0.2)
