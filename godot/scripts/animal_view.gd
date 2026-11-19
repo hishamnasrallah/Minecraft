@@ -13,6 +13,9 @@ const FEATHER := Color8(153, 135, 107)
 const GREEN := Color8(33, 115, 56)
 const ORANGE := Color8(242, 153, 38)
 const WING := Color8(115, 102, 82)
+const SHADOW := Color8(38, 30, 56)
+const SHADOW_EDGE := Color8(62, 48, 92)
+const GLOW := Color8(150, 255, 225)
 
 # [name, position, size, colour]; positions are relative to the feet, facing +z.
 # "leg" parts hang down from the given hip position.
@@ -41,6 +44,13 @@ const MODELS := {
 		["head", Vector3(0, .46, .17), Vector3(.18, .2, .18), GREEN], ["beak", Vector3(0, .42, .3), Vector3(.1, .05, .1), ORANGE],
 		["eye", Vector3(.091, .5, .21), Vector3(.02, .04, .04), DARK], ["eye", Vector3(-.091, .5, .21), Vector3(.02, .04, .04), DARK],
 		["leg", Vector3(.07, .1, .02), Vector3(.05, .1, .05), ORANGE], ["leg", Vector3(-.07, .1, .02), Vector3(.05, .1, .05), ORANGE],
+	],
+	# the gloom: a tall, thin shadow with glowing eyes (parts named "glow" ignore the darkness)
+	"gloom": [
+		["body", Vector3(0, 1.0, 0), Vector3(.5, .8, .3), SHADOW], ["head", Vector3(0, 1.62, 0), Vector3(.44, .4, .4), SHADOW_EDGE],
+		["glow", Vector3(.1, 1.66, .205), Vector3(.1, .06, .02), GLOW], ["glow", Vector3(-.1, 1.66, .205), Vector3(.1, .06, .02), GLOW],
+		["arm", Vector3(.33, 1.0, .05), Vector3(.12, .75, .12), SHADOW_EDGE], ["arm", Vector3(-.33, 1.0, .05), Vector3(.12, .75, .12), SHADOW_EDGE],
+		["leg", Vector3(.12, .6, 0), Vector3(.16, .6, .16), SHADOW], ["leg", Vector3(-.12, .6, 0), Vector3(.16, .6, .16), SHADOW],
 	],
 }
 
@@ -94,7 +104,7 @@ func _init(a) -> void:
 		else:
 			mi.position = p[1]
 			body.add_child(mi)
-		parts.append([mi, p[3]])
+		parts.append([mi, p[3], p[0] == "glow"])
 
 
 func sync(dt: float, daylight: float, world: WorldData) -> void:
@@ -112,13 +122,16 @@ func sync(dt: float, daylight: float, world: WorldData) -> void:
 		for p in parts:
 			p[0].material_override.albedo_color = Color(1, 0.25, 0.25)
 		_light_timer = 0
+	elif animal.fade > 0:                        # dissolving in the sun: shrink away
+		body.scale = Vector3.ONE * clampf(animal.fade / 2.0, 0.05, 1.0)
 	elif _light_timer <= 0:
 		_light_timer = 0.3
 		var col = world.column(Wildlife.cell(animal.pos.x), Wildlife.cell(animal.pos.z))
 		var open_sky: bool = col != null and Wildlife.cell(animal.pos.y + 0.3) > col[0]
 		var b := maxf(daylight * (1.0 if open_sky else 0.3), 0.07)
 		for p in parts:
-			p[0].material_override.albedo_color = Color(p[1].r * b, p[1].g * b, p[1].b * b)
+			var glow: bool = p.size() > 2 and p[2]
+			p[0].material_override.albedo_color = p[1] if glow else Color(p[1].r * b, p[1].g * b, p[1].b * b)
 
 
 ## Distance along a ray to this animal's body (a rough box), or -1 if the ray misses.

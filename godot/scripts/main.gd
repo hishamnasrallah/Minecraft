@@ -564,18 +564,19 @@ func break_at(pos: Vector3i) -> void:
 
 func attack(animal) -> void:
 	var item := inv.item_at(selected)
-	var meat: int = animal.hit(player.position, Items.attack_damage(item) if not creative else 100)
+	var drop: Array = animal.hit(player.position, Items.attack_damage(item) if not creative else 100)
 	Sfx.play("hurt", -4.0, 1.7)
 	if creative:
 		return
 	health.exert(float(Items.survival["ATTACK"]))
 	if Items.tools.has(item) and inv.wear(selected):
 		hud.flash(I18n.f("tool_broke", Items.name_of(item)))
-	if meat > 0:
-		if inv.add(int(Items.S["RAW_MEAT"]), meat) > 0:
+	if not drop.is_empty():
+		if inv.add(drop[0], drop[1]) > 0:
 			hud.flash(I18n.t("inventory_full"))
 		else:
-			hud.flash(I18n.f("got_meat", meat))
+			hud.flash(I18n.f("added", "%d %s" % [drop[1], Items.name_of(drop[0])]))
+			Sfx.play("pop")
 	hud.show_hotbar(inv, selected, creative)
 
 
@@ -874,7 +875,16 @@ func _update_building() -> void:
 
 # ---------------------------------------------------------------- animals, health, sky
 func _update_animals(delta: float) -> void:
-	wildlife.update(delta, player.position)
+	var monsters: bool = I18n.settings.get("monsters", true)
+	var damage := wildlife.update(delta, player.position, daylight, monsters, not creative and not health.dead)
+	if damage > 0 and not creative and not health.dead:
+		health.damage(damage, "gloom")
+		hud.hurt_flash()
+		Sfx.play("hurt")
+		hud.show_bars(health, creative)
+		if health.dead:
+			hud.show_death(health.cause)
+			player.set_physics_process(false)
 	var alive := {}
 	for a in wildlife.animals:
 		alive[a] = true
@@ -964,6 +974,17 @@ func _process(delta: float) -> void:
 	_update_health(delta)
 	if "--selftest" in OS.get_cmdline_user_args() and spawned:
 		_selftest_step()
+	if "--gloomtest" in OS.get_cmdline_user_args() and spawned and not _st.has("gloom"):
+		# testing: night, and a gloom a few blocks in front of the player
+		world.time_of_day = 0.75
+		var f := player.forward()
+		var p := player.position + Vector3(f.x, 0, f.z).normalized() * 6.0
+		var g := Wildlife.Animal.new("gloom", Vector3(p.x, world.top_y(floori(p.x + 0.5), floori(p.z + 0.5)) + 0.5, p.z))
+		wildlife.animals.append(g)
+		_st["gloom"] = g
+		_st["health0"] = health.health
+	if _st.has("gloom") and _shot_frames == 1:
+		print("GLOOM distance to player: ", snappedf(Vector2(_st["gloom"].pos.x - player.position.x, _st["gloom"].pos.z - player.position.z).length(), 0.1), ", player health ", _st["health0"], " -> ", health.health)
 	if _shot_path != "" and spawned:
 		_shot_frames -= 1
 		if _shot_frames <= 0:

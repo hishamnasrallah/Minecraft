@@ -143,3 +143,20 @@ func test_build_timing() -> String:
 	print("        light %.1f ms, light + mesh %.1f ms" % [light_ms, (Time.get_ticks_usec() - t) / 1000.0])
 	return ""
 
+
+
+func test_ambient_occlusion() -> String:
+	var w := WorldData.new(1)
+	for dx in [-1, 0, 1]:
+		for dz in [-1, 0, 1]:
+			w.chunks[Vector2i(dx, dz)] = WorldData.Chunk.new()
+	w._put(5, 1, 5, 3)
+	var m := Mesher.new(w)
+	m.compute_light(Vector2i(0, 0))
+	if m._corner_ao(0, 5, 1, 5) != [3, 3, 3, 3]:
+		return "a lone block's top should be fully open: %s" % [m._corner_ao(0, 5, 1, 5)]
+	w._put(6, 2, 5, 3)                          # a block on top of the +x neighbour
+	var ao := m._corner_ao(0, 5, 1, 5)
+	if ao.min() != 2 or ao.max() != 3 or ao.count(2) != 2:
+		return "the two corners next to the wall should be darker: %s" % [ao]
+	return ""

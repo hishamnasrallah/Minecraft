@@ -12,7 +12,7 @@ var ui := {}
 var names_ar := {}
 var groups_ar := {}
 var tabs_ar := {}
-var settings := {"lang": "", "sensitivity": 1.0, "view_distance": 0, "show_fps": true, "sound": 0.8}
+var settings := {"lang": "", "sensitivity": 1.0, "view_distance": 0, "show_fps": true, "sound": 0.8, "monsters": true}
 
 
 func _init() -> void:

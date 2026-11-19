@@ -504,6 +504,14 @@
    "en": "Sound",
    "ar": "الصوت"
   },
+  "monsters": {
+   "en": "Night monsters (glooms)",
+   "ar": "وحوش الليل (الظلال)"
+  },
+  "cause_gloom": {
+   "en": "A gloom got you.",
+   "ar": "ظلّ قتلك."
+  },
   "creative_label": {
    "en": "creative",
    "ar": "إبداع"

@@ -80,6 +80,12 @@ func _ready() -> void:
 	sound.drag_ended.connect(func(_c): Sfx.play("pop"))
 	box.add_child(sound)
 
+	var monsters := CheckBox.new()
+	monsters.text = I18n.t("monsters")
+	monsters.button_pressed = bool(I18n.settings.get("monsters", true))
+	monsters.toggled.connect(func(on): I18n.settings["monsters"] = on)
+	box.add_child(monsters)
+
 	var fps := CheckBox.new()
 	fps.text = I18n.t("show_fps")
 	fps.button_pressed = bool(I18n.settings["show_fps"])

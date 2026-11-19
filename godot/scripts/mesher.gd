@@ -14,6 +14,10 @@ const FACES := [
 	[Vector3i(0, 1, 0), 1.00], [Vector3i(0, -1, 0), 0.55], [Vector3i(1, 0, 0), 0.82],
 	[Vector3i(-1, 0, 0), 0.82], [Vector3i(0, 0, 1), 0.68], [Vector3i(0, 0, -1), 0.68],
 ]
+const AO_LEVELS := [0.52, 0.68, 0.84, 1.0]   # brightness for 0..3 open neighbours of a corner
+const QUAD_INDEX := [0, 1, 2, 4]               # the 4 distinct corners within the 6 triangle vertices
+const CORNERS_A := [0, 1, 2, 2, 3, 0]          # the two ways to split a quad into triangles
+const CORNERS_B := [1, 2, 3, 3, 0, 1]
 static var face_corners := []     # per face: 6 corners (two triangles) of a unit cube
 static var face_uvs := []         # per face: 6 local (u, v), v upwards
 
@@ -156,6 +160,33 @@ func _spread(q: PackedInt32Array, is_sky: bool) -> void:
 					q.append(ni * 16 + new_level)
 
 
+func _opaque(x: int, y: int, z: int) -> bool:
+	var b := world.get_block(x, y, z)
+	return b != 0 and Blocks.transparent[b] == 0
+
+
+## 0..3 for each of the face's 4 corners: how open the space around that corner is.
+func _corner_ao(f: int, x: int, y: int, z: int) -> Array:
+	var n: Vector3i = FACES[f][0]
+	var axes := []
+	for a in 3:
+		if n[a] == 0:
+			axes.append(a)
+	var out := []
+	for q in 4:
+		var c: Vector3 = face_corners[f][QUAD_INDEX[q]]
+		var d1 := Vector3i.ZERO
+		var d2 := Vector3i.ZERO
+		d1[axes[0]] = 1 if c[axes[0]] > 0 else -1
+		d2[axes[1]] = 1 if c[axes[1]] > 0 else -1
+		var base := Vector3i(x, y, z) + n
+		var s1 := _opaque(base.x + d1.x, base.y + d1.y, base.z + d1.z)
+		var s2 := _opaque(base.x + d2.x, base.y + d2.y, base.z + d2.z)
+		var corner := _opaque(base.x + d1.x + d2.x, base.y + d1.y + d2.y, base.z + d1.z + d2.z)
+		out.append(0 if (s1 and s2) else 3 - int(s1) - int(s2) - int(corner))
+	return out
+
+
 func light_at(x: int, y: int, z: int) -> Vector2i:
 	if not _in_region(x, z) or y < 0:
 		return Vector2i(15, 0)
@@ -212,12 +243,21 @@ func build(key: Vector2i) -> Dictionary:
 					var lmp := 15 if Blocks.emit[id] else l.y
 					var col := Color(l.x / 15.0, lmp / 15.0, FACES[f][1], 1.0)
 					var tile := Blocks.tile_top[id] if n.y > 0 else (Blocks.tile_bottom[id] if n.y < 0 else Blocks.tile_side[id])
-					for i in 6:
+					# ambient occlusion: each corner gets darker for every solid block around it
+					# (water is left flat). The quad is split along the brighter diagonal so the
+					# shading stays smooth instead of showing a crease.
+					var ao := [3, 3, 3, 3] if water else _corner_ao(f, x, y, z)
+					var order := CORNERS_A
+					if ao[0] + ao[2] < ao[1] + ao[3]:
+						order = CORNERS_B
+					for k in 6:
+						var q: int = order[k]
+						var i: int = QUAD_INDEX[q]
 						var c: Vector3 = face_corners[f][i]
 						if lowered and c.y > 0:
 							c.y = 0.4
 						g.verts.append(Vector3(x, y, z) + c)
-						g.colors.append(col)
+						g.colors.append(Color(col.r, col.g, col.b * AO_LEVELS[ao[q]], 1.0))
 						var uv: Vector2 = face_uvs[f][i]
 						g.uvs.append(Blocks.tile_uv(tile, uv.x, uv.y))
 	return out

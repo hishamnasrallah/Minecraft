@@ -51,6 +51,11 @@ func _write(d: Dictionary) -> void:
 		f.flush()
 
 
+## Called when the app quits normally (back button, quit()). A real crash never gets here.
+func _exit_tree() -> void:
+	_write({"state": "ok", "stage": current_stage if not _ok else "running", "safe_mode": safe_mode})
+
+
 func _notification(what: int) -> void:
 	# closing the app or switching away is a normal end, not a crash
 	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_PAUSED:

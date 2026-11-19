@@ -169,12 +169,12 @@ func test_animals() -> String:
 		r.update(0.05, w, Vector3(10, 3.5, 8))
 	if r.state != "flee" or r.pos.x >= 8:
 		return "fleeing"
-	var meat := 0
+	var drop := []
 	var deer := Wildlife.Animal.new("deer", Vector3(8, 3.5, 8))
 	while not deer.dead:
-		meat = deer.hit(Vector3(0, 0, 8), 3)
-	if meat < 2:
-		return "deer should drop 2-3 meat"
+		drop = deer.hit(Vector3(0, 0, 8), 3)
+	if drop.is_empty() or drop[0] != 103 or drop[1] < 2:
+		return "deer should drop 2-3 raw meat: %s" % [drop]
 	var life := Wildlife.new(WorldData.new(11))
 	for cx in range(-4, 4):
 		for cz in range(-4, 4):
@@ -183,4 +183,33 @@ func test_animals() -> String:
 		life.update(0.1, Vector3(0, 20, 0))
 	if life.animals.is_empty():
 		return "nothing spawned"
+	return ""
+
+
+func test_glooms_chase_attack_and_fade() -> String:
+	var w := _flat()
+	var life := Wildlife.new(w)
+	var g := Wildlife.Animal.new("gloom", Vector3(8, 3.5, 8))
+	life.animals.append(g)
+	var player := Vector3(14, 3.5, 8)
+	var damage := 0
+	for i in 100:
+		damage += life.update(0.05, player, 0.1, true, true)
+	if g.pos.x < 12 or damage < 3:
+		return "should chase and hit: at %s, damage %d" % [g.pos, damage]
+	var calm := Wildlife.Animal.new("gloom", Vector3(8, 3.5, 2))
+	life.animals = [calm]
+	for i in 40:
+		damage = life.update(0.05, player, 0.1, true, false)       # creative: ignores you
+	if calm.state == "chase" or damage > 0:
+		return "should ignore a creative player"
+	for i in 60:
+		life.update(0.05, player, 1.0, true, true)                 # noon on open ground
+	if not life.animals.is_empty():
+		return "should fade away in sunlight"
+	var lit := _flat()
+	lit._put(20, 4, 8, 50)                                        # a torch
+	var near := Wildlife.new(lit)
+	if not near._near_light(Vector3i(22, 4, 8)) or near._near_light(Vector3i(40, 4, 8)):
+		return "torch light check"
 	return ""

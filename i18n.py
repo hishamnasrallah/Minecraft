@@ -114,6 +114,8 @@ UI = {
     "exit_to_menu": ("Save and go to the menu", "احفظ وارجع للقائمة"), "never_played": ("new", "جديد"),
     "days_ago": ("%d days ago", "من %d يوم"), "today": ("today", "اليوم"), "yesterday": ("yesterday", "مبارح"),
     "sound": ("Sound", "الصوت"),
+    "monsters": ("Night monsters (glooms)", "وحوش الليل (الظلال)"),
+    "cause_gloom": ("A gloom got you.", "ظلّ قتلك."),
     "creative_label": ("creative", "إبداع"), "flying_label": ("flying", "طيران"), "noclip_label": ("noclip", "عبر الجدران"),
 }
 
