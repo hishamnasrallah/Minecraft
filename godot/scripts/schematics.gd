@@ -93,18 +93,24 @@ static func load_file(path: String) -> Dictionary:
 
 
 ## [[path, name, size, built-in?]] for the examples and your own files.
+## [path, name, size, built-in, category, blocks]. Built-ins come from index.json, so even big
+## factories are listed without reading their files; your own files are read (they are small).
 static func list_saved() -> Array:
 	var found := []
-	for dir in [BUILTIN_DIR, USER_DIR]:
-		if not DirAccess.dir_exists_absolute(dir):
-			continue
-		for file in DirAccess.get_files_at(dir):
+	var index = JSON.parse_string(FileAccess.get_file_as_string(BUILTIN_DIR + "/index.json")) \
+		if FileAccess.file_exists(BUILTIN_DIR + "/index.json") else null
+	if index is Array:
+		for e in index:
+			var name: String = e["name_ar"] if I18n.is_arabic() else e["name"]
+			found.append([BUILTIN_DIR + "/" + e["file"], name, e["size"], true, e["category"], int(e["blocks"])])
+	if DirAccess.dir_exists_absolute(USER_DIR):
+		for file in DirAccess.get_files_at(USER_DIR):
 			if not file.ends_with(".json"):
 				continue
-			var path: String = dir + "/" + file
+			var path: String = USER_DIR + "/" + file
 			var data = JSON.parse_string(FileAccess.get_file_as_string(path))
 			if data is Dictionary and data.get("format") == FORMAT:
-				found.append([path, data.get("name", file.get_basename()), data["size"], dir == BUILTIN_DIR])
+				found.append([path, data.get("name", file.get_basename()), data["size"], false, "mine", 0])
 	return found
 
 

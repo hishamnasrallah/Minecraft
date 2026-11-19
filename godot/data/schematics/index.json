@@ -1,0 +1,182 @@
+[
+ {
+  "file": "small_house.json",
+  "name": "Small house",
+  "name_ar": "بيت صغير",
+  "category": "houses",
+  "size": [
+   9,
+   5,
+   8
+  ],
+  "blocks": 184
+ },
+ {
+  "file": "talia.json",
+  "name": "TALIA sign",
+  "name_ar": "لوحة TALIA",
+  "category": "signs",
+  "size": [
+   7,
+   3,
+   2
+  ],
+  "blocks": 42
+ },
+ {
+  "file": "layan.json",
+  "name": "LAYAN sign",
+  "name_ar": "لوحة LAYAN",
+  "category": "signs",
+  "size": [
+   7,
+   3,
+   2
+  ],
+  "blocks": 42
+ },
+ {
+  "file": "zaina.json",
+  "name": "ZAINA sign",
+  "name_ar": "لوحة ZAINA",
+  "category": "signs",
+  "size": [
+   7,
+   3,
+   2
+  ],
+  "blocks": 42
+ },
+ {
+  "file": "hisham.json",
+  "name": "HISHAM sign",
+  "name_ar": "لوحة HISHAM",
+  "category": "signs",
+  "size": [
+   8,
+   3,
+   2
+  ],
+  "blocks": 48
+ },
+ {
+  "file": "auto_door.json",
+  "name": "Automatic door",
+  "name_ar": "باب أوتوماتيكي",
+  "category": "small_factories",
+  "size": [
+   7,
+   5,
+   5
+  ],
+  "blocks": 67
+ },
+ {
+  "file": "lamp_clock.json",
+  "name": "Blinking lamp clock",
+  "name_ar": "ساعة ضو بتغمّز",
+  "category": "small_factories",
+  "size": [
+   9,
+   4,
+   5
+  ],
+  "blocks": 71
+ },
+ {
+  "file": "auto_smelter.json",
+  "name": "Auto smelting line",
+  "name_ar": "خط صهر أوتوماتيكي",
+  "category": "small_factories",
+  "size": [
+   9,
+   8,
+   5
+  ],
+  "blocks": 77
+ },
+ {
+  "file": "storage_tower.json",
+  "name": "Storage tower",
+  "name_ar": "برج تخزين",
+  "category": "small_factories",
+  "size": [
+   10,
+   16,
+   5
+  ],
+  "blocks": 108
+ },
+ {
+  "file": "night_street.json",
+  "name": "Street with night lights",
+  "name_ar": "شارع بإنارة ليلية",
+  "category": "small_factories",
+  "size": [
+   24,
+   7,
+   5
+  ],
+  "blocks": 180
+ },
+ {
+  "file": "logic_board.json",
+  "name": "Logic gates board",
+  "name_ar": "لوح البوابات المنطقية",
+  "category": "small_factories",
+  "size": [
+   23,
+   6,
+   5
+  ],
+  "blocks": 263
+ },
+ {
+  "file": "wheat_harvester.json",
+  "name": "Wheat harvester",
+  "name_ar": "حاصدة قمح بكبسة زر",
+  "category": "small_factories",
+  "size": [
+   14,
+   10,
+   6
+  ],
+  "blocks": 369
+ },
+ {
+  "file": "smelter_hall.json",
+  "name": "Smelting hall (8 lines)",
+  "name_ar": "قاعة الصهر الكبرى (8 خطوط)",
+  "category": "big_factories",
+  "size": [
+   27,
+   11,
+   12
+  ],
+  "blocks": 1283
+ },
+ {
+  "file": "giant_farm.json",
+  "name": "Giant wheat farm",
+  "name_ar": "مزرعة القمح العملاقة",
+  "category": "big_factories",
+  "size": [
+   43,
+   11,
+   45
+  ],
+  "blocks": 9259
+ },
+ {
+  "file": "mega_complex.json",
+  "name": "Industrial complex",
+  "name_ar": "المجمّع الصناعي العملاق",
+  "category": "big_factories",
+  "size": [
+   97,
+   31,
+   71
+  ],
+  "blocks": 15204
+ }
+]

@@ -179,6 +179,10 @@ UI = {
     "cause_gloom": ("A night creature got you.", "وحش ليلي قتلك."),
     # touch actions, log, items screen
     "show_map": ("Mini map", "خريطة صغيرة"),
+    "lib_houses": ("Houses", "بيوت"), "lib_signs": ("Signs", "لوحات"),
+    "lib_small_factories": ("Small factories", "مصانع صغيرة"), "lib_big_factories": ("Big factories", "مصانع كبيرة وعملاقة"),
+    "lib_mine": ("My buildings", "بناياتي"), "lib_blocks": ("%d blocks", "%d بلوك"),
+    "pasting": ("Building... %d%%", "عم يبني... %d%%"),
     "weather_clear": ("Clear sky", "صحو"), "weather_cloudy": ("Cloudy", "غيوم"), "weather_rain": ("Rain", "مطر"), "vibrate": ("Vibrate", "اهتزاز"),
     "hold_to_break": ("Aim the + at a block and hold your finger anywhere to break it", "وجّه علامة + على البلوك واضغط مطوّل بأي مكان لتكسره"),
     "touch_buttons": ("Separate break / place buttons", "أزرار منفصلة للكسر والوضع"),

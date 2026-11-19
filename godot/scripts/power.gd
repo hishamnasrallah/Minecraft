@@ -34,6 +34,10 @@ var _acc := 0.0
 var _slow := 0.0
 var _info := {}                    # block id -> [kind, facing, on]
 var _emit := {}                    # this tick: positions that power all neighbours
+var _ids := {}                     # Vector3i -> block id of every part (no world lookups per tick)
+var _by_kind := {}                 # kind -> [positions]
+var _lists_dirty := true
+var _dirty := true                 # something changed: run the next tick (a still circuit costs nothing)
 
 
 func _init(w: WorldData) -> void:
@@ -64,17 +68,59 @@ func facing_of(id: int) -> int:
 ## The game tells us about every block change.
 func note(pos: Vector3i, id: int) -> void:
 	if _info.has(id):
-		parts[pos] = _info[id][0]
+		var kind: String = _info[id][0]
+		if parts.get(pos, "") != kind:
+			_lists_dirty = true
+		parts[pos] = kind
+		_ids[pos] = id
+		_dirty = true
 	elif parts.has(pos):
 		parts.erase(pos)
+		_ids.erase(pos)
 		level.erase(pos)
 		gate_on.erase(pos)
 		was_powered.erase(pos)
 		delay_line.erase(pos)
+		_lists_dirty = true
+		_dirty = true
+	elif not _dirty:
+		# a plain block placed or removed next to a machine (a pusher's row, a door) counts too
+		for d in DIRS:
+			if parts.has(pos + d):
+				_dirty = true
+				break
+
+
+func _rebuild_lists() -> void:
+	_lists_dirty = false
+	_by_kind = {}
+	for p in parts:
+		var k: String = parts[p]
+		if not _by_kind.has(k):
+			_by_kind[k] = []
+		_by_kind[k].append(p)
+
+
+func _list(kind: String) -> Array:
+	return _by_kind.get(kind, [])
 
 
 func press_button(pos: Vector3i) -> void:
 	button_until[pos] = now + 1.0
+	_dirty = true
+
+
+## The game sets these every frame; only a real change wakes the machines up.
+func set_inputs(new_pressed: Dictionary, day: bool) -> void:
+	if day != is_day:
+		is_day = day
+		if not _list("sensor").is_empty():
+			_dirty = true
+	for p in _list("plate"):
+		if new_pressed.has(p) != pressed.has(p):
+			_dirty = true
+			break
+	pressed = new_pressed
 
 
 ## Runs the machines; call every frame.
@@ -86,7 +132,14 @@ func update(delta: float) -> void:
 	if _acc < TICK:
 		return
 	_acc = minf(_acc - TICK, TICK)
-	_tick()
+	if _lists_dirty:
+		_rebuild_lists()
+	for b in button_until:
+		if button_until[b] > now - TICK * 2:
+			_dirty = true                          # a button just pressed or just released
+	if _dirty:
+		_dirty = false
+		_tick()
 	_slow += TICK
 	if _slow >= 0.4:
 		_slow = 0.0
@@ -94,44 +147,36 @@ func update(delta: float) -> void:
 
 
 func _front(pos: Vector3i) -> Vector3i:
-	return pos + DIRS[facing_of(world.get_block(pos.x, pos.y, pos.z))]
+	return pos + DIRS[_info[_ids[pos]][1]] if _ids.has(pos) else pos
 
 
 func _tick() -> void:
 	# 1. sources
 	_emit = {}
-	for p in parts:
-		var k: String = parts[p]
-		var id := world.get_block(p.x, p.y, p.z)
-		var on := false
-		match k:
-			"switch":
-				on = _info.has(id) and _info[id][2]
-			"cell":
-				on = true
-			"button":
-				on = button_until.get(p, 0.0) > now
-			"plate":
-				on = pressed.has(p)
-			"sensor":
-				on = is_day
-		if on:
+	for p in _list("switch"):
+		if _info[_ids[p]][2]:
+			_emit[p] = true
+	for p in _list("cell"):
+		_emit[p] = true
+	for p in _list("button"):
+		if button_until.get(p, 0.0) > now:
+			_emit[p] = true
+	for p in _list("plate"):
+		if pressed.has(p):
+			_emit[p] = true
+	if is_day:
+		for p in _list("sensor"):
 			_emit[p] = true
 	# 2. wires: spread from everything that powers them
 	var new_level := {}
 	var queue: Array = []
-	for p in parts:
-		if parts[p] != "wire":
-			continue
-		var best := 0
+	for p in _list("wire"):
 		for d in DIRS:
 			var n: Vector3i = p + d
 			if _emit.has(n) or (gate_on.get(n, false) and _front(n) == p):
-				best = 15
+				new_level[p] = 15
+				queue.append(p)
 				break
-		if best > 0:
-			new_level[p] = best
-			queue.append(p)
 	var head := 0
 	while head < queue.size():
 		var p: Vector3i = queue[head]
@@ -144,54 +189,61 @@ func _tick() -> void:
 			if parts.get(n, "") == "wire" and new_level.get(n, 0) < l:
 				new_level[n] = l
 				queue.append(n)
+	var changed := new_level.size() != level.size()
 	# wires show whether they carry power
-	for p in parts:
-		if parts[p] == "wire":
-			var on: bool = new_level.get(p, 0) > 0
-			var id := world.get_block(p.x, p.y, p.z)
-			if on != _info[id][2]:
-				set_block.call(p, 1701 if on else 1700)
+	for p in _list("wire"):
+		var on: bool = new_level.get(p, 0) > 0
+		if on != (level.get(p, 0) > 0):
+			changed = true
+		if on != _info[_ids[p]][2]:
+			set_block.call(p, 1701 if on else 1700)
 	level = new_level
 	# 3. gates (their new output shows next tick)
 	var next_gate := {}
-	for p in parts:
-		var k: String = parts[p]
-		if not k in ["not", "and", "or", "xor", "delay"]:
-			continue
-		var f := facing_of(world.get_block(p.x, p.y, p.z))
-		var back: Vector3i = p - DIRS[f]
-		var left: Vector3i = p + DIRS[(f + 1) % 4]
-		var right: Vector3i = p + DIRS[(f + 3) % 4]
-		var b := _feeds(back, p)
-		var l := _feeds(left, p)
-		var r := _feeds(right, p)
-		match k:
-			"not":
-				next_gate[p] = not b
-			"and":
-				next_gate[p] = l and r
-			"or":
-				next_gate[p] = l or r or b
-			"xor":
-				next_gate[p] = l != r
-			"delay":
-				var line: Array = delay_line.get(p, [false, false, false])
-				next_gate[p] = line[0]
-				delay_line[p] = [line[1], line[2], b]
+	for k in ["not", "and", "or", "xor", "delay"]:
+		for p in _list(k):
+			var f: int = _info[_ids[p]][1]
+			var b := _feeds(p - DIRS[f], p)
+			var l := _feeds(p + DIRS[(f + 1) % 4], p)
+			var r := _feeds(p + DIRS[(f + 3) % 4], p)
+			var out := false
+			match k:
+				"not":
+					out = not b
+				"and":
+					out = l and r
+				"or":
+					out = l or r or b
+				"xor":
+					out = l != r
+				"delay":
+					var line: Array = delay_line.get(p, [false, false, false])
+					out = line[0]
+					delay_line[p] = [line[1], line[2], b]
+					if line[0] != line[1] or line[1] != line[2] or line[2] != b:
+						changed = true           # a signal is still on its way through
+			next_gate[p] = out
+			if out != gate_on.get(p, false):
+				changed = true
 	# 4. users
 	var users := {}
-	for p in parts:
-		if parts[p] in ["lamp", "pusher", "breaker"]:
-			users[p] = parts[p]
+	for k in ["lamp", "pusher", "breaker"]:
+		for p in _list(k):
+			users[p] = k
+	for p in was_powered:                                    # doors we opened: watch them to close
+		if was_powered[p] and Blocks.defs.get(world.get_block(p.x, p.y, p.z), {}).has("door"):
+			users[p] = "door"
 	for p in _emit.keys() + level.keys() + gate_on.keys():   # doors next to anything powered
 		for d in DIRS:
 			var n: Vector3i = p + d
-			if Blocks.defs.get(world.get_block(n.x, n.y, n.z), {}).has("door"):
+			if not users.has(n) and Blocks.defs.get(world.get_block(n.x, n.y, n.z), {}).has("door"):
 				users[n] = "door"
 	for p in users:
 		var on := _powered(p)
 		var before: bool = was_powered.get(p, false)
 		was_powered[p] = on
+		if on != before:
+			changed = true
 		var id := world.get_block(p.x, p.y, p.z)
 		match users[p]:
 			"lamp":
@@ -203,11 +255,13 @@ func _tick() -> void:
 					_toggle_door(p, id)
 			"pusher":
 				if on and not before:
-					_push(p, DIRS[facing_of(id)])
+					_push(p, DIRS[_info[id][1]])
 			"breaker":
 				if on and not before:
-					_break(p + DIRS[facing_of(id)])
+					_break(p + DIRS[_info[id][1]])
 	gate_on = next_gate
+	if changed:
+		_dirty = true                                # keep going until everything settles
 
 
 ## Does the block at `from` give power into `to`?
@@ -274,15 +328,27 @@ func _container(p: Vector3i) -> Inventory:
 
 
 func _move_items() -> void:
-	for p in parts:
-		match parts[p]:
-			"collector":
-				_collect(p)
-			"smelter":
-				_smelt(p)
+	for p in _list("collector"):
+		_collect(p)
+	for p in _list("smelter"):
+		if _has_items(p):
+			_smelt(p)
+
+
+func _has_items(p: Vector3i) -> bool:
+	var data = world.containers.get(p)
+	if not data is Array:
+		return false
+	for slot in data:
+		if slot != null:
+			return true
+	return false
 
 
 func _collect(p: Vector3i) -> void:
+	var above_p := p + Vector3i(0, 1, 0)
+	if not _has_items(p) and not _has_items(above_p):
+		return                                     # nothing to move: costs nothing
 	var mine := _container(p)
 	var changed := false
 	# from the container above (from a smelter: only its finished items)

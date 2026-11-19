@@ -245,9 +245,10 @@ func test_glooms_chase_attack_and_fade() -> String:
 		damage = life.update(0.05, player, 0.1, true, false)       # creative: ignores you
 	if calm.state == "chase" or damage > 0:
 		return "should ignore a creative player"
-	for i in 60:
+	for i in 200:
 		life.update(0.05, player, 1.0, true, true)                 # noon on open ground
-	if not life.animals.is_empty():
+	# (day animals may have spawned meanwhile: only the glooms must be gone)
+	if not life.animals.filter(func(a): return a.kind == "gloom").is_empty():
 		return "should fade away in sunlight"
 	var lit := _flat()
 	lit._put(20, 4, 8, 50)                                        # a torch

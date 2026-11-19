@@ -201,7 +201,10 @@ func _ready() -> void:
 	drops.hud = hud
 	add_child(drops)
 	power = Power.new(world)
-	world.on_edit = power.note
+	world.on_edit = func(p: Vector3i, id: int) -> void:
+		power.note(p, id)
+		if Blocks.defs.get(id, {}).has("crop") or Items.sapling_trees.has(id):
+			growing[p] = true                      # also crops and saplings from pasted buildings
 	power.set_block = func(p: Vector3i, id: int) -> void: edit(p, id, true, false)
 	power.spawn_drop = func(st: Array, p: Vector3) -> void: drops.spawn(st, p)
 	power.break_drops = func(id: int) -> Array:
@@ -785,6 +788,73 @@ func use_block(pos: Vector3i) -> bool:
 	return false
 
 
+# ---------------------------------------------------------------- pasting big buildings
+var _paste_batches := []            # [chunk key, {pos: id}] still to build, nearest first
+var _paste_total := 0
+var _paste_done := 0
+var _paste_prev := {}               # what was there before (one undo step for the whole paste)
+var _clip_from_library := false     # library buildings replace the ground they stand in
+const PASTE_PER_FRAME := 3000
+
+
+## Big buildings go in a few thousand blocks per frame (no freeze), chunk by chunk; parts
+## that fall in chunks not loaded yet are generated first, one chunk per frame.
+func _start_paste(origin: Vector3i, include_air: bool) -> void:
+	var by_chunk := {}
+	for p in builder.clipboard:
+		var id: int = builder.clipboard[p]
+		if id == 0 and not include_air:
+			continue
+		var q: Vector3i = origin + p
+		if q.y < 1 or q.y >= WorldData.H:
+			continue
+		var k := WorldData.chunk_key(q.x, q.z)
+		if not by_chunk.has(k):
+			by_chunk[k] = {}
+		by_chunk[k][q] = id
+	var me := WorldData.chunk_key(floori(player.position.x + 0.5), floori(player.position.z + 0.5))
+	var keys: Array = by_chunk.keys()
+	keys.sort_custom(func(a, b): return (a - me).length_squared() < (b - me).length_squared())
+	_paste_batches = keys.map(func(k): return [k, by_chunk[k]])
+	_paste_total = 0
+	for k in keys:
+		_paste_total += by_chunk[k].size()
+	_paste_done = 0
+	_paste_prev = {}
+
+
+func _update_paste() -> void:
+	if _paste_batches.is_empty():
+		return
+	var budget := PASTE_PER_FRAME
+	while budget > 0 and not _paste_batches.is_empty():
+		var key: Vector2i = _paste_batches[0][0]
+		if not world.chunks.has(key):
+			world.ensure_chunk(key)                 # one new chunk is this frame's work
+			return
+		var batch: Dictionary = _paste_batches.pop_front()[1]
+		var r := world.bulk_set(batch)
+		for p in r[1]:
+			if not _paste_prev.has(p):
+				_paste_prev[p] = r[1][p]
+		var lo := WorldData.H
+		var hi := 0
+		for p in batch:
+			lo = mini(lo, p.y)
+			hi = maxi(hi, p.y)
+		_rebuild(r[0], maxi(lo - 16, 0), mini(hi + 16, WorldData.H - 1))
+		_paste_done += batch.size()
+		budget -= batch.size()
+	if _paste_batches.is_empty():
+		builder.undo_stack.append(_paste_prev)
+		if builder.undo_stack.size() > Builder.UNDO_STEPS:
+			builder.undo_stack.pop_front()
+		hud.flash(I18n.f("pasted", _paste_prev.size()))
+		_paste_prev = {}
+	else:
+		hud.flash(I18n.f("pasting", int(100.0 * _paste_done / maxf(_paste_total, 1))))
+
+
 # ---------------------------------------------------------------- machines
 func _update_machines(delta: float) -> void:
 	if power.parts.is_empty():
@@ -795,8 +865,7 @@ func _update_machines(delta: float) -> void:
 	pressed[feet] = true
 	for a in wildlife.animals:
 		pressed[Vector3i(floori(a.pos.x + 0.5), floori(a.pos.y + 0.1), floori(a.pos.z + 0.5))] = true
-	power.pressed = pressed
-	power.is_day = world.time_of_day < 0.5
+	power.set_inputs(pressed, world.time_of_day < 0.5)
 	power.update(delta)
 	# conveyors carry the player and items standing on them
 	var below := feet + Vector3i(0, -1, 0)
@@ -1121,6 +1190,7 @@ func build_action(name: String) -> void:
 		"clear":
 			result = builder.fill(world, 0)
 		"copy":
+			_clip_from_library = false
 			msg = builder.copy(world)
 		"paste":
 			_previewing_paste = not builder.clipboard.is_empty()
@@ -1134,7 +1204,8 @@ func build_action(name: String) -> void:
 			_previewing_paste = false
 			_paste_armed = false
 			if not hit.is_empty():
-				result = builder.paste(world, hit["pos"] + hit["normal"], Input.is_physical_key_pressed(KEY_SHIFT))
+				_start_paste(hit["pos"] + hit["normal"], _clip_from_library or Input.is_physical_key_pressed(KEY_SHIFT))
+				return
 		"rotate":
 			msg = builder.rotate()
 		"mirror":
@@ -1151,6 +1222,7 @@ func build_action(name: String) -> void:
 			_update_touch_rects()
 		_:
 			if name.begins_with("loaded:"):
+				_clip_from_library = true
 				msg = I18n.f("loaded_building" if use_touch else "loaded_building_desktop", name.substr(7))
 	if not result.is_empty():
 		_rebuild(result[0])
@@ -1351,6 +1423,7 @@ func _process(delta: float) -> void:
 	_perf("mobs", t3 - t2)
 	_update_tutorial()
 	if spawned:
+		_update_paste()
 		_update_growing(delta)
 		_update_machines(delta)
 	var t4 := Time.get_ticks_usec()
@@ -1395,6 +1468,19 @@ func _process(delta: float) -> void:
 			player.position.y = float(found)
 			print("GOTO y ", found)
 			_shot_frames = 150
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--paste=") and spawned and not _st.has("paste"):
+			_st["paste"] = true                         # testing: build a library building in front of us
+			builder.clipboard = Schematics.load_file("res://data/schematics/%s.json" % a.substr(8))
+			_clip_from_library = true
+			var f := player.forward()
+			var at := Vector3i(floori(player.position.x + f.x * 6), floori(player.position.y) - 1, floori(player.position.z + f.z * 6))
+			_start_paste(at, true)
+			creative = true
+			set_flying(true)
+			player.position += Vector3(-f.x * 30, 45, -f.z * 30)
+			player.look(Vector2(0, 0.6))
+			_shot_frames = 400
 	if "--debristest" in OS.get_cmdline_user_args() and spawned and Engine.get_process_frames() % 12 == 0:
 		debris.burst(player.eye() + player.forward() * 3.0, 1)        # testing: pieces in front of the camera
 	if "--machines" in OS.get_cmdline_user_args() and spawned and not _st.has("machines"):

@@ -8,12 +8,19 @@ const UNDO_STEPS := 20
 
 var corner1 = null
 var corner2 = null
-var clipboard := {}          # Vector3i offset -> id
+var clipboard := {}:         # Vector3i offset -> id
+	set(value):
+		clipboard = value
+		_clip_size = null       # big library buildings have 200 000 cells: measure once
+var _clip_size = null
 var undo_stack := []
 
 
 static func rotate_block(id: int) -> int:
 	var d: Dictionary = Blocks.defs.get(id, {})
+	if d.get("logic") is Dictionary and d["logic"].has("facing"):
+		var lf := int(d["logic"]["facing"])           # machines: 4 sides (+ up / down)
+		return id if lf >= 4 else id - lf + (lf + 1) % 4
 	match d.get("shape", ""):
 		"stair":
 			var f := int(d["facing"])
@@ -28,6 +35,9 @@ static func rotate_block(id: int) -> int:
 static func mirror_block(id: int) -> int:
 	var d: Dictionary = Blocks.defs.get(id, {})
 	var shape: String = d.get("shape", "")
+	if d.get("logic") is Dictionary and d["logic"].has("facing"):
+		var lf := int(d["logic"]["facing"])
+		return id - lf + int({1: 3, 3: 1}.get(lf, lf))
 	if shape == "stair" or shape == "ladder":
 		var f := int(d["facing"])
 		var swapped: int = {1: 3, 3: 1}.get(f, f)
@@ -111,10 +121,12 @@ func copy(world: WorldData) -> String:
 func clipboard_size():
 	if clipboard.is_empty():
 		return null
-	var m := Vector3i.ZERO
-	for p in clipboard:
-		m = Vector3i(maxi(m.x, p.x), maxi(m.y, p.y), maxi(m.z, p.z))
-	return m + Vector3i.ONE
+	if _clip_size == null:
+		var m := Vector3i.ZERO
+		for p in clipboard:
+			m = Vector3i(maxi(m.x, p.x), maxi(m.y, p.y), maxi(m.z, p.z))
+		_clip_size = m + Vector3i.ONE
+	return _clip_size
 
 
 func paste(world: WorldData, origin: Vector3i, include_air := false) -> Array:

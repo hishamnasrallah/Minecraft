@@ -516,6 +516,34 @@
    "en": "Mini map",
    "ar": "خريطة صغيرة"
   },
+  "lib_houses": {
+   "en": "Houses",
+   "ar": "بيوت"
+  },
+  "lib_signs": {
+   "en": "Signs",
+   "ar": "لوحات"
+  },
+  "lib_small_factories": {
+   "en": "Small factories",
+   "ar": "مصانع صغيرة"
+  },
+  "lib_big_factories": {
+   "en": "Big factories",
+   "ar": "مصانع كبيرة وعملاقة"
+  },
+  "lib_mine": {
+   "en": "My buildings",
+   "ar": "بناياتي"
+  },
+  "lib_blocks": {
+   "en": "%d blocks",
+   "ar": "%d بلوك"
+  },
+  "pasting": {
+   "en": "Building... %d%%",
+   "ar": "عم يبني... %d%%"
+  },
   "weather_clear": {
    "en": "Clear sky",
    "ar": "صحو"

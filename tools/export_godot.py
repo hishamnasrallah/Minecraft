@@ -151,6 +151,32 @@ def export_fixtures():
     return out
 
 
+def export_library():
+    """Factories from factories.py, plus an index of every built-in schematic so the library
+    lists them without reading the files (some are big)."""
+    import factories
+    import schematics
+    folder = OUT / "schematics"
+    folder.mkdir(exist_ok=True)
+    index = []
+    for file, en, ar, category, clip in factories.all_designs():
+        data = schematics.to_data(clip, en)
+        (folder / f"{file}.json").write_text(json.dumps(data, separators=(",", ":")))
+        index.append({"file": f"{file}.json", "name": en, "name_ar": ar, "category": category,
+                      "size": data["size"], "blocks": sum(1 for b in clip.values() if b)})
+    extras = {"small_house.json": ("Small house", "بيت صغير", "houses"),
+              "talia.json": ("TALIA sign", "لوحة TALIA", "signs"), "hisham.json": ("HISHAM sign", "لوحة HISHAM", "signs"),
+              "layan.json": ("LAYAN sign", "لوحة LAYAN", "signs"), "zaina.json": ("ZAINA sign", "لوحة ZAINA", "signs")}
+    for file, (en, ar, category) in extras.items():
+        data = json.loads((folder / file).read_text())
+        blocks_n = sum(run for i, run in data["blocks"] if data["palette"][i][1] != 0)
+        index.append({"file": file, "name": en, "name_ar": ar, "category": category, "size": data["size"],
+                      "blocks": blocks_n})
+    order = ["houses", "signs", "small_factories", "big_factories"]
+    index.sort(key=lambda e: (order.index(e["category"]), e["blocks"]))
+    (folder / "index.json").write_text(json.dumps(index, indent=1, ensure_ascii=False))
+
+
 def export_name_signs():
     """Ready-made neon name signs in the schematics library (letters on a black backing)."""
     import schematics
@@ -176,6 +202,7 @@ def main():
     (OUT / "items.json").write_text(json.dumps(export_items(), indent=1))
     (OUT / "i18n.json").write_text(json.dumps(i18n.export(), indent=1, ensure_ascii=False))
     export_name_signs()
+    export_library()
     atlas = generate_atlas()
     atlas.save(OUT / "atlas.png")
     import item_icons  # noqa: E402

@@ -96,24 +96,45 @@ func open_library() -> void:
 	_refresh()
 
 
+const CATEGORY_KEYS := ["houses", "signs", "small_factories", "big_factories", "mine"]
+
+
 func _refresh() -> void:
 	for c in _list.get_children():
 		c.queue_free()
+	var by_cat := {}
 	for entry in Schematics.list_saved():
-		var row := HBoxContainer.new()
-		_list.add_child(row)
-		var b := Button.new()
-		b.text = "%s   (%d x %d x %d)%s" % [entry[1], entry[2][0], entry[2][1], entry[2][2], "   - " + I18n.t("example") if entry[3] else ""]
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.custom_minimum_size.y = 50
-		b.pressed.connect(func(): _load(entry))
-		row.add_child(b)
-		if not entry[3]:
-			var d := Button.new()
-			d.text = I18n.t("delete")
-			d.custom_minimum_size = Vector2(100, 50)
-			d.pressed.connect(func(): Schematics.delete(entry[0]); _refresh())
-			row.add_child(d)
+		var cat: String = entry[4]
+		if not by_cat.has(cat):
+			by_cat[cat] = []
+		by_cat[cat].append(entry)
+	for cat in CATEGORY_KEYS:
+		if not by_cat.has(cat):
+			continue
+		var head := Label.new()
+		head.text = I18n.t("lib_" + cat)
+		head.add_theme_font_size_override("font_size", 20)
+		head.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
+		_list.add_child(head)
+		for entry in by_cat[cat]:
+			var row := HBoxContainer.new()
+			_list.add_child(row)
+			var b := Button.new()
+			var size_text := "%d × %d × %d" % [entry[2][0], entry[2][1], entry[2][2]]
+			if entry[5] > 0:
+				size_text += "  •  " + I18n.f("lib_blocks", entry[5])
+			b.text = "%s   (%s)" % [entry[1], size_text]
+			b.alignment = HORIZONTAL_ALIGNMENT_LEFT if not I18n.is_arabic() else HORIZONTAL_ALIGNMENT_RIGHT
+			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			b.custom_minimum_size.y = 50
+			b.pressed.connect(func(): _load(entry))
+			row.add_child(b)
+			if not entry[3]:
+				var d := Button.new()
+				d.text = I18n.t("delete")
+				d.custom_minimum_size = Vector2(100, 50)
+				d.pressed.connect(func(): Schematics.delete(entry[0]); _refresh())
+				row.add_child(d)
 
 
 func _save() -> void:
