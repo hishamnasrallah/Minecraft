@@ -20,6 +20,7 @@ import inventory as inv  # noqa: E402
 import survival as sv  # noqa: E402
 import i18n  # noqa: E402
 import ui_icons  # noqa: E402
+import sounds  # noqa: E402
 from textures import generate_atlas, hud_icons, crack_stages  # noqa: E402
 
 OUT = ROOT / "godot" / "data"
@@ -103,6 +104,7 @@ def main():
     ui.mkdir(exist_ok=True)
     for name, image in ui_icons.render_all().items():
         image.save(ui / f"{name}.png")
+    sounds.export(OUT / "sounds")
     fixtures = ROOT / "godot" / "tests" / "fixtures"
     fixtures.mkdir(parents=True, exist_ok=True)
     (fixtures / "worldgen.json").write_text(json.dumps(export_fixtures()))

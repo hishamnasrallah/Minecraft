@@ -103,6 +103,17 @@ UI = {
     "crashed_note": ("The game closed unexpectedly last time (at: %s). Running in safe mode - you can turn it off in Settings.",
                      "اللعبة سكّرت فجأة المرة الماضية (عند: %s). شغالة بالوضع الآمن - بتقدر تطفيه من الإعدادات."),
     "safe_mode": ("Safe mode (slower, more stable)", "الوضع الآمن (أبطأ وأثبت)"),
+    # main menu and worlds
+    "title": ("BlockWorld", "عالم البلوكات"), "worlds": ("Your worlds", "عوالمك"),
+    "no_worlds": ("No worlds yet - create one", "ما في عوالم لسا - أنشئ واحد"),
+    "new_world": ("New world", "عالم جديد"), "world_name": ("World name", "اسم العالم"),
+    "seed_hint": ("Seed number (optional)", "رقم العالم (اختياري)"), "survival": ("Survival", "نجاة"),
+    "creative_mode": ("Creative", "إبداع"), "create": ("Create and play", "أنشئ والعب"), "play": ("Play", "العب"),
+    "delete_confirm": ("Delete \"%s\"? This can't be undone.", "تمسح \"%s\"؟ ما في رجعة."),
+    "cancel": ("Cancel", "إلغاء"), "my_world": ("My world", "عالمي"), "my_world_n": ("My world %d", "عالمي %d"),
+    "exit_to_menu": ("Save and go to the menu", "احفظ وارجع للقائمة"), "never_played": ("new", "جديد"),
+    "days_ago": ("%d days ago", "من %d يوم"), "today": ("today", "اليوم"), "yesterday": ("yesterday", "مبارح"),
+    "sound": ("Sound", "الصوت"),
     "creative_label": ("creative", "إبداع"), "flying_label": ("flying", "طيران"), "noclip_label": ("noclip", "عبر الجدران"),
 }
 

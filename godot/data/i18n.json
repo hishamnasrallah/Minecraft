@@ -424,6 +424,86 @@
    "en": "Safe mode (slower, more stable)",
    "ar": "الوضع الآمن (أبطأ وأثبت)"
   },
+  "title": {
+   "en": "BlockWorld",
+   "ar": "عالم البلوكات"
+  },
+  "worlds": {
+   "en": "Your worlds",
+   "ar": "عوالمك"
+  },
+  "no_worlds": {
+   "en": "No worlds yet - create one",
+   "ar": "ما في عوالم لسا - أنشئ واحد"
+  },
+  "new_world": {
+   "en": "New world",
+   "ar": "عالم جديد"
+  },
+  "world_name": {
+   "en": "World name",
+   "ar": "اسم العالم"
+  },
+  "seed_hint": {
+   "en": "Seed number (optional)",
+   "ar": "رقم العالم (اختياري)"
+  },
+  "survival": {
+   "en": "Survival",
+   "ar": "نجاة"
+  },
+  "creative_mode": {
+   "en": "Creative",
+   "ar": "إبداع"
+  },
+  "create": {
+   "en": "Create and play",
+   "ar": "أنشئ والعب"
+  },
+  "play": {
+   "en": "Play",
+   "ar": "العب"
+  },
+  "delete_confirm": {
+   "en": "Delete \"%s\"? This can't be undone.",
+   "ar": "تمسح \"%s\"؟ ما في رجعة."
+  },
+  "cancel": {
+   "en": "Cancel",
+   "ar": "إلغاء"
+  },
+  "my_world": {
+   "en": "My world",
+   "ar": "عالمي"
+  },
+  "my_world_n": {
+   "en": "My world %d",
+   "ar": "عالمي %d"
+  },
+  "exit_to_menu": {
+   "en": "Save and go to the menu",
+   "ar": "احفظ وارجع للقائمة"
+  },
+  "never_played": {
+   "en": "new",
+   "ar": "جديد"
+  },
+  "days_ago": {
+   "en": "%d days ago",
+   "ar": "من %d يوم"
+  },
+  "today": {
+   "en": "today",
+   "ar": "اليوم"
+  },
+  "yesterday": {
+   "en": "yesterday",
+   "ar": "مبارح"
+  },
+  "sound": {
+   "en": "Sound",
+   "ar": "الصوت"
+  },
   "creative_label": {
    "en": "creative",
    "ar": "إبداع"

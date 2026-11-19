@@ -295,6 +295,8 @@ func _craft(r: Dictionary) -> void:
 	for i in (16 if quick else 1):
 		if inv.craft(r):
 			made += 1
+	if made > 0:
+		Sfx.play("pop")
 	if made == 0:
 		message.emit(I18n.t("missing_ingredients") if not inv.can_craft(r) else I18n.t("inventory_full"))
 	refresh()

@@ -11,7 +11,7 @@ extends Node3D
 ##          U undo, Q deselect, L buildings library, Alt+1-9 load / Alt+Shift+1-9 save a hotbar.
 ## Command line (after --): --new, --creative, --touch, --seed=N, --shot=file.png, --selftest
 
-const SAVE_PATH := "user://save.json"
+var SAVE_PATH := "user://save.json"    # set from Session (the chosen world)
 const DAY_LENGTH := 600.0
 const AUTOSAVE_EVERY := 60.0
 const DAY_SKY := Color(0.62, 0.78, 0.95)
@@ -69,14 +69,15 @@ var _initial_look := Vector2.ZERO
 func _ready() -> void:
 	Boot.stage("world")
 	var args := OS.get_cmdline_user_args()
-	if FileAccess.file_exists(SAVE_PATH) and not "--new" in args:
+	SAVE_PATH = Session.save_path()
+	var fresh: Dictionary = Session.new_options
+	if FileAccess.file_exists(SAVE_PATH) and fresh.is_empty():
 		world = WorldData.load_from(SAVE_PATH)
 	if world == null:
-		var seed_arg := -1
-		for a in args:
-			if a.begins_with("--seed="):
-				seed_arg = int(a.substr(7))
-		world = WorldData.new(seed_arg)
+		world = WorldData.new(int(fresh.get("seed", -1)))
+		if fresh.get("creative", false):
+			world.player_data["mode"] = "creative"
+	Session.new_options = {}
 	use_touch = DisplayServer.is_touchscreen_available() or "--touch" in args or OS.has_feature("mobile")
 	for a in args:
 		if a.begins_with("--shot="):
@@ -195,7 +196,9 @@ func _ready() -> void:
 	screen.message.connect(hud.flash)
 	top.add_child(screen)
 	settings = SettingsScreen.new()
+	settings.in_game = true
 	settings.visible = false
+	settings.exit_pressed.connect(func(): save_game(); get_tree().change_scene_to_file("res://scenes/menu.tscn"))
 	settings.closed.connect(close_settings)
 	settings.view_distance_changed.connect(func(v): chunks.render_distance = v; chunks.update_center(player.position, true))
 	settings.language_picked.connect(func(code):
@@ -208,6 +211,9 @@ func _ready() -> void:
 	_select(0)
 	_refresh_mode()
 	hud.flash(I18n.t("welcome_touch") if use_touch else I18n.t("welcome_desktop"))
+	if "--menutest" in args:
+		print("game opened world: ", Session.world_dir, " creative: ", creative, " seed: ", world.seed)
+		get_tree().quit.call_deferred()
 	if Boot.crashed_last_time:
 		hud.flash(I18n.f("crashed_note", Boot.last_stage))
 		hud._message_time = 15.0
@@ -530,6 +536,7 @@ func break_at(pos: Vector3i) -> void:
 	if Blocks.hardness[id] < 0:
 		edit(pos, 0, true)
 		return
+	Sfx.play(Sfx.dig_sound(id))
 	var tool := inv.item_at(selected)
 	var m := Items.mining(id, tool)
 	var contents = world.containers.get(pos)
@@ -558,6 +565,7 @@ func break_at(pos: Vector3i) -> void:
 func attack(animal) -> void:
 	var item := inv.item_at(selected)
 	var meat: int = animal.hit(player.position, Items.attack_damage(item) if not creative else 100)
+	Sfx.play("hurt", -4.0, 1.7)
 	if creative:
 		return
 	health.exert(float(Items.survival["ATTACK"]))
@@ -623,6 +631,7 @@ func place_block() -> void:
 		return
 	if Items.food.has(item) and not creative:
 		if health.eat(Items.food[item]):
+			Sfx.play("eat")
 			inv.use_one(selected)
 			hud.flash(I18n.f("ate", Items.name_of(item)))
 		else:
@@ -670,9 +679,11 @@ func place_block() -> void:
 				inv.use_one(selected)
 			_refresh_mode()
 			return
-	if edit(pos, id) and not creative:
-		inv.use_one(selected)
-		_refresh_mode()
+	if edit(pos, id):
+		Sfx.play(Sfx.dig_sound(id) if Blocks.defs[id].get("shape") == "cross" else "place")
+		if not creative:
+			inv.use_one(selected)
+			_refresh_mode()
 
 
 func pick_block() -> void:
@@ -732,6 +743,10 @@ func _update_mining(delta: float) -> void:
 			mine_pos = pos
 			mine_progress = 0.0
 		mine_progress += delta / maxf(Items.mining(id, inv.item_at(selected))[0], 0.05)
+		_dig_tick -= delta
+		if _dig_tick <= 0:
+			_dig_tick = 0.25
+			Sfx.play(Sfx.dig_sound(id), -9.0, 0.9)
 		if mine_progress >= 1.0:
 			break_at(pos)
 			mine_pos = null
@@ -812,7 +827,27 @@ func build_action(name: String) -> void:
 
 
 var _paste_armed := false
+var _dig_tick := 0.0
+var _step_distance := 0.0
+var _was_swimming := false
+var _last_step_pos = null
 var _ready_frames := 0
+
+
+func _update_footsteps() -> void:
+	if not spawned:
+		return
+	var here := player.position
+	if player.swimming and not _was_swimming and player.velocity.y < -1.0:
+		Sfx.play("splash", -3.0)
+	_was_swimming = player.swimming
+	if _last_step_pos != null and player.is_on_floor() and not player.flying:
+		_step_distance += Vector2(here.x - _last_step_pos.x, here.z - _last_step_pos.z).length()
+		if _step_distance > 1.8:
+			_step_distance = 0.0
+			var below := world.get_block(floori(here.x + 0.5), floori(here.y - 0.5), floori(here.z + 0.5))
+			Sfx.play(Sfx.dig_sound(below) if below != 0 else "step", -16.0, 1.15, 0.12)
+	_last_step_pos = here
 
 
 func _update_building() -> void:
@@ -870,6 +905,7 @@ func _update_health(delta: float) -> void:
 	taken += health.track_fall(player.position.y, player.is_on_floor() or player.on_ladder, player.swimming)
 	if taken > 0:
 		hud.hurt_flash()
+		Sfx.play("hurt")
 	if health.dead:
 		hud.show_death(health.cause)
 		player.set_physics_process(false)
@@ -921,6 +957,7 @@ func _process(delta: float) -> void:
 	touch.show_button("up", creative and player.flying)
 	touch.show_button("down", creative and player.flying)
 	_update_mining(delta)
+	_update_footsteps()
 	_update_building()
 	_update_sky(delta)
 	_update_animals(delta)
@@ -950,6 +987,7 @@ func save_game() -> void:
 	data["hotbars"] = saved_hotbars
 	data["spawn"] = [spawn_point.x, spawn_point.y, spawn_point.z]
 	world.save(SAVE_PATH, data)
+	Session.touch(data["mode"])
 
 
 func _notification(what: int) -> void:
@@ -1072,5 +1110,6 @@ func _selftest_step() -> void:
 			print("SELFTEST undo: ", hud.message.text)
 			save_game()
 			var again := WorldData.load_from(SAVE_PATH)
+			print("SELFTEST sounds played: ", Sfx.played)
 			print("SELFTEST saved mode / inventory: ", again.player_data["mode"], " / ", again.player_data["inventory"].filter(func(x): return x != null).size(), " stacks")
 			get_tree().quit()

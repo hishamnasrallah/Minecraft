@@ -5,6 +5,9 @@ extends Control
 signal closed
 signal language_picked(code: String)
 signal view_distance_changed(value: int)
+signal exit_pressed
+
+var in_game := false             # shows "save and go to the menu"
 
 var _dim: ColorRect
 var _panel: PanelContainer
@@ -65,6 +68,18 @@ func _ready() -> void:
 	dist.value_changed.connect(func(v): I18n.settings["view_distance"] = int(v); _update_labels(); view_distance_changed.emit(int(v)))
 	box.add_child(dist)
 
+	var sound_label := _caption(I18n.t("sound"), "")
+	box.add_child(sound_label)
+	var sound := HSlider.new()
+	sound.min_value = 0.0
+	sound.max_value = 1.0
+	sound.step = 0.05
+	sound.value = float(I18n.settings.get("sound", 0.8))
+	sound.custom_minimum_size.y = 40
+	sound.value_changed.connect(func(v): I18n.settings["sound"] = v; Sfx.apply_volume())
+	sound.drag_ended.connect(func(_c): Sfx.play("pop"))
+	box.add_child(sound)
+
 	var fps := CheckBox.new()
 	fps.text = I18n.t("show_fps")
 	fps.button_pressed = bool(I18n.settings["show_fps"])
@@ -76,6 +91,15 @@ func _ready() -> void:
 	safe.button_pressed = Boot.safe_mode
 	safe.toggled.connect(func(on): Boot.set_safe_mode(on))
 	box.add_child(safe)
+
+	if in_game:
+		var exit := Button.new()
+		exit.text = I18n.t("exit_to_menu")
+		exit.icon = load("res://data/ui/save.png")
+		exit.add_theme_constant_override("icon_max_width", 26)
+		exit.custom_minimum_size = Vector2(0, 50)
+		exit.pressed.connect(func(): I18n.save_settings(); exit_pressed.emit())
+		box.add_child(exit)
 
 	var done := Button.new()
 	done.text = I18n.t("done")

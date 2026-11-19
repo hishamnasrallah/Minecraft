@@ -5,7 +5,7 @@ config_version=5
 
 config/name="BlockWorld"
 config/description="A voxel sandbox. Same world, blocks and rules as the Python version."
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://scenes/menu.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 
 [autoload]
@@ -14,6 +14,8 @@ Boot="*res://scripts/boot.gd"
 Blocks="*res://scripts/blocks.gd"
 Items="*res://scripts/items.gd"
 I18n="*res://scripts/i18n.gd"
+Session="*res://scripts/session.gd"
+Sfx="*res://scripts/sfx.gd"
 
 [display]
 
