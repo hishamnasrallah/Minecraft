@@ -172,7 +172,7 @@ func update_center(position: Vector3, force := false) -> void:
 			if _dist(k, c) > render_distance + 1:
 				_drop_chunk(k)
 		for k in world.chunks.keys():
-			if _dist(k, c) > render_distance + 3 and not _generating.has(k) and not _meshing.has(k):
+			if _dist(k, c) > render_distance + 2 and not _generating.has(k) and not _meshing.has(k):
 				world.unload_chunk(k)
 				_heights.erase(k)
 		for k in _dirty.keys():

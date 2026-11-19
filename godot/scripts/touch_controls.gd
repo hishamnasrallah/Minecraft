@@ -20,8 +20,9 @@ signal chat_pressed
 
 const JOY_RADIUS := 90.0
 const LOOK_SENSITIVITY := 0.006
-const HOLD_TIME := 0.28               # seconds a still finger needs to start breaking
-const TAP_SLOP := 16.0                # pixels a finger may wander and still count as a tap
+const HOLD_TIME := 0.32               # seconds a still finger needs to start breaking / placing
+const TAP_SLOP := 30.0                # how far a finger may wander and still count as a tap
+                                      # (fingers on big tablets wobble more than you think)
 
 var move := Vector2.ZERO
 var look_delta := Vector2.ZERO        # accumulated, read and cleared by the game every frame
@@ -226,6 +227,8 @@ func _input(event: InputEvent) -> void:
 				_joy_base.visible = false
 				_joy_knob.visible = false
 			if event.index == _look_finger:
+				if "--walkplace" in OS.get_cmdline_user_args():
+					print("RELEASE look finger moved=%s aiming=%s time=%.2f" % [_look_moved, aiming, _look_time])
 				if not classic and not aiming and not _look_moved and _look_time < HOLD_TIME:
 					world_tapped.emit(pos)
 				_end_look()

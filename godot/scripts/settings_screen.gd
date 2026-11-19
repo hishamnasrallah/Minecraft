@@ -74,9 +74,9 @@ func _ready() -> void:
 	box.add_child(_dist_label)
 	var dist := HSlider.new()
 	dist.min_value = 2
-	dist.max_value = 6
+	dist.max_value = 8
 	dist.step = 1
-	dist.value = float(I18n.settings["view_distance"]) if int(I18n.settings["view_distance"]) > 0 else 3.0
+	dist.value = float(I18n.settings["view_distance"]) if int(I18n.settings["view_distance"]) > 0 else float(Main.default_view_distance())
 	dist.custom_minimum_size.y = 40
 	dist.value_changed.connect(func(v): I18n.settings["view_distance"] = int(v); _update_labels(); view_distance_changed.emit(int(v)))
 	box.add_child(dist)
@@ -204,7 +204,7 @@ func _caption(text: String, icon: String) -> Label:
 func _update_labels() -> void:
 	_sens_label.text = "%s: %.1f" % [I18n.t("sensitivity"), float(I18n.settings["sensitivity"])]
 	var d := int(I18n.settings["view_distance"])
-	_dist_label.text = "%s: %d" % [I18n.t("view_distance"), d if d > 0 else 3]
+	_dist_label.text = "%s: %d" % [I18n.t("view_distance"), d if d > 0 else Main.default_view_distance()]
 
 
 func _layout() -> void:

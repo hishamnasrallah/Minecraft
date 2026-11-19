@@ -197,3 +197,28 @@ func test_mega_complex_pastes_and_works() -> String:
 	if _find(w, 1709).size() < 20:
 		return "night lights and the power plant should light lamps: %d" % _find(w, 1709).size()
 	return ""
+
+
+## A blinking clock next to the whole industrial town: only the clock's own circuit works
+## every tick, so the cost stays tiny. And machines in a chunk that is unloaded just wait.
+func test_clock_next_to_the_town_stays_cheap() -> String:
+	var s := _world("mega_complex.json")
+	var w: WorldData = s[0]
+	var p: Power = s[1]
+	var clock := Schematics.load_file("res://data/schematics/lamp_clock.json")
+	var edits := {}
+	for q in clock:
+		if clock[q] != 0:
+			edits[Vector3i(2, Y + 20, 2) + q] = clock[q]
+	w.bulk_set(edits)
+	_run(p, 30)                                   # everything settles, the clock keeps going
+	var t := Time.get_ticks_usec()
+	_run(p, 50)
+	var per := (Time.get_ticks_usec() - t) / 50000.0
+	print("        town + clock: %d parts in %d circuits, %.3f ms per tick" % [p.parts.size(), p._comps.size(), per])
+	if per > 0.6:
+		return "a clock should not make the whole town recompute: %.2f ms per tick" % per
+	# unload the chunk with the clock: no errors, it just waits
+	w.unload_chunk(Vector2i(0, 0))
+	_run(p, 20)
+	return ""

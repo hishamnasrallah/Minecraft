@@ -1,3 +1,4 @@
+class_name Main
 extends Node3D
 ## BlockWorld (Godot version): survival and creative, for phones and desktop.
 ##
@@ -156,7 +157,7 @@ func _ready() -> void:
 	Boot.stage("chunks")
 	chunks = ChunkManager.new()
 	var distance := int(I18n.settings["view_distance"])
-	chunks.setup(world, materials, 2 if Boot.safe_mode else (distance if distance > 0 else (3 if use_touch else 4)))
+	chunks.setup(world, materials, 2 if Boot.safe_mode else (distance if distance > 0 else default_view_distance()))
 	add_child(chunks)
 	wildlife = Wildlife.new(world)
 
@@ -422,6 +423,16 @@ func _hotbar_empty() -> bool:
 		if inv.slots[i] != null:
 			return false
 	return true
+
+
+## How far to see when the player never chose: more on devices with plenty of memory
+## (every chunk column is 320 blocks high).
+static func default_view_distance() -> int:
+	var mem: Dictionary = OS.get_memory_info()
+	var gb := float(mem.get("physical", 0)) / 1073741824.0
+	if not OS.has_feature("mobile"):
+		return 6
+	return 5 if gb >= 6.0 else (4 if gb >= 4.0 else 3)
 
 
 func set_mode(to_creative: bool) -> void:
@@ -705,6 +716,10 @@ func target(hit_water := false) -> Dictionary:
 ## chests / beds, place the held block, eat,
 ## or else hit what is there (instant in creative and for soft blocks like flowers).
 func tap_world(pos: Vector2) -> void:
+	if "--walkplace" in OS.get_cmdline_user_args():
+		var th := target()
+		print("TAP at ", pos, " item ", inv.item_at(selected), " target ", th.get("pos"), " normal ", th.get("normal"),
+			" block ", world.get_block(th["pos"].x, th["pos"].y, th["pos"].z) if not th.is_empty() else -1, " player ", player.position)
 	if health.dead or not spawned:
 		return
 	if _boss_in_sight():
@@ -842,8 +857,16 @@ func _replaceable(p: Vector3i) -> bool:
 func _overlaps_player(p: Vector3i, id: int) -> bool:
 	if player.noclip or not Blocks.solid[id]:
 		return false
-	var feet := Vector3i(floori(player.position.x + 0.5), floori(player.position.y + 0.5), floori(player.position.z + 0.5))
-	return p.x == feet.x and p.z == feet.z and p.y in [feet.y, feet.y + 1]
+	# the player's real box (0.6 wide, 1.8 tall, from the feet) against the block's cell
+	var pp := player.position
+	var e := 0.02                                  # touching is fine, overlapping is not
+	return absf(pp.x - p.x) < 0.8 - e and absf(pp.z - p.z) < 0.8 - e \
+		and pp.y < p.y + 0.5 - e and pp.y + 1.8 > p.y - 0.5 + e
+
+
+func _usable(id: int) -> bool:
+	var d: Dictionary = Blocks.defs.get(id, {})
+	return d.has("door") or d.get("container", false) or id == 62 or id == 47 or power.kind_of(id) in ["switch", "button"]
 
 
 ## Doors open and close, chests open, beds set your spawn point (and skip the night).
@@ -1344,12 +1367,12 @@ func _facing() -> int:
 	return 0 if f.z > 0 else 2
 
 
-func place_block() -> void:
+func place_block(allow_use := true) -> void:
 	if health.dead:
 		return
 	var hit := target()
 	var item := inv.item_at(selected)
-	if not hit.is_empty() and use_block(hit["pos"]):
+	if allow_use and not hit.is_empty() and use_block(hit["pos"]):
 		return
 	if not hit.is_empty() and _farm(hit["pos"], item):
 		return
@@ -1460,6 +1483,7 @@ func pick_block() -> void:
 
 
 var _place_timer := 0.0
+var _hold_used := false
 const PLACE_EVERY := 0.2             # holding with a block in hand: one block every 0.2 s
 
 
@@ -1472,11 +1496,18 @@ func _update_placing(delta: float) -> bool:
 	var placing: bool = (hold_touch or hold_mouse) and Items.placeable.has(item) and not screen.visible and not health.dead
 	if not placing:
 		_place_timer = 0.0
+		_hold_used = false
 		return false
 	_place_timer -= delta
-	if _place_timer <= 0.0:
+	if _place_timer <= 0.0 and not _hold_used:
 		_place_timer = PLACE_EVERY
-		place_block()
+		# holding on a door, chest, switch...: use it once, not on and off every 0.2 s
+		var hit := target()
+		if not hit.is_empty() and _usable(world.get_block(hit["pos"].x, hit["pos"].y, hit["pos"].z)):
+			_hold_used = true
+			use_block(hit["pos"])
+		else:
+			place_block(false)
 	return hold_touch                       # a held finger with a block does not break
 
 
@@ -1767,8 +1798,8 @@ func _update_sky(delta: float) -> void:
 	env.background_color = sky_color
 	env.fog_light_color = sky_color
 	var reach_m := chunks.render_distance * 16.0
-	env.fog_depth_begin = reach_m * 0.55
-	env.fog_depth_end = reach_m * 0.95
+	env.fog_depth_begin = reach_m * 0.68
+	env.fog_depth_end = reach_m * 0.98
 	weather.update(delta, player.position, 0.16 + 0.84 * day)
 	daylight = (0.16 + 0.84 * day) * (1.0 - weather.sky_dim())
 	var tint := Vector3(0.65, 0.75, 1.0).lerp(Vector3.ONE, day).lerp(Vector3(1.0, 0.78, 0.6), dusk * 0.5)
@@ -1790,7 +1821,16 @@ func _perf(name: String, usec: int) -> void:
 	_perf_ms[name] = lerpf(_perf_ms.get(name, 0.0), usec / 1000.0, 0.05)
 
 
+var _frame_t0 := 0
+
+
 func _process(delta: float) -> void:
+	_frame_t0 = Time.get_ticks_usec()
+	_process_inner(delta)
+	_perf("main", Time.get_ticks_usec() - _frame_t0)
+
+
+func _process_inner(delta: float) -> void:
 	var tc := Time.get_ticks_usec()
 	chunks.update_center(player.position)
 	_perf("world", Time.get_ticks_usec() - tc)
@@ -1802,7 +1842,7 @@ func _process(delta: float) -> void:
 			spawned = true
 			Boot.stage("playing")
 			var args := Array(OS.get_cmdline_user_args())
-			var testing := args.any(func(a): return a.begins_with("--shot") or a in ["--selftest", "--gloomtest", "--menutest", "--machines", "--bosstest", "--portaltest"])
+			var testing := args.any(func(a): return a.begins_with("--shot") or a in ["--selftest", "--gloomtest", "--menutest", "--machines", "--bosstest", "--portaltest", "--walkplace", "--playtest"])
 			if "--tutorial" in args or (not testing and not I18n.settings.get("tutorial_done", false)):
 				start_tutorial()
 			player.set_physics_process(not screen.visible and not health.dead)
@@ -1934,6 +1974,87 @@ func _process(delta: float) -> void:
 			var f := Vector3i(floori(player.position.x + 0.5), floori(player.position.y + 0.6), floori(player.position.z + 0.5))
 			var b := world.get_block(f.x, f.y, f.z)
 			print("PASTEHERE player moved from ", _st["before"], " to ", player.position, ", stuck in a block: ", b != 0 and Blocks.solid[b] == 1, " block ", b, " ", Items.name_of(b), " top_y ", world.top_y(f.x, f.z))
+	if "--playtest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: a heavy play session, measured
+		if _st_frame == 5:
+			creative = true
+			set_flying(true)
+			chunks.render_distance = 5
+			builder.clipboard = Schematics.load_file("res://data/schematics/mega_complex.json")
+			_clip_from_library = true
+			if not "--nopaste" in OS.get_cmdline_user_args():
+				_start_paste(Vector3i(floori(player.position.x) - 48, floori(player.position.y) - 1, floori(player.position.z) - 35), true)
+			_st["times"] = []
+			_st["center"] = player.position
+		if _st_frame == 200 and not "--nopaste" in OS.get_cmdline_user_args():
+			for k in 2:                                 # two blinking clocks on top
+				builder.clipboard = Schematics.load_file("res://data/schematics/lamp_clock.json")
+				_start_paste(Vector3i(floori(player.position.x) + k * 12, floori(player.position.y) + 3, floori(player.position.z)), true)
+				while not _paste_batches.is_empty():
+					_update_paste()
+		if _st_frame > 200 and _st_frame < 1400:
+			var a := (_st_frame - 200) / 1200.0 * TAU   # fly a circle over the town
+			var c: Vector3 = _st["center"]
+			player.position = Vector3(c.x + cos(a) * 30, c.y + 14, c.z + sin(a) * 30)
+			_st["times"].append(Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0)
+		if _st_frame == 1400:
+			var t: Array = _st["times"]
+			t.sort()
+			var avg := 0.0
+			for v in t:
+				avg += v
+			avg /= t.size()
+			print("PLAYTEST frames %d: script time avg %.2f ms, p95 %.2f ms, worst %.2f ms" % [t.size(), avg, t[int(t.size() * 0.95)], t[t.size() - 1]])
+			print("PLAYTEST machines %d in %d circuits, chunks %d, sections %d, memory %.0f MB" % [power.parts.size(), power._comps.size(),
+				world.chunks.size(), chunks.sections.size(), Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0])
+			print("PLAYTEST per system (ms): ", _perf_ms)
+			get_tree().quit()
+	if "--walkplace" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: walk with the stick, tap to place
+		var vs := get_viewport().get_visible_rect().size
+		if _st_frame == 10:
+			_select(5)
+			player.look(Vector2(0, 0.55))
+			_st["planks"] = inv.count(7)
+			_touch(0, Vector2(200, vs.y - 200), true)
+			_drag(0, Vector2(200, vs.y - 260), Vector2(0, -60))
+		for k in 6:                                     # six quick taps while walking
+			var f0 := 20 + k * 15
+			if _st_frame == f0:
+				_touch(1, vs / 2 + Vector2(40, 0), true)
+			if _st_frame == f0 + 3:
+				_drag(1, vs / 2 + Vector2(52, 6), Vector2(12, 6))   # fingers wobble a little
+			if _st_frame == f0 + 6:
+				_touch(1, vs / 2 + Vector2(52, 6), false)
+		if _st_frame == 120:
+			_touch(0, Vector2(200, vs.y - 260), false)
+			print("WALKPLACE placed ", _st["planks"] - inv.count(7), " of 6 taps while walking")
+			# a door on cleared flat ground two blocks ahead, then tap it
+			var base := Vector3i(floori(player.position.x + 0.5), floori(player.position.y + 0.6), floori(player.position.z + 0.5))
+			for dx in range(-2, 3):
+				for dz in range(-4, 1):
+					for dy in range(0, 4):
+						edit(base + Vector3i(dx, dy, dz), 0, true, false)
+					edit(base + Vector3i(dx, -1, dz), 41, true, false)
+			var dpos := base + Vector3i(0, 0, -2)
+			edit(dpos, 510, true, false)
+			edit(dpos + Vector3i(0, 1, 0), 511, true, false)
+			_st["door"] = dpos
+		if _st_frame == 125:
+			var d: Vector3i = _st["door"]
+			var dir := Vector3(d) + Vector3(0, 0.3, 0) - player.eye()
+			player.yaw = atan2(-dir.x, -dir.z)
+			player.rotation.y = player.yaw
+			player.pitch = atan2(dir.y, Vector2(dir.x, dir.z).length())
+			player.camera.rotation.x = player.pitch
+		if _st_frame == 130:
+			_touch(1, vs / 2, true)
+		if _st_frame == 134:
+			_touch(1, vs / 2, false)
+		if _st_frame == 140:
+			var d: Vector3i = _st["door"]
+			print("WALKPLACE door opened by a tap: ", Blocks.defs[world.get_block(d.x, d.y, d.z)]["door"]["open"])
+			get_tree().quit()
 	if "--holdplace" in OS.get_cmdline_user_args() and spawned:
 		_st_frame += 1                                  # testing: hold a finger with planks in hand
 		if _st_frame == 10:
