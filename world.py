@@ -10,8 +10,11 @@ from pathlib import Path
 
 CHUNK_SIZE = 16
 MAX_HEIGHT = 64
-WATER_LEVEL = 6
+WATER_LEVEL = 11
 TREE_CHANCE = 0.012
+WATER = 10
+CAVE_THRESHOLD = 0.016     # bigger = more/wider caves
+CAVE_GRID = 4              # cave noise is sampled every N blocks and interpolated
 
 # id -> name
 BLOCKS = {
@@ -24,16 +27,18 @@ BLOCKS = {
     7: "planks",
     8: "brick",
     9: "bedrock",
+    10: "water",
 }
 HOTBAR = [1, 2, 3, 4, 5, 6, 7, 8]
-UNBREAKABLE = {9}
+UNBREAKABLE = {9, WATER}
+TRANSPARENT = {WATER}        # blocks you can see (and walk) through
 
 # Texture atlas layout: ATLAS_COLS x ATLAS_COLS tiles, read left-to-right, top-to-bottom.
 ATLAS_COLS = 4
 TILES = [
     "grass_top", "grass_side", "dirt", "stone",
     "log_side", "log_top", "leaves", "sand",
-    "planks", "brick", "bedrock",
+    "planks", "brick", "bedrock", "water",
 ]
 # id -> (top, side, bottom) tile names
 BLOCK_TILES = {
@@ -46,6 +51,7 @@ BLOCK_TILES = {
     7: ("planks",) * 3,
     8: ("brick",) * 3,
     9: ("bedrock",) * 3,
+    10: ("water",) * 3,
 }
 
 # (normal, brightness) — simple fake lighting so cube edges are visible.
@@ -142,6 +148,32 @@ def value_noise(x, z, seed):
     return top + (bottom - top) * tz
 
 
+def _hash3(x, y, z, seed):
+    n = (x * 374761393 + y * 1103515245 + z * 668265263 + seed * 1442695041) & 0xFFFFFFFF
+    n = ((n ^ (n >> 13)) * 1274126177) & 0xFFFFFFFF
+    return (n ^ (n >> 16)) / 0xFFFFFFFF
+
+
+def value_noise3(x, y, z, seed):
+    x0, y0, z0 = math.floor(x), math.floor(y), math.floor(z)
+    tx, ty, tz = _smooth(x - x0), _smooth(y - y0), _smooth(z - z0)
+
+    def lerp(a, b, t):
+        return a + (b - a) * t
+
+    def edge(i, j):
+        return lerp(_hash3(x0 + i, y0 + j, z0, seed), _hash3(x0 + i, y0 + j, z0 + 1, seed), tz)
+
+    return lerp(lerp(edge(0, 0), edge(0, 1), ty), lerp(edge(1, 0), edge(1, 1), ty), tx)
+
+
+def cave_density(x, y, z, seed):
+    """Two noise fields; where both are near 0.5 at once we get long winding tunnels."""
+    a = value_noise3(x / 14, y / 9, z / 14, seed + 300) - 0.5
+    b = value_noise3(x / 14, y / 9, z / 14, seed + 600) - 0.5
+    return a * a + b * b
+
+
 def fbm(x, z, seed, octaves=4):
     total, amp, freq, norm = 0.0, 1.0, 1.0, 0.0
     for i in range(octaves):
@@ -188,11 +220,37 @@ class World:
             return set()
         if block_id == 0 and self.get(*pos) in UNBREAKABLE:
             return set()
-        self._put(pos, block_id)
-        self.changes.setdefault(key, {})[pos] = block_id
+        self._edit(pos, block_id)
+        touched = [pos]
+        if block_id == 0:
+            touched += self._flood(pos)
         # neighbours across a chunk border also need a rebuild
-        return {k for k in (self.chunk_key(x + dx, z + dz) for dx, dz in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)))
+        return {k for (tx, _, tz) in touched
+                for k in (self.chunk_key(tx + dx, tz + dz) for dx, dz in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)))
                 if k in self.chunks}
+
+    def _edit(self, pos, block_id):
+        self._put(pos, block_id)
+        self.changes.setdefault(self.chunk_key(pos[0], pos[2]), {})[pos] = block_id
+
+    def _flood(self, start, limit=64):
+        """Let water flow into a freshly emptied space (sideways and down, never up)."""
+        def wet_neighbour(p):
+            x, y, z = p
+            return any(self.get(*n) == WATER for n in ((x + 1, y, z), (x - 1, y, z), (x, y, z + 1), (x, y, z - 1), (x, y + 1, z)))
+
+        if not wet_neighbour(start):
+            return []
+        filled, queue = [], [start]
+        while queue and len(filled) < limit:
+            p = queue.pop(0)
+            x, y, z = p
+            if self.get(*p) or self.chunk_key(x, z) not in self.chunks or not 0 < y < MAX_HEIGHT:
+                continue
+            self._edit(p, WATER)
+            filled.append(p)
+            queue += [(x, y - 1, z), (x + 1, y, z), (x - 1, y, z), (x, y, z + 1), (x, y, z - 1)]
+        return filled
 
     # -- generation
     def height_at(self, x, z):
@@ -213,16 +271,20 @@ class World:
         for x in range(x0, x0 + CHUNK_SIZE):
             for z in range(z0, z0 + CHUNK_SIZE):
                 h = self.height_at(x, z)
+                beach = h <= WATER_LEVEL + 1
                 for y in range(h + 1):
                     if y == 0:
                         b = 9
                     elif y < h - 3:
                         b = 3
                     elif y < h:
-                        b = 2
+                        b = 6 if beach and y >= h - 2 else 2
                     else:
-                        b = 6 if h <= WATER_LEVEL else 1
+                        b = 6 if beach else 1
                     self._put((x, y, z), b)
+                for y in range(h + 1, WATER_LEVEL + 1):
+                    self._put((x, y, z), WATER)
+        self._carve_caves(key)
         # trees near the border overlap neighbouring chunks; each chunk keeps only its part
         for tx in range(x0 - 2, x0 + CHUNK_SIZE + 2):
             for tz in range(z0 - 2, z0 + CHUNK_SIZE + 2):
@@ -232,9 +294,60 @@ class World:
             self._put(pos, b)
         return True
 
+    def _carve_caves(self, key):
+        """Hollow out tunnels. Noise is sampled on a coarse grid and interpolated, and
+        grid cells whose corners are all solid are skipped, which keeps this fast."""
+        g = CAVE_GRID
+        cx, cz = key
+        x0, z0 = cx * CHUNK_SIZE, cz * CHUNK_SIZE
+        cols = {}
+        for x in range(x0, x0 + CHUNK_SIZE):
+            for z in range(z0, z0 + CHUNK_SIZE):
+                h = self.height_at(x, z)
+                # keep a solid roof under the sea / lakes and under tree trunks
+                if h <= WATER_LEVEL + 2:
+                    top = h - 4
+                elif self.has_tree(x, z):
+                    top = h - 1
+                else:
+                    top = h
+                cols[(x, z)] = top
+        ymax = max(cols.values())
+        if ymax < 1:
+            return
+        n = CHUNK_SIZE // g
+        grid = {(i, j, k): cave_density(x0 + i * g, j * g, z0 + k * g, self.seed)
+                for i in range(n + 1) for k in range(n + 1) for j in range(ymax // g + 2)}
+        for i in range(n):
+            for k in range(n):
+                for j in range(ymax // g + 1):
+                    c = [grid[(i + a, j + b, k + d)] for a in (0, 1) for b in (0, 1) for d in (0, 1)]
+                    if min(c) >= CAVE_THRESHOLD:
+                        continue  # interpolation never goes below the smallest corner
+                    for lx in range(g):
+                        fx = lx / g
+                        for ly in range(g):
+                            y = j * g + ly
+                            if y < 1:
+                                continue
+                            fy = ly / g
+                            for lz in range(g):
+                                x, z = x0 + i * g + lx, z0 + k * g + lz
+                                if y > cols[(x, z)]:
+                                    continue
+                                fz = lz / g
+                                c00 = c[0] + (c[1] - c[0]) * fz
+                                c01 = c[2] + (c[3] - c[2]) * fz
+                                c10 = c[4] + (c[5] - c[4]) * fz
+                                c11 = c[6] + (c[7] - c[6]) * fz
+                                c0 = c00 + (c01 - c00) * fy
+                                c1 = c10 + (c11 - c10) * fy
+                                if c0 + (c1 - c0) * fx < CAVE_THRESHOLD:
+                                    self._put((x, y, z), 0)
+
     def _tree(self, x, y, z, key):
         def put(p, b):
-            if self.chunk_key(p[0], p[2]) == key and p[1] < MAX_HEIGHT and not self.get(*p):
+            if self.chunk_key(p[0], p[2]) == key and p[1] < MAX_HEIGHT and self.get(*p) in (0, WATER):
                 self._put(p, b)
 
         for dy in range(4):
@@ -258,27 +371,38 @@ class World:
 
     # -- meshing
     def chunk_mesh(self, cx, cz):
-        """Vertices, colors (shading) and atlas UVs for all visible faces in a chunk.
+        """Mesh data for a chunk: {"solid": (verts, colors, uvs), "water": (...)}.
 
-        Neighbouring chunks are generated first so faces on the border are culled correctly.
+        Only visible faces are emitted. Neighbouring chunks are generated first so
+        faces on the border are culled correctly.
         """
         for dx in (-1, 0, 1):
             for dz in (-1, 0, 1):
                 self.ensure_chunk((cx + dx, cz + dz))
-        verts, colors, uvs = [], [], []
+        out = {"solid": ([], [], []), "water": ([], [], [])}
         blocks = self.blocks
         for pos in self.chunks[(cx, cz)]:
             x, y, z = pos
             block_id = blocks[pos]
+            water = block_id == WATER
+            verts, colors, uvs = out["water" if water else "solid"]
+            # water surface sits a little lower than a full block
+            lowered = water and blocks.get((x, y + 1, z)) != WATER
             for i, ((nx, ny, nz), shade, corners, _) in enumerate(FACE_VERTS):
-                if (x + nx, y + ny, z + nz) in blocks or (ny == -1 and y == 0):
+                neighbour = blocks.get((x + nx, y + ny, z + nz), 0)
+                if water:
+                    if neighbour:          # water only shows against air
+                        continue
+                elif (neighbour and neighbour not in TRANSPARENT) or (ny == -1 and y == 0):
                     continue
                 col = (shade, shade, shade, 1.0)
                 for vx, vy, vz in corners:
+                    if lowered and vy > 0:
+                        vy = 0.4
                     verts.append((x + vx, y + vy, z + vz))
                 colors.extend((col,) * 6)
                 uvs.extend(_FACE_UVS[(block_id, i)])
-        return verts, colors, uvs
+        return out
 
     # -- persistence (only the seed + player edits are stored)
     def save(self, path):

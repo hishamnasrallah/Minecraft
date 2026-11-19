@@ -132,6 +132,15 @@ def bedrock(rng):
     return _speckle(img, rng, (20, 20, 22), 30)
 
 
+def water(rng):
+    img = _noise(rng, (46, 104, 200), 0.08)
+    for _ in range(5):
+        x, y = rng.randrange(TILE), rng.randrange(TILE)
+        for dx in range(rng.randint(2, 5)):
+            img.putpixel(((x + dx) % TILE, y), (110, 160, 230))
+    return img
+
+
 GENERATORS = {name: globals()[name] for name in TILES}
 
 

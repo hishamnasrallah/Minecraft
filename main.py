@@ -6,14 +6,15 @@ Controls:
   1-8 / scroll   choose block       F5      save
   Esc            save and quit
 """
+import math
 import sys
 from pathlib import Path
 
 from ursina import (Ursina, Entity, Mesh, Sky, Text, Texture, Color, Vec3, camera, color,
-                    raycast, destroy, application, window)
+                    raycast, destroy, application, window, held_keys, time)
 from ursina.prefabs.first_person_controller import FirstPersonController
 
-from world import World, BLOCKS, BLOCK_TILES, HOTBAR
+from world import World, BLOCKS, BLOCK_TILES, HOTBAR, WATER
 from textures import load_atlas, tile_image
 
 SAVE_FILE = Path(__file__).with_name("save.json")
@@ -21,6 +22,7 @@ REACH = 6
 RENDER_DISTANCE = 4       # chunks around the player that are drawn
 CHUNKS_PER_FRAME = 2      # how many chunk meshes to build per frame (avoids stutter)
 SKY_COLOR = Color(0.62, 0.78, 0.95, 1)
+WALK_SPEED, SWIM_SPEED = 6, 3.5
 
 app = Ursina(title="BlockWorld", borderless=False, development_mode=False)
 window.fps_counter.enabled = True
@@ -42,14 +44,22 @@ current_center = None
 
 
 def build_chunk(key):
+    """A chunk is an empty parent with a solid mesh (with collider) and a see-through water mesh."""
     old = chunk_entities.pop(key, None)
     if old:
         destroy(old)
-    verts, cols, uvs = world.chunk_mesh(*key)
-    if not verts:
-        return
-    mesh = Mesh(vertices=verts, colors=[Color(*c) for c in cols], uvs=uvs, mode="triangle")
-    chunk_entities[key] = Entity(model=mesh, texture=atlas, collider="mesh")
+    parts = world.chunk_mesh(*key)
+    root = Entity()
+    for kind, (verts, cols, uvs) in parts.items():
+        if not verts:
+            continue
+        mesh = Mesh(vertices=verts, colors=[Color(*c) for c in cols], uvs=uvs, mode="triangle")
+        if kind == "solid":
+            Entity(parent=root, model=mesh, texture=atlas, collider="mesh")
+        else:
+            # no collider: you can swim through it and aim at blocks behind it
+            Entity(parent=root, model=mesh, texture=atlas, color=Color(1, 1, 1, 0.72), double_sided=True)
+    chunk_entities[key] = root
 
 
 def chunk_distance(a, b):
@@ -81,8 +91,18 @@ for dx in (-1, 0, 1):
         build_chunk((dx, dz))
 
 Sky(color=SKY_COLOR, texture=None)
-player = FirstPersonController(position=spawn, speed=6, jump_height=1.2)
+player = FirstPersonController(position=spawn, speed=WALK_SPEED, jump_height=1.2)
 player.cursor.color = color.white
+underwater = Entity(parent=camera.ui, model="quad", scale=(3, 2), color=Color(0.1, 0.3, 0.7, 0.45), z=1, enabled=False)
+
+
+def cell(v):
+    """Integer block coordinate containing the point v (blocks are centred on integers)."""
+    return math.floor(v + 0.5)
+
+
+def water_at(x, y, z):
+    return world.get(cell(x), cell(y), cell(z)) == WATER
 
 # ---------------------------------------------------------------- hotbar UI
 selected = 0
@@ -169,6 +189,15 @@ def update():
     for _ in range(CHUNKS_PER_FRAME):
         if build_queue:
             build_chunk(build_queue.pop(0))
+    # swimming: sink slowly, hold Space to rise; checking below the feet too lets you climb out onto the shore
+    swimming = water_at(player.x, player.y + 0.6, player.z) or water_at(player.x, player.y - 1.1, player.z)
+    player.speed = SWIM_SPEED if swimming else WALK_SPEED
+    if swimming:
+        player.air_time = min(player.air_time, 0.012)
+        if held_keys["space"]:
+            player.y += 4 * time.dt
+            player.air_time = 0
+    underwater.enabled = water_at(*camera.world_position)
     if player.y < -20:  # fell through the world somehow
         player.position = Vec3(*world.spawn_point())
 
