@@ -23,6 +23,7 @@ func _ready() -> void:
 	_players = Label.new()
 	_players.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
 	_players.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_players.custom_minimum_size.x = 400
 	box.add_child(_players)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)

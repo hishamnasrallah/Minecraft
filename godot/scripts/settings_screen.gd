@@ -106,37 +106,37 @@ func _ready() -> void:
 	name_edit.text_changed.connect(func(t): I18n.settings["player_name"] = t.strip_edges())
 	name_row.add_child(name_edit)
 
-	var monsters := CheckBox.new()
+	var monsters := CheckButton.new()
 	monsters.text = I18n.t("monsters")
 	monsters.button_pressed = bool(I18n.settings.get("monsters", true))
 	monsters.toggled.connect(func(on): I18n.settings["monsters"] = on)
 	box.add_child(monsters)
 
-	var buttons := CheckBox.new()
+	var buttons := CheckButton.new()
 	buttons.text = I18n.t("touch_buttons")
 	buttons.button_pressed = bool(I18n.settings.get("touch_buttons", false))
 	buttons.toggled.connect(func(on): I18n.settings["touch_buttons"] = on; touch_buttons_changed.emit(on))
 	box.add_child(buttons)
 
-	var vib := CheckBox.new()
+	var vib := CheckButton.new()
 	vib.text = I18n.t("vibrate")
 	vib.button_pressed = bool(I18n.settings.get("vibrate", true))
 	vib.toggled.connect(func(on): I18n.settings["vibrate"] = on)
 	box.add_child(vib)
 
-	var map := CheckBox.new()
+	var map := CheckButton.new()
 	map.text = I18n.t("show_map")
 	map.button_pressed = bool(I18n.settings.get("show_map", true))
 	map.toggled.connect(func(on): I18n.settings["show_map"] = on)
 	box.add_child(map)
 
-	var fps := CheckBox.new()
+	var fps := CheckButton.new()
 	fps.text = I18n.t("show_fps")
 	fps.button_pressed = bool(I18n.settings["show_fps"])
 	fps.toggled.connect(func(on): I18n.settings["show_fps"] = on)
 	box.add_child(fps)
 
-	var safe := CheckBox.new()
+	var safe := CheckButton.new()
 	safe.text = I18n.t("safe_mode")
 	safe.button_pressed = Boot.safe_mode
 	safe.toggled.connect(func(on): Boot.set_safe_mode(on))
@@ -180,9 +180,47 @@ func _ready() -> void:
 	done.pressed.connect(func(): I18n.save_settings(); closed.emit())
 	box.add_child(done)
 	_update_labels()
+	for c in box.get_children():
+		if c is CheckButton:
+			SettingsScreen.style_switch(c)
 	_build_log_panel()
 	get_viewport().size_changed.connect(_layout)
 	_layout()
+
+
+static var _switch_on: Texture2D
+static var _switch_off: Texture2D
+
+
+## A clear switch: green with the knob on the right = on, grey with the knob on the left = off.
+static func _switch_texture(on: bool) -> Texture2D:
+	var w := 60
+	var h := 32
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	var track := Color(0.25, 0.75, 0.4) if on else Color(0.42, 0.44, 0.5)
+	var r := h / 2.0
+	var knob_x := w - r if on else r
+	for x in w:
+		for y in h:
+			var cx := clampf(x + 0.5, r, w - r)
+			var d := Vector2(x + 0.5 - cx, y + 0.5 - r).length()
+			if d <= r:
+				img.set_pixel(x, y, track)
+			var dk := Vector2(x + 0.5 - knob_x, y + 0.5 - r).length()
+			if dk <= r - 3:
+				img.set_pixel(x, y, Color.WHITE)
+	return ImageTexture.create_from_image(img)
+
+
+static func style_switch(b: CheckButton) -> void:
+	if _switch_on == null:
+		_switch_on = _switch_texture(true)
+		_switch_off = _switch_texture(false)
+	for name in ["checked", "checked_mirrored"]:
+		b.add_theme_icon_override(name, _switch_on)
+	for name in ["unchecked", "unchecked_mirrored"]:
+		b.add_theme_icon_override(name, _switch_off)
+	b.custom_minimum_size.y = 46
 
 
 func _style() -> StyleBoxFlat:

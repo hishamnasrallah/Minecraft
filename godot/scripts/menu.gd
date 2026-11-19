@@ -53,7 +53,12 @@ func _ready() -> void:
 			_join_ip.text = a.substr(7)
 			_do_join()
 		if a.begins_with("--menushot="):           # testing: screenshot the menu, optionally create a world
+			if "--joinshot" in args:
+				_open_join()
 			await get_tree().create_timer(0.5).timeout
+			if "--joinshot" in args:
+				var b: Control = _join.get_child(0)
+				print("JOIN panel ", _join.position, _join.size, " box ", b.position, b.size, " visible ", b.visible, " kids ", b.get_child_count(), " minsize ", _join.get_combined_minimum_size())
 			get_viewport().get_texture().get_image().save_png(a.substr(11))
 			print("menu worlds: ", Session.list_worlds().map(func(w): return [w["id"], w.get("name"), w.get("mode")]))
 			if "--create" in args:
@@ -287,6 +292,7 @@ func _build_join() -> void:
 	var hint := Label.new()
 	hint.text = I18n.t("join_hint")
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.custom_minimum_size.x = 600                 # wrapping text needs a width, or it grows tall
 	hint.add_theme_color_override("font_color", Color(0.75, 0.78, 0.82))
 	box.add_child(hint)
 	var scroll := ScrollContainer.new()

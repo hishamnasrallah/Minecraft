@@ -1770,6 +1770,10 @@ func _update_health(delta: float) -> void:
 
 func respawn() -> void:
 	health.respawn()
+	# no night creature waiting at the spawn point to hit you again straight away
+	for a in wildlife.animals:
+		if a.hostile and a.pos.distance_to(spawn_point) < 16.0:
+			a.dead = true
 	hud.death.visible = false
 	player.position = spawn_point
 	player.velocity = Vector3.ZERO
@@ -1842,7 +1846,7 @@ func _process_inner(delta: float) -> void:
 			spawned = true
 			Boot.stage("playing")
 			var args := Array(OS.get_cmdline_user_args())
-			var testing := args.any(func(a): return a.begins_with("--shot") or a in ["--selftest", "--gloomtest", "--menutest", "--machines", "--bosstest", "--portaltest", "--walkplace", "--playtest"])
+			var testing := args.any(func(a): return a.begins_with("--shot") or a in ["--selftest", "--gloomtest", "--menutest", "--machines", "--bosstest", "--portaltest", "--walkplace", "--playtest", "--survivaltest"])
 			if "--tutorial" in args or (not testing and not I18n.settings.get("tutorial_done", false)):
 				start_tutorial()
 			player.set_physics_process(not screen.visible and not health.dead)
@@ -2009,6 +2013,66 @@ func _process_inner(delta: float) -> void:
 				world.chunks.size(), chunks.sections.size(), Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0])
 			print("PLAYTEST per system (ms): ", _perf_ms)
 			get_tree().quit()
+	if "--survivaltest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: a survival session, step by step
+		var f0 := floori(player.position.x + 0.5)
+		match _st_frame:
+			10:   # a night creature right next to us
+				world.time_of_day = 0.75
+				var g := Wildlife.Animal.new("gloom", player.position + Vector3(2, 0.5, 0))
+				wildlife.animals.append(g)
+				_st["h0"] = health.health
+			130:
+				print("SURVIVAL gloom hurt us: ", health.health < _st["h0"], " (", _st["h0"], " -> ", health.health, ")")
+				world.time_of_day = 0.25
+				_take_damage(100)
+			140:
+				print("SURVIVAL dead and death screen shown: ", health.dead and hud.death.visible)
+				respawn()
+			150:
+				print("SURVIVAL respawned with full health: ", not health.dead and health.health == int(health.K["MAX_HEALTH"]), " (health ", health.health, ", glooms near ", wildlife.animals.filter(func(a): return a.kind == "gloom").size(), ")")
+				health.hunger = 5
+				inv.slots[selected] = [105, 3]          # apples
+				place_block()
+				print("SURVIVAL ate an apple: hunger 5 -> ", health.hunger, ", apples left ", inv.item_at(selected) == 105 and inv.slots[selected][1] == 2)
+			160:  # fall from 20 blocks
+				_st["h1"] = health.health
+				player.position.y += 20
+			260:
+				print("SURVIVAL fall damage: ", _st["h1"], " -> ", health.health)
+				# water: a pool around us
+				var b := Vector3i(f0, floori(player.position.y + 0.6), floori(player.position.z + 0.5))
+				for dx in range(-2, 3):
+					for dz in range(-2, 3):
+						for dy in range(-3, 1):
+							edit(b + Vector3i(dx, dy, dz), WorldData.WATER, true, false)
+				player.position = Vector3(b) + Vector3(0, -2.4, 0)
+			320:
+				print("SURVIVAL swimming in water: ", player.swimming)
+				# a pickaxe on stone
+				inv.slots[selected] = [201, 1, 60]
+				var st := Vector3i(f0 + 4, floori(player.position.y) + 6, floori(player.position.z + 0.5))
+				for k in 3:
+					edit(st + Vector3i(0, k, 0), 3, true, false)
+					break_at(st + Vector3i(0, k, 0))
+				print("SURVIVAL pickaxe wear after 3 stones: ", inv.slots[selected][2] if inv.slots[selected] != null else "broken")
+				# a chest keeps what you put in
+				var cp := st + Vector3i(2, 0, 0)
+				edit(cp, 48, true, false)
+				open_screen(cp)
+				chest_inv.slots[0] = [22, 17]
+				close_screen()
+				open_screen(cp)
+				print("SURVIVAL chest kept its items: ", chest_inv.slots[0] == [22, 17])
+				close_screen()
+				_st["cp"] = cp
+			330:
+				save_game()
+				var again := WorldData.load_from(SAVE_PATH)
+				var c: Vector3i = _st["cp"]
+				print("SURVIVAL saved and loaded: chest ", again.containers.get(c, [null])[0] == [22, 17] or str(again.containers.get(c, [null])[0]) == str([22, 17]),
+					", position ", again.player_data["position"][1] > 0, ", edits ", again.changes.size() == world.changes.size())
+				get_tree().quit()
 	if "--walkplace" in OS.get_cmdline_user_args() and spawned:
 		_st_frame += 1                                  # testing: walk with the stick, tap to place
 		var vs := get_viewport().get_visible_rect().size
@@ -2195,7 +2259,7 @@ var _st := {}
 func _touch(index: int, pos: Vector2, pressed: bool) -> void:
 	var e := InputEventScreenTouch.new()
 	e.index = index
-	e.position = pos
+	e.position = get_viewport().get_final_transform() * pos    # like a real screen: window pixels
 	e.pressed = pressed
 	Input.parse_input_event(e)
 
@@ -2203,8 +2267,9 @@ func _touch(index: int, pos: Vector2, pressed: bool) -> void:
 func _drag(index: int, pos: Vector2, rel: Vector2) -> void:
 	var e := InputEventScreenDrag.new()
 	e.index = index
-	e.position = pos
-	e.relative = rel
+	var xf := get_viewport().get_final_transform()
+	e.position = xf * pos
+	e.relative = xf.basis_xform(rel)
 	Input.parse_input_event(e)
 
 

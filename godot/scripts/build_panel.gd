@@ -19,8 +19,8 @@ func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var column := GridContainer.new()
-	column.columns = 2
-	column.position = Vector2(12, 130)
+	column.columns = 3
+	column.position = Vector2(12, 276)      # under the mini map and the mode / selection lines
 	column.add_theme_constant_override("h_separation", 6)
 	column.add_theme_constant_override("v_separation", 6)
 	add_child(column)
@@ -31,7 +31,7 @@ func _ready() -> void:
 		b.expand_icon = true
 		b.add_theme_constant_override("icon_max_width", 26)
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.custom_minimum_size = Vector2(132, 50)
+		b.custom_minimum_size = Vector2(126, 48)
 		b.focus_mode = Control.FOCUS_NONE
 		b.modulate = Color(1, 1, 1, 0.88)
 		b.pressed.connect(func(): action.emit(t))

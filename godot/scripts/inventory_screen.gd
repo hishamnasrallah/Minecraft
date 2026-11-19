@@ -64,7 +64,7 @@ var _info_icon: TextureRect
 var _info_name: Label
 var _info_text: Label
 var _info_actions: HBoxContainer
-var _creative_tools: HFlowContainer
+var _creative_tools: VBoxContainer
 var _hotbar_buttons := []
 var _save_toggle: Button
 var _craftable_button: Button
@@ -234,31 +234,38 @@ func _ready() -> void:
 	_info_actions.add_child(trash)
 
 	# creative extras: time of day, saved hotbars
-	_creative_tools = HFlowContainer.new()
-	_creative_tools.add_theme_constant_override("h_separation", 4)
-	_creative_tools.add_theme_constant_override("v_separation", 4)
+	_creative_tools = VBoxContainer.new()
+	_creative_tools.add_theme_constant_override("separation", 6)
 	right.add_child(_creative_tools)
+	var tools_row := HFlowContainer.new()             # time of day, weather, freeze, clear
+	tools_row.add_theme_constant_override("h_separation", 4)
+	tools_row.add_theme_constant_override("v_separation", 4)
+	_creative_tools.add_child(tools_row)
+	var bars_row := HBoxContainer.new()               # saved hotbars 1-9, always in order
+	bars_row.add_theme_constant_override("separation", 4)
+	bars_row.layout_direction = Control.LAYOUT_DIRECTION_LTR
+	_creative_tools.add_child(bars_row)
 	for t in [["sunrise", 0.0], ["noon", 0.25], ["sunset", 0.5], ["midnight", 0.75]]:
 		var tb := _button("", func(): time_pressed.emit(t[1]), 48, t[0])
 		tb.tooltip_text = I18n.t(t[0])
-		_creative_tools.add_child(tb)
+		tools_row.add_child(tb)
 	for w in ["clear", "rain"]:
-		_creative_tools.add_child(_button(I18n.t("weather_" + w), func(): weather_pressed.emit(w), 0))
+		tools_row.add_child(_button(I18n.t("weather_" + w), func(): weather_pressed.emit(w), 0))
 	var fz := _button("", func(): freeze_pressed.emit(), 48, "freeze")
 	fz.tooltip_text = I18n.t("freeze")
-	_creative_tools.add_child(fz)
-	_creative_tools.add_child(_button(I18n.t("clear_inventory"), func(): inv.slots.fill(null); picked = null; refresh(), 0, "clear_inventory"))
+	tools_row.add_child(fz)
+	tools_row.add_child(_button(I18n.t("clear_inventory"), func(): inv.slots.fill(null); picked = null; refresh(), 0, "clear_inventory"))
 	var hb_label := Label.new()
 	hb_label.text = I18n.t("hotbars")
-	_creative_tools.add_child(hb_label)
+	bars_row.add_child(hb_label)
 	for n in 9:
 		var b := _button(str(n + 1), func(): _hotbar_button(n), 44)
-		_creative_tools.add_child(b)
+		bars_row.add_child(b)
 		_hotbar_buttons.append(b)
 	_save_toggle = _button("", func(): save_hotbar_mode = not save_hotbar_mode; refresh(), 48, "save_hotbar")
 	_save_toggle.toggle_mode = true
 	_save_toggle.tooltip_text = I18n.t("save_hotbar")
-	_creative_tools.add_child(_save_toggle)
+	bars_row.add_child(_save_toggle)
 
 	get_viewport().size_changed.connect(_layout)
 	_layout()
