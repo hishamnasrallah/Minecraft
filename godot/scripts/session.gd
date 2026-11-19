@@ -7,6 +7,7 @@ const ROOT := "user://worlds"
 
 var world_dir := ""
 var new_options := {}           # set when creating a world: {"seed": int, "creative": bool}
+var remote := {}                # a friend's world we joined (from Net): not saved on this device
 
 
 func _init() -> void:

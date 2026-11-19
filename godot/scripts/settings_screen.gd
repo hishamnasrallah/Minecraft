@@ -8,6 +8,7 @@ signal view_distance_changed(value: int)
 signal exit_pressed
 signal tutorial_pressed
 signal touch_buttons_changed(on: bool)
+signal host_pressed
 
 var in_game := false             # shows "save and go to the menu"
 
@@ -129,6 +130,14 @@ func _ready() -> void:
 	box.add_child(safe)
 
 	if in_game:
+		var host := Button.new()
+		host.text = I18n.t("open_to_friends") if not Net.active() else I18n.f("hosting", ", ".join(Net.local_ips()))
+		host.icon = load("res://data/ui/language.png")
+		host.add_theme_constant_override("icon_max_width", 26)
+		host.custom_minimum_size = Vector2(0, 50)
+		host.disabled = Net.active()
+		host.pressed.connect(func(): host_pressed.emit())
+		box.add_child(host)
 		var tut := Button.new()
 		tut.text = I18n.t("tut_again")
 		tut.icon = load("res://data/ui/items.png")

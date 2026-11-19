@@ -16,6 +16,13 @@ var _bg: ColorRect
 var _content: HBoxContainer
 var _title: Label
 var _gear: Button
+var _friends: Button
+var _join: PanelContainer
+var _join_list: VBoxContainer
+var _join_ip: LineEdit
+var _join_name: LineEdit
+var _join_status: Label
+var _join_timer := 0.0
 
 
 func _ready() -> void:
@@ -23,7 +30,8 @@ func _ready() -> void:
 	for a in args:
 		if a.begins_with("--lang="):                 # testing: a language without saving it
 			I18n.lang = a.substr(7)
-	if "--new" in args or "--selftest" in args or Array(args).any(func(a): return a.begins_with("--shot=")):
+	var joining := Array(args).any(func(a): return a.begins_with("--join="))
+	if not joining and ("--new" in args or "--selftest" in args or Array(args).any(func(a): return a.begins_with("--shot="))):
 		var seed := -1
 		for a in args:
 			if a.begins_with("--seed="):
@@ -32,10 +40,15 @@ func _ready() -> void:
 		get_tree().change_scene_to_file.call_deferred(GAME)
 		return
 	_build()
+	_build_join()
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 	_refresh()
 	for a in args:
+		if a.begins_with("--join="):                # testing: join a friend's game straight away
+			_open_join()
+			_join_ip.text = a.substr(7)
+			_do_join()
 		if a.begins_with("--menushot="):           # testing: screenshot the menu, optionally create a world
 			await get_tree().create_timer(0.5).timeout
 			get_viewport().get_texture().get_image().save_png(a.substr(11))
@@ -65,6 +78,14 @@ func _build() -> void:
 	_gear.custom_minimum_size = Vector2(64, 64)
 	_gear.pressed.connect(func(): _settings.visible = true)
 	add_child(_gear)
+
+	_friends = Button.new()
+	_friends.text = I18n.t("join_friends")
+	_friends.icon = load("res://data/ui/language.png")
+	_friends.add_theme_constant_override("icon_max_width", 32)
+	_friends.custom_minimum_size = Vector2(0, 64)
+	_friends.pressed.connect(_open_join)
+	add_child(_friends)
 
 	_content = HBoxContainer.new()
 	_content.add_theme_constant_override("separation", 20)
@@ -161,6 +182,10 @@ func _layout() -> void:
 	_title.position = Vector2(0, 14)
 	_title.size = Vector2(s.x, 80)
 	_gear.position = Vector2(s.x - 84, 20)
+	_friends.position = Vector2(20, 20)
+	if _join:
+		_join.size = Vector2(minf(720, s.x - 40), minf(560, s.y - 40))
+		_join.position = (s - _join.size) / 2
 	_content.position = Vector2(30, 110)
 	_content.size = Vector2(s.x - 60, s.y - 140)
 
@@ -221,3 +246,114 @@ func _create() -> void:
 	var seed := int(_seed.text) if _seed.text.strip_edges().is_valid_int() else -1
 	Session.create_world(name, seed, _creative)
 	get_tree().change_scene_to_file(GAME)
+
+
+# ---------------------------------------------------------------- joining a friend's game
+func _build_join() -> void:
+	_join = PanelContainer.new()
+	_join.visible = false
+	var st := StyleBoxFlat.new()
+	st.bg_color = Color(0.1, 0.11, 0.14, 0.98)
+	st.set_corner_radius_all(12)
+	for side in [SIDE_LEFT, SIDE_RIGHT, SIDE_TOP, SIDE_BOTTOM]:
+		st.set_content_margin(side, 16)
+	_join.add_theme_stylebox_override("panel", st)
+	add_child(_join)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	if I18n.is_arabic():
+		box.layout_direction = Control.LAYOUT_DIRECTION_RTL
+	_join.add_child(box)
+	var head := HBoxContainer.new()
+	box.add_child(head)
+	var title := Label.new()
+	title.text = I18n.t("join_friends")
+	title.add_theme_font_size_override("font_size", 28)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	var close := Button.new()
+	close.text = I18n.t("close")
+	close.custom_minimum_size = Vector2(110, 48)
+	close.pressed.connect(func(): _join.visible = false; Net.stop_listening(); Net.stop())
+	head.add_child(close)
+	_join_name = LineEdit.new()
+	_join_name.placeholder_text = I18n.t("your_name")
+	_join_name.text = str(I18n.settings.get("player_name", ""))
+	_join_name.custom_minimum_size.y = 50
+	box.add_child(_join_name)
+	var hint := Label.new()
+	hint.text = I18n.t("join_hint")
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.add_theme_color_override("font_color", Color(0.75, 0.78, 0.82))
+	box.add_child(hint)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(scroll)
+	_join_list = VBoxContainer.new()
+	_join_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_join_list)
+	var row := HBoxContainer.new()
+	box.add_child(row)
+	_join_ip = LineEdit.new()
+	_join_ip.placeholder_text = I18n.t("ip_hint")
+	_join_ip.custom_minimum_size.y = 50
+	_join_ip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_join_ip.layout_direction = Control.LAYOUT_DIRECTION_LTR
+	row.add_child(_join_ip)
+	var go := Button.new()
+	go.text = I18n.t("join")
+	go.custom_minimum_size = Vector2(140, 50)
+	go.pressed.connect(_do_join)
+	row.add_child(go)
+	_join_status = Label.new()
+	_join_status.add_theme_color_override("font_color", Color(1, 0.85, 0.4))
+	box.add_child(_join_status)
+	Net.connected.connect(func(): _join_status.text = I18n.t("net_receiving"))
+	Net.failed.connect(func(reason): _join_status.text = I18n.t("net_" + reason))
+	Net.world_received.connect(func(data):
+		Session.remote = data
+		Session.world_dir = ""
+		Net.stop_listening()
+		get_tree().change_scene_to_file(GAME))
+
+
+func _open_join() -> void:
+	_join.visible = true
+	_layout()
+	Net.start_listening()
+	_refresh_found()
+
+
+func _do_join() -> void:
+	var ip := _join_ip.text.strip_edges()
+	if ip == "":
+		_join_status.text = I18n.t("ip_hint")
+		return
+	I18n.settings["player_name"] = _join_name.text.strip_edges()
+	I18n.save_settings()
+	var problem := Net.join(ip)
+	_join_status.text = I18n.t("net_" + problem) if problem != "" else I18n.f("net_connecting", ip)
+
+
+func _refresh_found() -> void:
+	for c in _join_list.get_children():
+		c.queue_free()
+	if Net.found.is_empty():
+		var l := Label.new()
+		l.text = I18n.t("net_searching")
+		l.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		_join_list.add_child(l)
+	for ip in Net.found:
+		var b := Button.new()
+		b.text = "%s   •   %s   •   %s" % [Net.found[ip]["name"], I18n.f("net_players", Net.found[ip]["players"]), ip]
+		b.custom_minimum_size.y = 56
+		b.pressed.connect(func(): _join_ip.text = ip; _do_join())
+		_join_list.add_child(b)
+
+
+func _process(delta: float) -> void:
+	if _join and _join.visible:
+		_join_timer -= delta
+		if _join_timer <= 0.0:
+			_join_timer = 1.0
+			_refresh_found()

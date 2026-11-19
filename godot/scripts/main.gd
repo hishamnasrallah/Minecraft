@@ -71,7 +71,18 @@ func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	SAVE_PATH = Session.save_path()
 	var fresh: Dictionary = Session.new_options
-	if FileAccess.file_exists(SAVE_PATH) and fresh.is_empty():
+	var remote: Dictionary = Session.remote
+	if not remote.is_empty():
+		# a friend's world: the seed plus everything they built; the rest is generated here
+		world = WorldData.new(int(remote["seed"]))
+		world.changes = remote["changes"]
+		world.containers = remote["containers"]
+		world.time_of_day = float(remote["time"])
+		world.player_data = {"mode": "creative" if remote.get("creative", false) else "survival",
+			"position": remote["spawn"], "spawn": remote["spawn"]}
+		Session.remote = {}
+		_remote_world = true
+	elif FileAccess.file_exists(SAVE_PATH) and fresh.is_empty():
 		world = WorldData.load_from(SAVE_PATH)
 	if world == null:
 		world = WorldData.new(int(fresh.get("seed", -1)))
@@ -188,6 +199,24 @@ func _ready() -> void:
 	hud.minimap.world = world
 	weather = Weather.new()
 	add_child(weather)
+	remote_players = RemotePlayers.new()
+	add_child(remote_players)
+	Net.remote_edits.connect(_apply_remote_edits)
+	Net.remote_container.connect(func(p, data): world.containers[p] = data)
+	Net.player_state.connect(func(id, st): remote_players.update_state(id, st))
+	Net.player_left.connect(func(id): remote_players.remove(id); hud.flash(I18n.f("player_left", Net.names.get(id, "?"))))
+	Net.player_joined.connect(func(_id, name): hud.flash(I18n.f("player_joined", name)))
+	Net.clock.connect(func(t, w):
+		world.time_of_day = t
+		if weather.kind != w:
+			weather.set_weather(w))
+	Net.failed.connect(func(reason):
+		if _remote_world:
+			hud.flash(I18n.t("net_" + reason)))
+	Net.get_world_data = func() -> Dictionary:
+		return {"seed": world.seed, "changes": world.changes, "containers": world.containers,
+			"time": world.time_of_day, "weather": weather.kind, "creative": creative,
+			"spawn": [player.position.x + 3.0, player.position.y + 0.5, player.position.z]}   # next to the host
 	weather.column_top = func(x: int, z: int) -> int:
 		return world.top_y(x, z) if world.is_loaded(x, z) else 0   # never generate a chunk for rain
 	weather.load_data(world.player_data.get("weather", {}))
@@ -203,6 +232,8 @@ func _ready() -> void:
 	power = Power.new(world)
 	world.on_edit = func(p: Vector3i, id: int) -> void:
 		power.note(p, id)
+		if Net.active() and not _applying_remote:
+			Net.send_edit(p, id)
 		if Blocks.defs.get(id, {}).has("crop") or Items.sapling_trees.has(id):
 			growing[p] = true                      # also crops and saplings from pasted buildings
 	power.set_block = func(p: Vector3i, id: int) -> void: edit(p, id, true, false)
@@ -255,7 +286,8 @@ func _ready() -> void:
 	settings = SettingsScreen.new()
 	settings.in_game = true
 	settings.visible = false
-	settings.exit_pressed.connect(func(): save_game(); get_tree().change_scene_to_file("res://scenes/menu.tscn"))
+	settings.exit_pressed.connect(func(): save_game(); Net.stop(); get_tree().change_scene_to_file("res://scenes/menu.tscn"))
+	settings.host_pressed.connect(_host_game)
 	settings.closed.connect(close_settings)
 	settings.touch_buttons_changed.connect(func(on): touch.set_classic(on))
 	settings.tutorial_pressed.connect(func(): close_settings(); start_tutorial())
@@ -457,6 +489,7 @@ func close_screen() -> void:
 	screen.close()
 	if chest_pos != null:
 		world.containers[chest_pos] = chest_inv.to_data()
+		Net.send_container(chest_pos, world.containers[chest_pos])
 		chest_pos = null
 	player.set_physics_process(spawned and not health.dead)
 	touch.blocked = false
@@ -788,6 +821,66 @@ func use_block(pos: Vector3i) -> bool:
 	return false
 
 
+# ---------------------------------------------------------------- playing with friends
+func _host_game() -> void:
+	var problem := Net.host(str(Session.world_dir.get_file()) if Session.world_dir != "" else "BlockWorld")
+	if problem != "":
+		hud.flash(I18n.t("net_" + problem))
+		return
+	Net.world_name = _world_title()
+	hud.flash(I18n.f("hosting", ", ".join(Net.local_ips())))
+	close_settings()
+
+
+func _world_title() -> String:
+	for w in Session.list_worlds():
+		if Session.world_dir.ends_with("/" + str(w["id"])):
+			return str(w.get("name", w["id"]))
+	return "BlockWorld"
+
+
+func _update_net(delta: float) -> void:
+	if not Net.active():
+		return
+	_net_timer -= delta
+	if _net_timer <= 0.0:
+		_net_timer = 0.1
+		Net.send_state(player.position, player.yaw, player.pitch, inv.item_at(selected))
+	if Net.is_host():
+		_clock_timer -= delta
+		if _clock_timer <= 0.0:
+			_clock_timer = 2.0
+			Net.send_clock(world.time_of_day, weather.kind)
+
+
+var _net_edits_in := 0
+
+
+func _apply_remote_edits(edits: Dictionary) -> void:
+	_net_edits_in += edits.size()
+	_applying_remote = true
+	var keys := {}
+	var lo := WorldData.H
+	var hi := 0
+	for p in edits:
+		var id: int = edits[p]
+		if world.is_loaded(p.x, p.z):
+			for k in world.set_block(p.x, p.y, p.z, id, true, false):
+				keys[k] = true
+			lo = mini(lo, p.y)
+			hi = maxi(hi, p.y)
+		else:
+			# not loaded here yet: it is applied when this chunk is generated
+			var k := WorldData.chunk_key(p.x, p.z)
+			var d: Dictionary = world.changes.get(k, {})
+			d[p] = id
+			world.changes[k] = d
+			power.note(p, id)
+	_applying_remote = false
+	if not keys.is_empty():
+		_rebuild(keys.keys(), maxi(lo - 16, 0), mini(hi + 16, WorldData.H - 1))
+
+
 # ---------------------------------------------------------------- pasting big buildings
 var _paste_batches := []            # [chunk key, {pos: id}] still to build, nearest first
 var _paste_total := 0
@@ -866,7 +959,8 @@ func _update_machines(delta: float) -> void:
 	for a in wildlife.animals:
 		pressed[Vector3i(floori(a.pos.x + 0.5), floori(a.pos.y + 0.1), floori(a.pos.z + 0.5))] = true
 	power.set_inputs(pressed, world.time_of_day < 0.5)
-	power.update(delta)
+	if not _remote_world:
+		power.update(delta)                         # with friends, the host runs the machines
 	# conveyors carry the player and items standing on them
 	var below := feet + Vector3i(0, -1, 0)
 	for c in [feet, below]:
@@ -1240,6 +1334,11 @@ var _ready_frames := 0
 var tutorial: Tutorial
 var drops: Drops
 var weather: Weather
+var remote_players: RemotePlayers
+var _remote_world := false          # we joined a friend: their phone saves the world, not ours
+var _applying_remote := false       # edits from the network must not be sent back
+var _net_timer := 0.0
+var _clock_timer := 0.0
 var power: Power
 var ghost: MeshInstance3D
 var debris: Debris
@@ -1423,8 +1522,10 @@ func _process(delta: float) -> void:
 	_perf("mobs", t3 - t2)
 	_update_tutorial()
 	if spawned:
+		_update_net(delta)
 		_update_paste()
-		_update_growing(delta)
+		if not _remote_world:
+			_update_growing(delta)                  # with friends, the host grows plants
 		_update_machines(delta)
 	var t4 := Time.get_ticks_usec()
 	if spawned and hud.minimap.visible:
@@ -1481,6 +1582,21 @@ func _process(delta: float) -> void:
 			player.position += Vector3(-f.x * 30, 45, -f.z * 30)
 			player.look(Vector2(0, 0.6))
 			_shot_frames = 400
+	if "--host" in OS.get_cmdline_user_args() and spawned and not _st.has("host"):
+		_st["host"] = true                              # testing: open this world to friends
+		_host_game()
+	if "--netlog" in OS.get_cmdline_user_args() and Engine.get_process_frames() % 120 == 0:
+		print("NETSTATE active=%s joined=%s host=%s peer=%s remote_world=%s" % [Net.active(), Net.joined, Net.hosting, multiplayer.multiplayer_peer, _remote_world])
+	if Net.active() and "--netlog" in OS.get_cmdline_user_args() and Engine.get_process_frames() % 120 == 0:
+		print("NET host=%s players=%d remote_edits=%d" % [Net.is_host(), remote_players.count(), _net_edits_in])
+	if "--netbot" in OS.get_cmdline_user_args() and spawned and not _st.has("netbot") and Net.active():
+		_st["netbot"] = true                            # testing: a friend builds a small tower
+		var bx := floori(player.position.x + 0.5) + 2
+		var bz := floori(player.position.z + 0.5)
+		var by := floori(player.position.y)
+		for i in 5:
+			edit(Vector3i(bx, by + i, bz), 1600 + "HELLO".unicode_at(i) - 65)
+		print("NETBOT built HELLO at ", Vector3i(bx, by, bz))
 	if "--debristest" in OS.get_cmdline_user_args() and spawned and Engine.get_process_frames() % 12 == 0:
 		debris.burst(player.eye() + player.forward() * 3.0, 1)        # testing: pieces in front of the camera
 	if "--machines" in OS.get_cmdline_user_args() and spawned and not _st.has("machines"):
@@ -1536,6 +1652,8 @@ func _process(delta: float) -> void:
 
 func save_game() -> void:
 	I18n.save_settings()
+	if _remote_world:
+		return                                  # a friend's world: their phone keeps it
 	if chest_pos != null and chest_inv != null:
 		world.containers[chest_pos] = chest_inv.to_data()
 	var data: Dictionary = world.player_data.duplicate()

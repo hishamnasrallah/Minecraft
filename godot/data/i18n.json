@@ -516,6 +516,78 @@
    "en": "Mini map",
    "ar": "خريطة صغيرة"
   },
+  "join_friends": {
+   "en": "Play with friends",
+   "ar": "العب مع أصحابك"
+  },
+  "your_name": {
+   "en": "Your name",
+   "ar": "اسمك"
+  },
+  "join_hint": {
+   "en": "Friends on the same Wi-Fi who opened their world appear here. Or type the IP their phone shows.",
+   "ar": "الأصحاب اللي على نفس الواي فاي وفاتحين عالمهم بيطلعوا هون. أو اكتب الـ IP اللي بيطلع عندهم."
+  },
+  "ip_hint": {
+   "en": "Host IP, e.g. 192.168.1.20",
+   "ar": "IP المضيف، مثلاً 192.168.1.20"
+  },
+  "join": {
+   "en": "Join",
+   "ar": "انضم"
+  },
+  "open_to_friends": {
+   "en": "Open this world to friends (Wi-Fi)",
+   "ar": "افتح العالم لأصحابك (واي فاي)"
+  },
+  "hosting": {
+   "en": "Open to friends: %s",
+   "ar": "مفتوح لأصحابك: %s"
+  },
+  "player_joined": {
+   "en": "%s joined",
+   "ar": "%s انضم"
+  },
+  "player_left": {
+   "en": "%s left",
+   "ar": "%s طلع"
+  },
+  "net_searching": {
+   "en": "Looking for games on this Wi-Fi...",
+   "ar": "عم دوّر على ألعاب على هالواي فاي..."
+  },
+  "net_players": {
+   "en": "%d playing",
+   "ar": "%d لاعبين"
+  },
+  "net_connecting": {
+   "en": "Connecting to %s...",
+   "ar": "عم يتصل بـ %s..."
+  },
+  "net_receiving": {
+   "en": "Connected - receiving the world...",
+   "ar": "اتصل - عم يستلم العالم..."
+  },
+  "net_connect": {
+   "en": "Could not connect (same Wi-Fi? is the world open?)",
+   "ar": "ما قدر يتصل (نفس الواي فاي؟ العالم مفتوح؟)"
+  },
+  "net_host_left": {
+   "en": "The host closed the game",
+   "ar": "المضيف سكّر اللعبة"
+  },
+  "net_port": {
+   "en": "Could not open the game for friends",
+   "ar": "ما قدر يفتح اللعبة للأصحاب"
+  },
+  "net_address": {
+   "en": "That address is not valid",
+   "ar": "العنوان مش صحيح"
+  },
+  "net_bad_world": {
+   "en": "The world did not arrive whole",
+   "ar": "العالم ما وصل كامل"
+  },
   "lib_houses": {
    "en": "Houses",
    "ar": "بيوت"

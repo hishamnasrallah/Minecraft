@@ -16,6 +16,7 @@ Items="*res://scripts/items.gd"
 I18n="*res://scripts/i18n.gd"
 Session="*res://scripts/session.gd"
 Sfx="*res://scripts/sfx.gd"
+Net="*res://scripts/net.gd"
 
 [debug]
 
