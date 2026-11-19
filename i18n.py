@@ -16,6 +16,11 @@ NAMES_AR = {
     "chest": "صندوق", "clay": "طين", "coal": "فحم", "coal ore": "خام فحم", "cobblestone": "حجر مرصوف",
     "cooked meat": "لحمة مشوية", "copper block": "بلوك نحاس", "copper ingot": "سبيكة نحاس",
     "copper ore": "خام نحاس", "diamond": "ألماس", "diamond block": "بلوك ألماس", "diamond ore": "خام ألماس",
+    "copper wire": "سلك نحاسي", "switch": "مفتاح", "push button": "زر ضغط", "power cell": "خلية طاقة",
+    "pressure plate": "لوح ضغط", "light sensor": "حسّاس ضوء", "powered lamp": "مصباح كهربائي",
+    "not gate": "بوابة عكس (NOT)", "and gate": "بوابة و (AND)", "or gate": "بوابة أو (OR)",
+    "xor gate": "بوابة إما (XOR)", "delay gate": "مؤخّر", "pusher": "دافع", "breaker": "كاسر",
+    "conveyor belt": "سير ناقل", "collector": "جامع", "auto-smelter": "فرن أوتوماتيكي",
     "dirt": "تراب", "door": "باب", "farmland": "أرض محروثة", "wheat": "قمح", "carrots": "جزر", "seeds": "بذور",
     "bread": "خبز", "carrot": "جزرة", "fern": "سرخس", "furnace": "فرن", "glass": "زجاج", "gold block": "بلوك ذهب",
     "gold ingot": "سبيكة ذهب", "gold ore": "خام ذهب", "granite": "غرانيت", "grass": "عشب", "gravel": "حصى",
@@ -79,7 +84,8 @@ FAMILIES = {
     "mushrooms": ("Mushrooms", "فطر"), "slabs": ("Slabs", "بلاطات"), "stairs": ("Stairs", "أدراج"),
     "walls": ("Walls", "أسوار"), "ingots": ("Ingots", "سبائك"), "gems": ("Gems", "جواهر"),
     "pickaxes": ("Pickaxes", "معاول"), "axes": ("Axes", "فؤوس"), "shovels": ("Shovels", "مجارف"),
-    "swords": ("Swords", "سيوف"), "hoes": ("Hoes", "معازق"), "neon_pink": ("Pink neon letters", "حروف نيون وردية"),
+    "swords": ("Swords", "سيوف"), "hoes": ("Hoes", "معازق"), "gates": ("Logic gates", "بوابات منطقية"),
+    "power_sources": ("Power sources", "مصادر طاقة"), "neon_pink": ("Pink neon letters", "حروف نيون وردية"),
     "neon_blue": ("Blue neon letters", "حروف نيون زرقاء"), "doors": ("Doors", "أبواب"),
 }
 FAMILIES_EN = {f: en for f, (en, _ar) in FAMILIES.items()}
@@ -89,7 +95,7 @@ _DYE_INDEX = {tuple(rgb): i for i, (_name, rgb) in enumerate(DYES)}
 TOOL_KINDS_AR = {"pickaxe": "معول", "axe": "فأس", "shovel": "مجرفة", "sword": "سيف", "hoe": "معزقة"}
 TIERS_AR = {"wooden": "خشبي", "stone": "حجري", "iron": "حديدي", "diamond": "ألماسي"}
 GROUPS_AR = {"planks": "ألواح", "rock": "صخر", "wool": "صوف", "logs": "جذوع", "flowers": "ورود", "fuel": "وقود"}
-TABS_AR = {"all": "الكل", "natural": "طبيعي", "building": "بناء", "colored": "ملوّن", "plants": "نباتات",
+TABS_AR = {"machines": "آلات", "all": "الكل", "natural": "طبيعي", "building": "بناء", "colored": "ملوّن", "plants": "نباتات",
            "functional": "مفيد", "tools": "أدوات", "food": "أكل", "materials": "مواد"}
 
 # UI text: key -> (English, Arabic). %s / %d are filled in by the game.

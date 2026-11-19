@@ -71,7 +71,7 @@ ITEM_FAMILIES = {
     **{kind + "s": list(ids) for kind, ids in _TOOL_IDS.items()},
 }
 # ---------------------------------------------------------------- creative menu
-TABS = ["all", "natural", "building", "colored", "plants", "functional", "tools", "food", "materials"]
+TABS = ["all", "natural", "building", "colored", "plants", "functional", "machines", "tools", "food", "materials"]
 
 
 def item_tab(item):
@@ -276,6 +276,17 @@ RECIPES = [
     ({"planks": 6, STICK: 3}, (45, 1)),        # bookshelf
     ({STICK: 7}, (500, 3)),                    # ladders
     *[({w["planks"]: 6}, (w["door"], 2)) for w in WOODS.values()],      # a door of each wood
+    # machines and logic
+    ({COPPER_INGOT: 1}, (1700, 8)), ({STICK: 1, "rock": 1}, (1702, 1)), ({"rock": 1}, (1704, 1)),
+    ({COPPER_INGOT: 2, COAL: 2, IRON_INGOT: 1}, (1705, 1)), ({"planks": 2, COPPER_INGOT: 1}, (1706, 1)),
+    ({GLASS: 1, QUARTZ: 1, COPPER_INGOT: 1}, (1707, 1)), ({LAMP: 1, COPPER_INGOT: 1}, (1708, 1)),
+    ({"rock": 1, COPPER_INGOT: 1}, (1710, 1)), ({"rock": 1, COPPER_INGOT: 2}, (1714, 1)),
+    ({"rock": 1, COPPER_INGOT: 1, QUARTZ: 1}, (1718, 1)), ({"rock": 1, COPPER_INGOT: 2, QUARTZ: 1}, (1722, 1)),
+    ({"rock": 1, COPPER_INGOT: 1, STICK: 1}, (1726, 1)),
+    ({"planks": 3, "rock": 4, IRON_INGOT: 1, COPPER_INGOT: 1}, (1730, 1)),
+    ({"rock": 6, IRON_INGOT: 2, COPPER_INGOT: 1}, (1736, 1)),
+    ({IRON_INGOT: 1, "planks": 3, COPPER_INGOT: 1}, (1742, 4)), ({IRON_INGOT: 5, 48: 1}, (1746, 1)),
+    ({47: 1, COPPER_INGOT: 4, IRON_INGOT: 2}, (1747, 1)),
     ({WHEAT_ITEM: 3}, (BREAD, 1)), ({WHEAT_ITEM: 9}, (950, 1)), ({950: 1}, (WHEAT_ITEM, 9)),
     ({EGG: 1, WHEAT_ITEM: 2}, (BREAD, 2)),     # egg bread
     ({RAW_FISH: 2, COAL: 1}, (COOKED_FISH, 2)),

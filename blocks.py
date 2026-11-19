@@ -337,6 +337,57 @@ for _c, (_cname, _rgb) in enumerate(NEON_COLORS):
                                         family=f"neon_{_cname}")
 
 
+# ---------------------------------------------------------------- machines and logic (power)
+# Power runs through copper wire (0-15, fading by 1 per wire). Sources: switch, push button,
+# power cell, pressure plate, light sensor. Logic gates take inputs from their sides / back and
+# power the block in front. Users: powered lamp, doors, pusher, breaker. Plus conveyor belts,
+# collectors (pull items from above / items lying on top, push into the container below) and
+# the auto-smelter. The "logic" entry says what each block is; `facing` 0-3 = +z, +x, -z, -x,
+# 4 = up, 5 = down.
+MACHINES = "machines"
+LOGIC = {}           # kind -> base id (variants follow)
+
+
+def _logic(id_, name, tiles, kind, shape=CUBE, creative=True, drop="self", **extra):
+    logic = dict(kind=kind, **{k: extra.pop(k) for k in ("facing", "on") if k in extra})
+    block(id_, name, tiles, MACHINES, extra.pop("hardness", 1.0), extra.pop("tool", "pickaxe"), 0, drop=drop,
+          shape=shape, creative=creative, logic=logic, **extra)
+    LOGIC.setdefault(kind, id_)
+    return id_
+
+
+_logic(1700, "copper wire", "wire_off", "wire", shape=CARPET, solid=False, hardness=0.0, tool=None, on=False)
+_logic(1701, "copper wire", "wire_on", "wire", shape=CARPET, solid=False, hardness=0.0, tool=None, on=True,
+       creative=False, drop=1700, emit=3)
+_logic(1702, "switch", ("switch_off", "switch_side", "switch_side"), "switch", on=False, hardness=0.6)
+_logic(1703, "switch", ("switch_on", "switch_side", "switch_side"), "switch", on=True, creative=False, drop=1702,
+       hardness=0.6)
+_logic(1704, "push button", ("button_top", "button_side", "button_side"), "button", hardness=0.6)
+_logic(1705, "power cell", ("power_cell_top", "power_cell", "power_cell_top"), "cell", hardness=1.5, emit=6)
+_logic(1706, "pressure plate", "pressure_plate", "plate", shape=CARPET, solid=False, hardness=0.5)
+_logic(1707, "light sensor", ("light_sensor", "machine_side", "machine_side"), "sensor", hardness=0.8)
+_logic(1708, "powered lamp", "powered_lamp_off", "lamp", on=False, hardness=0.4)
+_logic(1709, "powered lamp", "powered_lamp_on", "lamp", on=True, creative=False, drop=1708, emit=15, hardness=0.4)
+GATES = ["not", "and", "or", "xor", "delay"]
+for _g, _gate in enumerate(GATES):
+    for _f in range(4):
+        _logic(1710 + _g * 4 + _f, f"{_gate} gate", (f"gate_{_gate}_{_f}", "gate_side", "gate_side"), _gate,
+               facing=_f, creative=_f == 0, drop=1710 + _g * 4, hardness=0.6)
+for _f in range(6):
+    for _base, _m in ((1730, "pusher"), (1736, "breaker")):
+        _logic(_base + _f, _m, (f"{_m}_top_{_f}", f"{_m}_side_{_f}", f"{_m}_bottom_{_f}"), _m, facing=_f,
+               creative=_f == 0, drop=_base, hardness=1.5)
+for _f in range(4):
+    _logic(1742 + _f, "conveyor belt", (f"conveyor_{_f}", "machine_side", "machine_bottom"), "conveyor", shape=SLAB,
+           facing=_f, creative=_f == 0, drop=1742, hardness=0.8)
+_logic(1746, "collector", ("collector_top", "collector_side", "machine_bottom"), "collector", container=True,
+       hardness=1.5)
+_logic(1747, "auto-smelter", ("smelter_top", "smelter_front", "machine_bottom"), "smelter", container=True,
+       hardness=2.0)
+for _kind, _ids in (("gates", [1710 + g * 4 for g in range(len(GATES))]), ("power_sources", [1702, 1704, 1705, 1706, 1707])):
+    family(_kind, _ids)
+
+
 # ---------------------------------------------------------------- derived lookups
 BLOCKS = {i: d["name"] for i, d in BLOCK_DEFS.items()}
 BLOCK_TILES = {i: d["tiles"] for i, d in BLOCK_DEFS.items()}

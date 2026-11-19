@@ -1540,6 +1540,222 @@ def cooked_fish(rng):
     return img
 
 
+# ================================================================ machines and logic
+METAL = (118, 122, 132)
+COPPER = (206, 116, 66)
+
+
+def _plate(base=METAL, rivets=True):
+    def gen(rng):
+        img = _noise(rng, base, 0.05).convert("RGBA")
+        for i in range(TILE):
+            for x, y in ((i, 0), (i, TILE - 1), (0, i), (TILE - 1, i)):
+                img.putpixel((x, y), _shade(base, 0.6) + (255,))
+        if rivets:
+            for x, y in ((2, 2), (13, 2), (2, 13), (13, 13)):
+                img.putpixel((x, y), _shade(base, 1.35) + (255,))
+        return img
+    return gen
+
+
+def _arrow_on(img, color, rotate=0):
+    """A chunky arrow pointing up (towards -y of the tile), then rotated by 90 * rotate degrees."""
+    a = Image.new("RGBA", (TILE, TILE), (0, 0, 0, 0))
+    for y in range(3, 8):
+        for x in range(8 - (y - 3) - 1, 8 + (y - 3) + 1):
+            a.putpixel((x, y), color + (255,))
+    for y in range(8, 13):
+        for x in (7, 8):
+            a.putpixel((x, y), color + (255,))
+    a = a.rotate(-90 * rotate)
+    img.alpha_composite(a)
+    return img
+
+
+def wire(on):
+    def gen(rng):
+        img = _blank()
+        c = (255, 140, 40) if on else (130, 70, 40)
+        for i in range(TILE):
+            for d in (-1, 0):
+                _px(img, i, 7 + d, _shade(c, 1 + rng.uniform(-0.1, 0.1)))
+                _px(img, 7 + d, i, _shade(c, 1 + rng.uniform(-0.1, 0.1)))
+        if on:
+            for x, y in ((7, 7), (8, 8), (7, 8), (8, 7)):
+                _px(img, x, y, (255, 230, 160))
+        return img
+    return gen
+
+
+def switch(on):
+    def gen(rng):
+        img = _plate((110, 110, 116))(rng)
+        for y in range(3, 13):
+            for x in range(5, 11):
+                img.putpixel((x, y), (40, 40, 44, 255))
+        lever_y = range(3, 8) if on else range(8, 13)
+        for y in lever_y:
+            for x in (7, 8):
+                img.putpixel((x, y), (120, 86, 48, 255))
+        knob = (60, 220, 90) if on else (220, 60, 50)
+        for x in (6, 7, 8, 9):
+            img.putpixel((x, 3 if on else 12), knob + (255,))
+        return img
+    return gen
+
+
+def button_top(rng):
+    img = _plate((126, 126, 130))(rng)
+    for x in range(5, 11):
+        for y in range(5, 11):
+            img.putpixel((x, y), _shade((200, 60, 50), 1.1 if (x + y) % 4 else 0.9) + (255,))
+    return img
+
+
+def power_cell(rng):
+    img = _plate((60, 64, 74))(rng)
+    for y in range(3, 13):
+        for x in range(5, 11):
+            img.putpixel((x, y), _shade((90, 230, 120) if y > 5 else (60, 60, 64), 1 + rng.uniform(-0.1, 0.1)) + (255,))
+    for x in (6, 7, 8, 9):
+        img.putpixel((x, 2), (200, 200, 200, 255))
+    return img
+
+
+def power_cell_top(rng):
+    img = _plate((60, 64, 74))(rng)
+    for x, y in ((7, 4), (8, 4), (7, 5), (8, 5), (5, 10), (6, 10), (7, 10), (8, 10), (9, 10), (10, 10)):
+        img.putpixel((x, y), (90, 230, 120, 255))
+    return img
+
+
+def pressure_plate(rng):
+    img = _plate((150, 150, 156), rivets=False)(rng)
+    for i in range(2, 14):
+        for x, y in ((i, 2), (i, 13), (2, i), (13, i)):
+            img.putpixel((x, y), (100, 100, 108, 255))
+    return img
+
+
+def light_sensor(rng):
+    img = _plate((90, 80, 70))(rng)
+    for x in range(TILE):
+        for y in range(TILE):
+            d = ((x - 7.5) ** 2 + (y - 7.5) ** 2) ** 0.5
+            if d < 5:
+                img.putpixel((x, y), _shade((150, 200, 240), 1.2 - d / 8) + (255,))
+    return img
+
+
+def powered_lamp(on):
+    def gen(rng):
+        img = _plate(COPPER)(rng)
+        for x in range(3, 13):
+            for y in range(3, 13):
+                c = (255, 214, 120) if on else (90, 70, 50)
+                img.putpixel((x, y), _shade(c, 1 + rng.uniform(-0.08, 0.08) - (0.15 if (x in (3, 12) or y in (3, 12)) else 0)) + (255,))
+        return img
+    return gen
+
+
+GATE_SYMBOLS = {   # 5x5 symbols drawn at 1 px
+    "not": ["01110", "10001", "10001", "10001", "01110"],
+    "and": ["10001", "10001", "10001", "01010", "00100"],
+    "or": ["00100", "01010", "10001", "10001", "10001"],
+    "xor": ["10001", "01010", "00100", "01010", "10001"],
+    "delay": ["11111", "00100", "00100", "00100", "11111"],
+}
+GATE_COLORS = {"not": (230, 80, 80), "and": (90, 200, 255), "or": (120, 230, 120), "xor": (240, 200, 60),
+               "delay": (210, 140, 255)}
+
+
+def gate(kind, facing):
+    def gen(rng):
+        img = _plate((84, 88, 98))(rng)
+        _arrow_on(img, (230, 230, 236), {0: 2, 1: 1, 2: 0, 3: 3}[facing])
+        for r, row in enumerate(GATE_SYMBOLS[kind]):
+            for c, ch in enumerate(row):
+                if ch == "1":
+                    img.putpixel((1 + c, 1 + r), GATE_COLORS[kind] + (255,))
+        return img
+    return gen
+
+
+def machine_face(base, mark, facing=None, vertical=None):
+    """A machine face with a mark: an arrow for the facing, or the working face."""
+    def gen(rng):
+        img = _plate(base)(rng)
+        if mark == "arrow":
+            _arrow_on(img, (240, 220, 120), {0: 2, 1: 1, 2: 0, 3: 3}[facing])
+        elif mark == "up":
+            _arrow_on(img, (240, 220, 120), 0 if vertical == "up" else 2)
+        elif mark == "push":
+            for x in range(2, 14):
+                for y in range(2, 14):
+                    img.putpixel((x, y), _shade((170, 130, 80), 1 + rng.uniform(-0.1, 0.1)) + (255,))
+        elif mark == "teeth":
+            for x in range(2, 14):
+                for y in range(2, 14):
+                    if (x + y) % 4 < 2:
+                        img.putpixel((x, y), (210, 210, 220, 255))
+        return img
+    return gen
+
+
+def conveyor(facing):
+    def gen(rng):
+        img = _noise(rng, (46, 46, 52), 0.05).convert("RGBA")
+        for y in range(0, TILE, 4):
+            for x in range(TILE):
+                img.putpixel((x, y), (70, 70, 78, 255))
+        _arrow_on(img, (240, 200, 60), {0: 2, 1: 1, 2: 0, 3: 3}[facing])
+        return img
+    return gen
+
+
+def collector_top(rng):
+    img = _plate((96, 100, 110))(rng)
+    for x in range(3, 13):
+        for y in range(3, 13):
+            img.putpixel((x, y), (30, 30, 34, 255))
+    return img
+
+
+def smelter_front(rng):
+    img = _plate(COPPER)(rng)
+    for x in range(4, 12):
+        for y in range(7, 13):
+            img.putpixel((x, y), _shade((250, 140, 40), 1 + rng.uniform(-0.2, 0.2)) + (255,))
+    return img
+
+
+EXTRA_GENERATORS.update({
+    "wire_off": wire(False), "wire_on": wire(True), "switch_off": switch(False), "switch_on": switch(True),
+    "switch_side": _plate((110, 110, 116)), "button_top": button_top, "button_side": _plate((126, 126, 130)),
+    "power_cell": power_cell, "power_cell_top": power_cell_top, "pressure_plate": pressure_plate,
+    "light_sensor": light_sensor, "machine_side": _plate(), "machine_bottom": _plate((80, 82, 90), rivets=False),
+    "powered_lamp_off": powered_lamp(False), "powered_lamp_on": powered_lamp(True),
+    "gate_side": _plate((84, 88, 98)), "collector_top": collector_top, "collector_side": _plate((96, 100, 110)),
+    "smelter_top": _plate(COPPER), "smelter_front": smelter_front,
+})
+for _kind in GATE_SYMBOLS:
+    for _f in range(4):
+        EXTRA_GENERATORS[f"gate_{_kind}_{_f}"] = gate(_kind, _f)
+for _f in range(4):
+    EXTRA_GENERATORS[f"conveyor_{_f}"] = conveyor(_f)
+for _m, _base, _work in (("pusher", (150, 112, 70), "push"), ("breaker", (110, 110, 120), "teeth")):
+    for _f in range(6):
+        if _f < 4:
+            EXTRA_GENERATORS[f"{_m}_top_{_f}"] = machine_face(_base, "arrow", _f)
+            EXTRA_GENERATORS[f"{_m}_side_{_f}"] = machine_face(_base, None)
+            EXTRA_GENERATORS[f"{_m}_bottom_{_f}"] = machine_face(_base, None)
+        else:
+            up = _f == 4
+            EXTRA_GENERATORS[f"{_m}_top_{_f}"] = machine_face(_base, _work if up else None)
+            EXTRA_GENERATORS[f"{_m}_side_{_f}"] = machine_face(_base, "up", vertical="up" if up else "down")
+            EXTRA_GENERATORS[f"{_m}_bottom_{_f}"] = machine_face(_base, None if up else _work)
+
+
 GENERATORS = {name: EXTRA_GENERATORS.get(name) or globals()[name] for name in TILES}
 
 

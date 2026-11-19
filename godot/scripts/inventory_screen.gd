@@ -28,7 +28,7 @@ const BG := Color(0.11, 0.12, 0.14, 0.97)
 const PICKED := Color(1, 0.86, 0.3)
 const FAMILY_BG := Color(0.2, 0.3, 0.42, 0.95)
 const TAB_ICONS := {"natural": 1, "building": 8, "colored": 75, "plants": 53, "functional": 48,
-	"tools": 201, "food": 105, "materials": 106}
+	"machines": 1703, "tools": 201, "food": 105, "materials": 106}
 
 var hud: Hud
 var inv: Inventory

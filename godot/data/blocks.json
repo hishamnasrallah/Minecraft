@@ -580,6 +580,86 @@
   "neon_blue_X",
   "neon_blue_Y",
   "neon_blue_Z",
+  "wire_off",
+  "wire_on",
+  "switch_off",
+  "switch_side",
+  "switch_on",
+  "button_top",
+  "button_side",
+  "power_cell_top",
+  "power_cell",
+  "pressure_plate",
+  "light_sensor",
+  "machine_side",
+  "powered_lamp_off",
+  "powered_lamp_on",
+  "gate_not_0",
+  "gate_side",
+  "gate_not_1",
+  "gate_not_2",
+  "gate_not_3",
+  "gate_and_0",
+  "gate_and_1",
+  "gate_and_2",
+  "gate_and_3",
+  "gate_or_0",
+  "gate_or_1",
+  "gate_or_2",
+  "gate_or_3",
+  "gate_xor_0",
+  "gate_xor_1",
+  "gate_xor_2",
+  "gate_xor_3",
+  "gate_delay_0",
+  "gate_delay_1",
+  "gate_delay_2",
+  "gate_delay_3",
+  "pusher_top_0",
+  "pusher_side_0",
+  "pusher_bottom_0",
+  "breaker_top_0",
+  "breaker_side_0",
+  "breaker_bottom_0",
+  "pusher_top_1",
+  "pusher_side_1",
+  "pusher_bottom_1",
+  "breaker_top_1",
+  "breaker_side_1",
+  "breaker_bottom_1",
+  "pusher_top_2",
+  "pusher_side_2",
+  "pusher_bottom_2",
+  "breaker_top_2",
+  "breaker_side_2",
+  "breaker_bottom_2",
+  "pusher_top_3",
+  "pusher_side_3",
+  "pusher_bottom_3",
+  "breaker_top_3",
+  "breaker_side_3",
+  "breaker_bottom_3",
+  "pusher_top_4",
+  "pusher_side_4",
+  "pusher_bottom_4",
+  "breaker_top_4",
+  "breaker_side_4",
+  "breaker_bottom_4",
+  "pusher_top_5",
+  "pusher_side_5",
+  "pusher_bottom_5",
+  "breaker_top_5",
+  "breaker_side_5",
+  "breaker_bottom_5",
+  "conveyor_0",
+  "machine_bottom",
+  "conveyor_1",
+  "conveyor_2",
+  "conveyor_3",
+  "collector_top",
+  "collector_side",
+  "smelter_top",
+  "smelter_front",
   "iron_ingot",
   "copper_ingot",
   "tin_ingot",
@@ -668,7 +748,10 @@
   1007,
   1010,
   1011,
-  1012
+  1012,
+  1700,
+  1701,
+  1706
  ],
  "dyes": [
   [
@@ -12857,6 +12940,1116 @@
     319,
     319,
     319
+   ]
+  },
+  "1700": {
+   "name": "copper wire",
+   "tab": "machines",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 1700,
+   "shape": "carpet",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": true,
+   "logic": {
+    "kind": "wire",
+    "on": false
+   },
+   "tiles": [
+    320,
+    320,
+    320
+   ]
+  },
+  "1701": {
+   "name": "copper wire",
+   "tab": "machines",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 1700,
+   "shape": "carpet",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 3,
+   "creative": false,
+   "logic": {
+    "kind": "wire",
+    "on": true
+   },
+   "tiles": [
+    321,
+    321,
+    321
+   ]
+  },
+  "1702": {
+   "name": "switch",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1702,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "logic": {
+    "kind": "switch",
+    "on": false
+   },
+   "family": "power_sources",
+   "tiles": [
+    322,
+    323,
+    323
+   ]
+  },
+  "1703": {
+   "name": "switch",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1702,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "switch",
+    "on": true
+   },
+   "tiles": [
+    324,
+    323,
+    323
+   ]
+  },
+  "1704": {
+   "name": "push button",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1704,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "logic": {
+    "kind": "button"
+   },
+   "family": "power_sources",
+   "tiles": [
+    325,
+    326,
+    326
+   ]
+  },
+  "1705": {
+   "name": "power cell",
+   "tab": "machines",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1705,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 6,
+   "creative": true,
+   "logic": {
+    "kind": "cell"
+   },
+   "family": "power_sources",
+   "tiles": [
+    327,
+    328,
+    327
+   ]
+  },
+  "1706": {
+   "name": "pressure plate",
+   "tab": "machines",
+   "hardness": 0.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1706,
+   "shape": "carpet",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": true,
+   "logic": {
+    "kind": "plate"
+   },
+   "family": "power_sources",
+   "tiles": [
+    329,
+    329,
+    329
+   ]
+  },
+  "1707": {
+   "name": "light sensor",
+   "tab": "machines",
+   "hardness": 0.8,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1707,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "logic": {
+    "kind": "sensor"
+   },
+   "family": "power_sources",
+   "tiles": [
+    330,
+    331,
+    331
+   ]
+  },
+  "1708": {
+   "name": "powered lamp",
+   "tab": "machines",
+   "hardness": 0.4,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1708,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "logic": {
+    "kind": "lamp",
+    "on": false
+   },
+   "tiles": [
+    332,
+    332,
+    332
+   ]
+  },
+  "1709": {
+   "name": "powered lamp",
+   "tab": "machines",
+   "hardness": 0.4,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1708,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 15,
+   "creative": false,
+   "logic": {
+    "kind": "lamp",
+    "on": true
+   },
+   "tiles": [
+    333,
+    333,
+    333
+   ]
+  },
+  "1710": {
+   "name": "not gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1710,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "logic": {
+    "kind": "not",
+    "facing": 0
+   },
+   "family": "gates",
+   "tiles": [
+    334,
+    335,
+    335
+   ]
+  },
+  "1711": {
+   "name": "not gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1710,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "not",
+    "facing": 1
+   },
+   "tiles": [
+    336,
+    335,
+    335
+   ]
+  },
+  "1712": {
+   "name": "not gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1710,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "not",
+    "facing": 2
+   },
+   "tiles": [
+    337,
+    335,
+    335
+   ]
+  },
+  "1713": {
+   "name": "not gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1710,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "not",
+    "facing": 3
+   },
+   "tiles": [
+    338,
+    335,
+    335
+   ]
+  },
+  "1714": {
+   "name": "and gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1714,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "logic": {
+    "kind": "and",
+    "facing": 0
+   },
+   "family": "gates",
+   "tiles": [
+    339,
+    335,
+    335
+   ]
+  },
+  "1715": {
+   "name": "and gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1714,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "and",
+    "facing": 1
+   },
+   "tiles": [
+    340,
+    335,
+    335
+   ]
+  },
+  "1716": {
+   "name": "and gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1714,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "and",
+    "facing": 2
+   },
+   "tiles": [
+    341,
+    335,
+    335
+   ]
+  },
+  "1717": {
+   "name": "and gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1714,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "and",
+    "facing": 3
+   },
+   "tiles": [
+    342,
+    335,
+    335
+   ]
+  },
+  "1718": {
+   "name": "or gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1718,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "logic": {
+    "kind": "or",
+    "facing": 0
+   },
+   "family": "gates",
+   "tiles": [
+    343,
+    335,
+    335
+   ]
+  },
+  "1719": {
+   "name": "or gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1718,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "or",
+    "facing": 1
+   },
+   "tiles": [
+    344,
+    335,
+    335
+   ]
+  },
+  "1720": {
+   "name": "or gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1718,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "or",
+    "facing": 2
+   },
+   "tiles": [
+    345,
+    335,
+    335
+   ]
+  },
+  "1721": {
+   "name": "or gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1718,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "or",
+    "facing": 3
+   },
+   "tiles": [
+    346,
+    335,
+    335
+   ]
+  },
+  "1722": {
+   "name": "xor gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1722,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "logic": {
+    "kind": "xor",
+    "facing": 0
+   },
+   "family": "gates",
+   "tiles": [
+    347,
+    335,
+    335
+   ]
+  },
+  "1723": {
+   "name": "xor gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1722,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "xor",
+    "facing": 1
+   },
+   "tiles": [
+    348,
+    335,
+    335
+   ]
+  },
+  "1724": {
+   "name": "xor gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1722,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "xor",
+    "facing": 2
+   },
+   "tiles": [
+    349,
+    335,
+    335
+   ]
+  },
+  "1725": {
+   "name": "xor gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1722,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "xor",
+    "facing": 3
+   },
+   "tiles": [
+    350,
+    335,
+    335
+   ]
+  },
+  "1726": {
+   "name": "delay gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1726,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "logic": {
+    "kind": "delay",
+    "facing": 0
+   },
+   "family": "gates",
+   "tiles": [
+    351,
+    335,
+    335
+   ]
+  },
+  "1727": {
+   "name": "delay gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1726,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "delay",
+    "facing": 1
+   },
+   "tiles": [
+    352,
+    335,
+    335
+   ]
+  },
+  "1728": {
+   "name": "delay gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1726,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "delay",
+    "facing": 2
+   },
+   "tiles": [
+    353,
+    335,
+    335
+   ]
+  },
+  "1729": {
+   "name": "delay gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1726,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "delay",
+    "facing": 3
+   },
+   "tiles": [
+    354,
+    335,
+    335
+   ]
+  },
+  "1730": {
+   "name": "pusher",
+   "tab": "machines",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1730,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "logic": {
+    "kind": "pusher",
+    "facing": 0
+   },
+   "tiles": [
+    355,
+    356,
+    357
+   ]
+  },
+  "1736": {
+   "name": "breaker",
+   "tab": "machines",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1736,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "logic": {
+    "kind": "breaker",
+    "facing": 0
+   },
+   "tiles": [
+    358,
+    359,
+    360
+   ]
+  },
+  "1731": {
+   "name": "pusher",
+   "tab": "machines",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1730,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "pusher",
+    "facing": 1
+   },
+   "tiles": [
+    361,
+    362,
+    363
+   ]
+  },
+  "1737": {
+   "name": "breaker",
+   "tab": "machines",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1736,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "breaker",
+    "facing": 1
+   },
+   "tiles": [
+    364,
+    365,
+    366
+   ]
+  },
+  "1732": {
+   "name": "pusher",
+   "tab": "machines",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1730,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "pusher",
+    "facing": 2
+   },
+   "tiles": [
+    367,
+    368,
+    369
+   ]
+  },
+  "1738": {
+   "name": "breaker",
+   "tab": "machines",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1736,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "breaker",
+    "facing": 2
+   },
+   "tiles": [
+    370,
+    371,
+    372
+   ]
+  },
+  "1733": {
+   "name": "pusher",
+   "tab": "machines",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1730,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "pusher",
+    "facing": 3
+   },
+   "tiles": [
+    373,
+    374,
+    375
+   ]
+  },
+  "1739": {
+   "name": "breaker",
+   "tab": "machines",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1736,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "breaker",
+    "facing": 3
+   },
+   "tiles": [
+    376,
+    377,
+    378
+   ]
+  },
+  "1734": {
+   "name": "pusher",
+   "tab": "machines",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1730,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "pusher",
+    "facing": 4
+   },
+   "tiles": [
+    379,
+    380,
+    381
+   ]
+  },
+  "1740": {
+   "name": "breaker",
+   "tab": "machines",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1736,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "breaker",
+    "facing": 4
+   },
+   "tiles": [
+    382,
+    383,
+    384
+   ]
+  },
+  "1735": {
+   "name": "pusher",
+   "tab": "machines",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1730,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "pusher",
+    "facing": 5
+   },
+   "tiles": [
+    385,
+    386,
+    387
+   ]
+  },
+  "1741": {
+   "name": "breaker",
+   "tab": "machines",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1736,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "breaker",
+    "facing": 5
+   },
+   "tiles": [
+    388,
+    389,
+    390
+   ]
+  },
+  "1742": {
+   "name": "conveyor belt",
+   "tab": "machines",
+   "hardness": 0.8,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1742,
+   "shape": "slab",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "logic": {
+    "kind": "conveyor",
+    "facing": 0
+   },
+   "tiles": [
+    391,
+    331,
+    392
+   ]
+  },
+  "1743": {
+   "name": "conveyor belt",
+   "tab": "machines",
+   "hardness": 0.8,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1742,
+   "shape": "slab",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "conveyor",
+    "facing": 1
+   },
+   "tiles": [
+    393,
+    331,
+    392
+   ]
+  },
+  "1744": {
+   "name": "conveyor belt",
+   "tab": "machines",
+   "hardness": 0.8,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1742,
+   "shape": "slab",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "conveyor",
+    "facing": 2
+   },
+   "tiles": [
+    394,
+    331,
+    392
+   ]
+  },
+  "1745": {
+   "name": "conveyor belt",
+   "tab": "machines",
+   "hardness": 0.8,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1742,
+   "shape": "slab",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "conveyor",
+    "facing": 3
+   },
+   "tiles": [
+    395,
+    331,
+    392
+   ]
+  },
+  "1746": {
+   "name": "collector",
+   "tab": "machines",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1746,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "logic": {
+    "kind": "collector"
+   },
+   "container": true,
+   "tiles": [
+    396,
+    397,
+    392
+   ]
+  },
+  "1747": {
+   "name": "auto-smelter",
+   "tab": "machines",
+   "hardness": 2.0,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1747,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "logic": {
+    "kind": "smelter"
+   },
+   "container": true,
+   "tiles": [
+    398,
+    399,
+    392
    ]
   }
  }

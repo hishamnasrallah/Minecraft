@@ -198,6 +198,13 @@ func _ready() -> void:
 	drops.world = world
 	drops.hud = hud
 	add_child(drops)
+	power = Power.new(world)
+	world.on_edit = power.note
+	power.set_block = func(p: Vector3i, id: int) -> void: edit(p, id, true, false)
+	power.spawn_drop = func(st: Array, p: Vector3) -> void: drops.spawn(st, p)
+	power.break_drops = func(id: int) -> Array:
+		var d := Items.drop_for(id)
+		return [[d, 1]] if d != 0 else []
 
 	var layer := CanvasLayer.new()
 	layer.layer = 2
@@ -751,6 +758,17 @@ func use_block(pos: Vector3i) -> bool:
 	if id == 47:
 		open_screen(null, "furnace")
 		return true
+	match power.kind_of(id):
+		"switch":
+			edit(pos, 1703 if id == 1702 else 1702, true, false)
+			Sfx.play("click", -2.0, 0.8 if id == 1703 else 1.1)
+			buzz(20)
+			return true
+		"button":
+			power.press_button(pos)
+			Sfx.play("click", -2.0, 1.3)
+			buzz(20)
+			return true
 	if id == 62:
 		spawn_point = Vector3(pos.x, pos.y + 1.5, pos.z)
 		if world.time_of_day > 0.5 and world.time_of_day < 0.97:
@@ -760,6 +778,42 @@ func use_block(pos: Vector3i) -> bool:
 			hud.flash(I18n.t("spawn_set"))
 		return true
 	return false
+
+
+# ---------------------------------------------------------------- machines
+func _update_machines(delta: float) -> void:
+	if power.parts.is_empty():
+		return
+	var t0 := Time.get_ticks_usec()
+	var feet := Vector3i(floori(player.position.x + 0.5), floori(player.position.y - 0.4), floori(player.position.z + 0.5))
+	var pressed := {}
+	pressed[feet] = true
+	for a in wildlife.animals:
+		pressed[Vector3i(floori(a.pos.x + 0.5), floori(a.pos.y + 0.1), floori(a.pos.z + 0.5))] = true
+	power.pressed = pressed
+	power.is_day = world.time_of_day < 0.5
+	power.update(delta)
+	# conveyors carry the player and items standing on them
+	var below := feet + Vector3i(0, -1, 0)
+	for c in [feet, below]:
+		if power.parts.get(c, "") == "conveyor" and (player.is_on_floor() or player.velocity.y <= 0):
+			var d: Vector3i = Power.DIRS[power.facing_of(world.get_block(c.x, c.y, c.z))]
+			player.position += Vector3(d) * 2.2 * delta
+			break
+	for dr in drops.drops.duplicate():
+		var dp: Vector3 = dr["pos"]
+		var under := Vector3i(floori(dp.x + 0.5), floori(dp.y - 0.2 + 0.5), floori(dp.z + 0.5))
+		var k: String = power.parts.get(under, "")
+		if k == "conveyor":
+			var d: Vector3i = Power.DIRS[power.facing_of(world.get_block(under.x, under.y, under.z))]
+			dr["pos"] = dp + Vector3(d) * 2.2 * delta
+		elif k == "collector" and dr["age"] > 0.3:
+			var left = power.take_drop(under, dr["stack"])
+			if left == null:
+				drops._remove(dr)
+			else:
+				dr["stack"] = left
+	_perf("machines", Time.get_ticks_usec() - t0)
 
 
 # ---------------------------------------------------------------- farming and growing
@@ -908,6 +962,16 @@ func place_block() -> void:
 	if d["shape"] in ["cross", "torch"] and (below == 0 or not Blocks.solid[below]):
 		return                                 # plants and torches need ground
 	var id := item
+	if d.get("logic") is Dictionary and d["logic"].has("facing"):
+		# machines face away from you; pushers and breakers can also face up or down
+		var f := _facing()
+		var fy := player.forward().y
+		var six := power.kind_of(item) in ["pusher", "breaker"]
+		if six and fy > 0.75:
+			f = 4
+		elif six and fy < -0.75:
+			f = 5
+		id = item + f
 	match d["shape"]:
 		"stair":
 			id = item + _facing()
@@ -1095,6 +1159,7 @@ var _ready_frames := 0
 var tutorial: Tutorial
 var drops: Drops
 var weather: Weather
+var power: Power
 var ghost: MeshInstance3D           # where the held block would go
 var _tut_last = null              # [yaw, pitch, position] last frame, for the tutorial
 
@@ -1243,7 +1308,7 @@ func _process(delta: float) -> void:
 			spawned = true
 			Boot.stage("playing")
 			var args := Array(OS.get_cmdline_user_args())
-			var testing := args.any(func(a): return a.begins_with("--shot") or a in ["--selftest", "--gloomtest", "--menutest"])
+			var testing := args.any(func(a): return a.begins_with("--shot") or a in ["--selftest", "--gloomtest", "--menutest", "--machines"])
 			if "--tutorial" in args or (not testing and not I18n.settings.get("tutorial_done", false)):
 				start_tutorial()
 			player.set_physics_process(not screen.visible and not health.dead)
@@ -1269,6 +1334,7 @@ func _process(delta: float) -> void:
 	_update_tutorial()
 	if spawned:
 		_update_growing(delta)
+		_update_machines(delta)
 	var t4 := Time.get_ticks_usec()
 	if spawned and hud.minimap.visible:
 		hud.minimap.update_map(player.position, player.forward(), spawn_point)
@@ -1291,6 +1357,34 @@ func _process(delta: float) -> void:
 			get_tree().quit()
 	if "--selftest" in OS.get_cmdline_user_args() and spawned:
 		_selftest_step()
+	if "--machines" in OS.get_cmdline_user_args() and spawned and not _st.has("machines"):
+		# testing: a small machine demo in front of the player, for screenshots
+		_st["machines"] = true
+		var f := player.forward()
+		var o := Vector3i(floori(player.position.x + f.x * 8 + 0.5), floori(player.position.y) + 1, floori(player.position.z + f.z * 8 + 0.5))
+		for x in range(-4, 5):
+			for z in range(-1, 4):
+				for y in range(0, 4):
+					edit(o + Vector3i(x, y, z), 0, true, false)
+				edit(o + Vector3i(x, -1, z), 41, true, false)
+		edit(o + Vector3i(-4, 0, 0), 1703)                    # switch on
+		for x in range(-3, 0):
+			edit(o + Vector3i(x, 0, 0), 1700)
+		edit(o + Vector3i(0, 0, 0), 1708)                     # lamp
+		edit(o + Vector3i(2, 0, 0), 1714)                     # and gate
+		edit(o + Vector3i(4, 0, 0), 1705)                     # power cell
+		edit(o + Vector3i(-4, 0, 2), 1731)                    # pusher
+		edit(o + Vector3i(-2, 0, 2), 1736)                    # breaker
+		for x in range(0, 4):
+			edit(o + Vector3i(x, -1, 2), 1743)                # conveyor
+		edit(o + Vector3i(4, -1, 2), 1746)                    # collector
+		edit(o + Vector3i(2, 0, 3), 1747)                     # smelter
+		edit(o + Vector3i(0, 0, 3), 1707)                     # light sensor
+		edit(o + Vector3i(-1, 0, 3), 1706)                    # plate
+		drops.spawn([25, 3], Vector3(o + Vector3i(0, 0, 2)))
+		set_flying(true)
+		player.position.y += 5
+		player.look(Vector2(0, 0.55))
 	if "--gloomtest" in OS.get_cmdline_user_args() and spawned and not _st.has("gloom"):
 		# testing: night, and a gloom a few blocks in front of the player
 		world.time_of_day = 0.75

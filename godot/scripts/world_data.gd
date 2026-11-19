@@ -40,6 +40,7 @@ var TREES: Array               # kind index -> [log, leaves, trunk height, [[dy,
 var FLOWERS: Array
 var ORE_LIMIT: float
 var G := {}
+var on_edit: Callable          # main thread only: told about every edit (machines keep a registry)
 var ORES: Array                # private copies, so a generation thread shares nothing
 var TRANSPARENT: PackedByteArray                    # generation block ids (SLATE, LIMESTONE, bushes, ...)
 
@@ -143,6 +144,8 @@ func _keys_around(cells: Array) -> Array:
 
 func _edit(x: int, y: int, z: int, id: int) -> void:
 	_put(x, y, z, id)
+	if on_edit.is_valid():
+		on_edit.call(Vector3i(x, y, z), id)
 	var key := chunk_key(x, z)
 	_columns.erase(key)
 	var edits: Dictionary = changes.get(key, {})
