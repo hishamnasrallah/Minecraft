@@ -80,7 +80,7 @@ func test_creative_menu() -> String:
 	var stairs := Items.creative_items("plants", "stairs")
 	if stairs.size() != Items.families["stairs"].size():
 		return "search should cover every tab: %d" % stairs.size()
-	if Items.creative_items("colored").size() != 6 * 16 + 1:
+	if Items.creative_items("colored").size() != 6 * 16 + 1 + 52:     # + two colours of neon letters
 		return "colours: %d" % Items.creative_items("colored").size()
 	return ""
 

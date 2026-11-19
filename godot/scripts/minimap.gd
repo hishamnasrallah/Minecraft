@@ -7,7 +7,7 @@ extends Control
 
 const R := 16                        # blocks from the centre to the edge
 const N := R * 2 + 1
-const ROWS_PER_FRAME := 9
+const ROWS_PER_FRAME := 3
 
 var world: WorldData
 var center := Vector2i.ZERO          # world x, z of the middle
@@ -75,14 +75,18 @@ func update_map(player_pos: Vector3, forward: Vector3, home_pos: Vector3) -> voi
 	queue_redraw()
 
 
+## The top block of a column from the world's per-chunk height cache (2 lookups, no scan).
 func _surface(x: int, z: int) -> Vector2i:
-	if not world.is_loaded(x, z):
+	var c = world.column(x, z)
+	if c == null:
 		return Vector2i(-1, 0)
-	for y in range(WorldData.H - 1, -1, -1):
-		var b := world.get_block(x, y, z)
-		if b != 0:
-			return Vector2i(b, y)
-	return Vector2i(-1, 0)
+	var top: int = c[0]
+	var water: int = c[1]
+	if water > top:
+		return Vector2i(WorldData.WATER, water)
+	if top < 0:
+		return Vector2i(-1, 0)
+	return Vector2i(world.get_block(x, top, z), top)
 
 
 func _scan_row(row: int) -> void:

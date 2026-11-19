@@ -39,7 +39,9 @@ var TREE_KINDS: Array          # kind index -> name ("oak", "birch", "pine", "ma
 var TREES: Array               # kind index -> [log, leaves, trunk height, [[dy, radius, reach], ...]]
 var FLOWERS: Array
 var ORE_LIMIT: float
-var G := {}                    # generation block ids (SLATE, LIMESTONE, bushes, ...)
+var G := {}
+var ORES: Array                # private copies, so a generation thread shares nothing
+var TRANSPARENT: PackedByteArray                    # generation block ids (SLATE, LIMESTONE, bushes, ...)
 
 
 func _init(world_seed: int = -1) -> void:
@@ -49,7 +51,9 @@ func _init(world_seed: int = -1) -> void:
 	TREE_CHANCE = float(Blocks.C["TREE_CHANCE"])
 	CAVE_THRESHOLD = float(Blocks.C["CAVE_THRESHOLD"])
 	CAVE_GRID = int(Blocks.C["CAVE_GRID"])
-	TREE_KINDS = Blocks.C["TREE_KINDS"]
+	TREE_KINDS = Blocks.C["TREE_KINDS"].duplicate(true)
+	ORES = Blocks.ores.duplicate(true)
+	TRANSPARENT = Blocks.transparent.duplicate()
 	TREES = []
 	for kind in TREE_KINDS:
 		var t = Blocks.C["TREES"][kind]
@@ -297,7 +301,7 @@ func ensure_chunk(key: Vector2i) -> bool:
 func _rock(x: int, y: int, z: int) -> int:
 	var r := VNoise.hash3(x >> 1, y >> 1, z >> 1, seed + 55)
 	if r < ORE_LIMIT:
-		for ore in Blocks.ores:
+		for ore in ORES:
 			if r < float(ore[1]):
 				if y <= int(ore[2]) and VNoise.hash3(x, y, z, seed + 56) < 0.6:
 					return int(ore[0])
@@ -498,7 +502,7 @@ func column_info(key: Vector2i) -> Array:
 					continue
 				if b == WATER:
 					water = maxi(water, y)
-				elif Blocks.transparent[b] == 0:
+				elif TRANSPARENT[b] == 0:
 					top = y
 					break
 			tops[lx * CS + lz] = top

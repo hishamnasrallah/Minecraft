@@ -2,8 +2,8 @@ class_name TouchControls
 extends Control
 ## Phone controls, all multi-touch:
 ##  - left side: a joystick appears where the finger lands (move)
-##  - right side: drag to look around; tap a block to place / use / break it, press and hold
-##    on a block to break it (aimed at the finger, not the screen centre)
+##  - right side: drag to look around; a tap places / uses / hits what the crosshair points
+##    at, pressing and holding breaks it (keep dragging to sweep along)
 ##  - buttons: jump, items, ...; the old break / place buttons are an option in the settings
 ##  - taps on the hotbar are passed to the HUD
 ## Every finger is tracked by its index, so you can walk, look and press buttons at once.
@@ -230,13 +230,11 @@ func _input(event: InputEvent) -> void:
 			_joy_knob.position = _joy_center + offset - _joy_knob.size / 2
 			move = Vector2(offset.x, -offset.y) / JOY_RADIUS
 		elif event.index == _look_finger:
-			if aiming:
-				aim_point = event.position          # a held finger slides the aim, not the view
-			else:
-				if event.position.distance_to(_look_start) > TAP_SLOP:
-					_look_moved = true
-				if _look_moved:
-					look_delta += event.relative * LOOK_SENSITIVITY
+			# breaking or not, dragging turns the view (the crosshair is what you aim with)
+			if event.position.distance_to(_look_start) > TAP_SLOP:
+				_look_moved = true
+			if _look_moved or aiming:
+				look_delta += event.relative * LOOK_SENSITIVITY
 		get_viewport().set_input_as_handled()
 
 

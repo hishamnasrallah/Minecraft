@@ -29,7 +29,7 @@ def test_creative_menu_lists_everything_once_with_tabs_and_search():
     assert creative_items("all") == CREATIVE_ITEMS
     colored = creative_items("colored")
     # wool, stained glass, concrete, terracotta (+ plain), glazed tiles, carpets
-    assert len(colored) == 6 * len(DYES) + 1 and set(WOOL) <= set(colored)
+    assert len(colored) == 6 * len(DYES) + 1 + 52 and set(WOOL) <= set(colored)   # + 2 x 26 neon letters
     stairs = creative_items("plants", "stairs")          # search ignores the tab
     assert len(stairs) == len(STAIRS) and all("stairs" in ITEMS[i] for i in stairs)
     assert creative_items("all", "RED wool") == [WOOL[5]]

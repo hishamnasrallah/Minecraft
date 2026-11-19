@@ -56,14 +56,66 @@ static func _static_setup() -> void:
 			if n.y != 0:
 				uv.append(Vector2(c.x + 0.5, c.z + 0.5))
 			else:
-				uv.append(Vector2((c.z if n.x != 0 else c.x) + 0.5, c.y + 0.5))
+				# u runs left-to-right as seen from outside the face, so text reads the right way
+				var u: float = (c.z if n.x != 0 else c.x) + 0.5
+				if n.x > 0 or n.z < 0:
+					u = 1.0 - u
+				uv.append(Vector2(u, c.y + 0.5))
 		face_corners.append(tri)
 		face_uvs.append(uv)
+
+
+# private copies (made on the main thread in _init): a worker thread never touches an
+# Array, Dictionary or table that another thread can see
+var faces: Array
+var ao_levels: PackedFloat32Array
+var quad_index: PackedInt32Array
+var corners_a: PackedInt32Array
+var corners_b: PackedInt32Array
+var corners: Array                # face_corners
+var corner_uvs: Array             # face_uvs
+var shapes: PackedStringArray
+var transparent: PackedByteArray
+var translucent: PackedByteArray
+var emit: PackedByteArray
+var tile_top: PackedInt32Array
+var tile_side: PackedInt32Array
+var tile_bottom: PackedInt32Array
+var facing: PackedByteArray
+var door_axis: PackedByteArray
+var door_open: PackedByteArray
+var atlas_cols: int
 
 
 func _init(w: WorldData) -> void:
 	_static_setup()
 	world = w
+	faces = FACES.duplicate(true)
+	ao_levels = PackedFloat32Array(AO_LEVELS)
+	quad_index = PackedInt32Array(QUAD_INDEX)
+	corners_a = PackedInt32Array(CORNERS_A)
+	corners_b = PackedInt32Array(CORNERS_B)
+	corners = face_corners.duplicate(true)
+	corner_uvs = face_uvs.duplicate(true)
+	shapes = Blocks.shapes.duplicate()
+	transparent = Blocks.transparent.duplicate()
+	translucent = Blocks.translucent.duplicate()
+	emit = Blocks.emit.duplicate()
+	tile_top = Blocks.tile_top.duplicate()
+	tile_side = Blocks.tile_side.duplicate()
+	tile_bottom = Blocks.tile_bottom.duplicate()
+	facing = Blocks.facing.duplicate()
+	door_axis = Blocks.door_axis.duplicate()
+	door_open = Blocks.door_open.duplicate()
+	atlas_cols = Blocks.atlas_cols
+
+
+func _uv(tile: int, u: float, v: float) -> Vector2:
+	var col := tile % atlas_cols
+	var row := tile / atlas_cols
+	u = 0.01 + u * 0.98
+	v = 0.01 + v * 0.98
+	return Vector2((col + u) / atlas_cols, (row + 1.0 - v) / atlas_cols)
 
 
 # ---------------------------------------------------------------- light
@@ -113,7 +165,7 @@ func compute_light(key: Vector2i) -> void:
 			var e: Dictionary = world.emitters.get(Vector2i(key.x - 1 + dx, key.y - 1 + dz), {})
 			for p in e:
 				# +1: the lamp cell itself, so its neighbours get the lamp's level
-				var level: int = mini(Blocks.emit[world.get_block(p.x, p.y, p.z)] + 1, 15)
+				var level: int = mini(emit[world.get_block(p.x, p.y, p.z)] + 1, 15)
 				lq.append((((p.x - x_lo) * H + p.y) * R + p.z - z_lo) * 16 + level)
 	_spread(lq, false)
 
@@ -146,7 +198,7 @@ func _spread(q: PackedInt32Array, is_sky: bool) -> void:
 			if is_sky and ny > tops[nx * R + nz]:
 				continue                      # already fully lit by the open sky
 			var b := world.get_block(x_lo + nx, ny, z_lo + nz)
-			if b != 0 and Blocks.transparent[b] == 0:
+			if b != 0 and transparent[b] == 0:
 				continue
 			var new_level := level - (2 if b == WATER else 1)
 			var ni := (nx * H + ny) * R + nz
@@ -162,19 +214,19 @@ func _spread(q: PackedInt32Array, is_sky: bool) -> void:
 
 func _opaque(x: int, y: int, z: int) -> bool:
 	var b := world.get_block(x, y, z)
-	return b != 0 and Blocks.transparent[b] == 0
+	return b != 0 and transparent[b] == 0
 
 
 ## 0..3 for each of the face's 4 corners: how open the space around that corner is.
 func _corner_ao(f: int, x: int, y: int, z: int) -> Array:
-	var n: Vector3i = FACES[f][0]
+	var n: Vector3i = faces[f][0]
 	var axes := []
 	for a in 3:
 		if n[a] == 0:
 			axes.append(a)
 	var out := []
 	for q in 4:
-		var c: Vector3 = face_corners[f][QUAD_INDEX[q]]
+		var c: Vector3 = corners[f][quad_index[q]]
 		var d1 := Vector3i.ZERO
 		var d2 := Vector3i.ZERO
 		d1[axes[0]] = 1 if c[axes[0]] > 0 else -1
@@ -225,48 +277,47 @@ func build(key: Vector2i) -> Dictionary:
 					continue
 				var x := x0 + lx
 				var z := z0 + lz
-				if Blocks.shape[id] != "cube":
+				if shapes[id] != "cube":
 					_shape(out, id, x, y, z)
 					continue
 				var water := id == WATER
-				var g: Group = out["water"] if water else (out["translucent"] if Blocks.translucent[id] else out["solid"])
+				var g: Group = out["water"] if water else (out["translucent"] if translucent[id] else out["solid"])
 				var lowered := water and world.get_block(x, y + 1, z) != WATER
 				for f in 6:
-					var n: Vector3i = FACES[f][0]
+					var n: Vector3i = faces[f][0]
 					var nb := world.get_block(x + n.x, y + n.y, z + n.z)
 					if water:
-						if nb == WATER or (nb != 0 and Blocks.transparent[nb] == 0):
+						if nb == WATER or (nb != 0 and transparent[nb] == 0):
 							continue
-					elif (nb != 0 and (Blocks.transparent[nb] == 0 or nb == id)) or (n.y == -1 and y == 0):
+					elif (nb != 0 and (transparent[nb] == 0 or nb == id)) or (n.y == -1 and y == 0):
 						continue
 					var l := light_at(x + n.x, y + n.y, z + n.z)
-					var lmp := 15 if Blocks.emit[id] else l.y
-					var col := Color(l.x / 15.0, lmp / 15.0, FACES[f][1], 1.0)
-					var tile := Blocks.tile_top[id] if n.y > 0 else (Blocks.tile_bottom[id] if n.y < 0 else Blocks.tile_side[id])
+					var lmp := 15 if emit[id] else l.y
+					var col := Color(l.x / 15.0, lmp / 15.0, faces[f][1], 1.0)
+					var tile := tile_top[id] if n.y > 0 else (tile_bottom[id] if n.y < 0 else tile_side[id])
 					# ambient occlusion: each corner gets darker for every solid block around it
 					# (water is left flat). The quad is split along the brighter diagonal so the
 					# shading stays smooth instead of showing a crease.
 					var ao := [3, 3, 3, 3] if water else _corner_ao(f, x, y, z)
-					var order := CORNERS_A
+					var order := corners_a
 					if ao[0] + ao[2] < ao[1] + ao[3]:
-						order = CORNERS_B
+						order = corners_b
 					for k in 6:
 						var q: int = order[k]
-						var i: int = QUAD_INDEX[q]
-						var c: Vector3 = face_corners[f][i]
+						var i: int = quad_index[q]
+						var c: Vector3 = corners[f][i]
 						if lowered and c.y > 0:
 							c.y = 0.4
 						g.verts.append(Vector3(x, y, z) + c)
-						g.colors.append(Color(col.r, col.g, col.b * AO_LEVELS[ao[q]], 1.0))
-						var uv: Vector2 = face_uvs[f][i]
-						g.uvs.append(Blocks.tile_uv(tile, uv.x, uv.y))
+						g.colors.append(Color(col.r, col.g, col.b * ao_levels[ao[q]], 1.0))
+						var uv: Vector2 = corner_uvs[f][i]
+						g.uvs.append(_uv(tile, uv.x, uv.y))
 	return out
 
 
 ## The boxes (min, max within -0.5..0.5) a non-cube block is made of.
 func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
-	var d: Dictionary = Blocks.defs[id]
-	match d["shape"]:
+	match shapes[id]:
 		"slab":
 			return [[Vector3(-.5, -.5, -.5), Vector3(.5, 0, .5)]]
 		"carpet":
@@ -274,7 +325,7 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 		"stair":
 			var uppers := [[Vector3(-.5, 0, 0), Vector3(.5, .5, .5)], [Vector3(0, 0, -.5), Vector3(.5, .5, .5)],
 				[Vector3(-.5, 0, -.5), Vector3(.5, .5, 0)], [Vector3(-.5, 0, -.5), Vector3(0, .5, .5)]]
-			return [[Vector3(-.5, -.5, -.5), Vector3(.5, 0, .5)], uppers[int(d["facing"])]]
+			return [[Vector3(-.5, -.5, -.5), Vector3(.5, 0, .5)], uppers[facing[id]]]
 		"bed":
 			return [[Vector3(-.5, -.5, -.5), Vector3(.5, .06, .5)]]
 		"torch":
@@ -282,17 +333,16 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 		"ladder":
 			var sides := [[Vector3(-.5, -.5, .42), Vector3(.5, .5, .5)], [Vector3(.42, -.5, -.5), Vector3(.5, .5, .5)],
 				[Vector3(-.5, -.5, -.5), Vector3(.5, .5, -.42)], [Vector3(-.5, -.5, -.5), Vector3(-.42, .5, .5)]]
-			return [sides[int(d["facing"])]]
+			return [sides[facing[id]]]
 		"door":
-			var door: Dictionary = d["door"]
-			if int(door["axis"]) == 0:
-				return [[Vector3(-.5, -.5, -.5), Vector3(-.32, .5, .5)]] if door["open"] else [[Vector3(-.5, -.5, -.09), Vector3(.5, .5, .09)]]
-			return [[Vector3(-.5, -.5, -.5), Vector3(.5, .5, -.32)]] if door["open"] else [[Vector3(-.09, -.5, -.5), Vector3(.09, .5, .5)]]
+			if door_axis[id] == 0:
+				return [[Vector3(-.5, -.5, -.5), Vector3(-.32, .5, .5)]] if door_open[id] else [[Vector3(-.5, -.5, -.09), Vector3(.5, .5, .09)]]
+			return [[Vector3(-.5, -.5, -.5), Vector3(.5, .5, -.32)]] if door_open[id] else [[Vector3(-.09, -.5, -.5), Vector3(.09, .5, .5)]]
 		"fence":
 			var boxes := [[Vector3(-.125, -.5, -.125), Vector3(.125, .5, .125)]]
 			for dd in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 				var nb := world.get_block(x + dd.x, y, z + dd.y)
-				if nb == id or (nb != 0 and Blocks.transparent[nb] == 0):
+				if nb == id or (nb != 0 and transparent[nb] == 0):
 					for ys in [[.1, .32], [-.25, -.05]]:
 						if dd.x != 0:
 							var a := .125 if dd.x > 0 else -.5
@@ -308,13 +358,13 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 
 func _shape(out: Dictionary, id: int, x: int, y: int, z: int) -> void:
 	var l := light_at(x, y, z)
-	var lmp := 15 if Blocks.emit[id] else l.y
-	var shape: String = Blocks.shape[id]
+	var lmp := 15 if emit[id] else l.y
+	var shape: String = shapes[id]
 	var origin := Vector3(x, y, z)
 	if shape == "cross":                          # two crossed, double-sided quads
 		var g: Group = out["plants"]
 		var col := Color(l.x / 15.0, lmp / 15.0, 0.9, 1.0)
-		var tile := Blocks.tile_side[id]
+		var tile := tile_side[id]
 		for diag in [[Vector2(-.45, -.45), Vector2(.45, .45)], [Vector2(-.45, .45), Vector2(.45, -.45)]]:
 			var a: Vector2 = diag[0]
 			var b: Vector2 = diag[1]
@@ -324,24 +374,24 @@ func _shape(out: Dictionary, id: int, x: int, y: int, z: int) -> void:
 				for i in order:
 					g.verts.append(origin + quad[i])
 					g.colors.append(col)
-					g.uvs.append(Blocks.tile_uv(tile, quv[i].x, quv[i].y))
+					g.uvs.append(_uv(tile, quv[i].x, quv[i].y))
 		return
 	var g: Group = out["plants"] if shape in ["ladder", "torch", "carpet"] else out["solid"]   # plants: no collision
 	for box in shape_boxes(id, x, y, z):
 		var lo: Vector3 = box[0]
 		var hi: Vector3 = box[1]
 		for f in 6:
-			var n: Vector3i = FACES[f][0]
+			var n: Vector3i = faces[f][0]
 			var axis := 0 if n.x != 0 else (1 if n.y != 0 else 2)
 			var edge := hi[axis] == 0.5 if n[axis] > 0 else lo[axis] == -0.5
 			if edge:
 				var nb := world.get_block(x + n.x, y + n.y, z + n.z)
-				if nb != 0 and Blocks.transparent[nb] == 0:
+				if nb != 0 and transparent[nb] == 0:
 					continue                      # flush against an opaque block
-			var tile := Blocks.tile_top[id] if n.y > 0 else (Blocks.tile_bottom[id] if n.y < 0 else Blocks.tile_side[id])
-			var col := Color(l.x / 15.0, lmp / 15.0, FACES[f][1], 1.0)
+			var tile := tile_top[id] if n.y > 0 else (tile_bottom[id] if n.y < 0 else tile_side[id])
+			var col := Color(l.x / 15.0, lmp / 15.0, faces[f][1], 1.0)
 			for i in 6:
-				var c: Vector3 = face_corners[f][i]
+				var c: Vector3 = corners[f][i]
 				var p := Vector3(lo.x if c.x < 0 else hi.x, lo.y if c.y < 0 else hi.y, lo.z if c.z < 0 else hi.z)
 				g.verts.append(origin + p)
 				g.colors.append(col)
@@ -350,4 +400,4 @@ func _shape(out: Dictionary, id: int, x: int, y: int, z: int) -> void:
 				if n.y == 0:
 					u = (p.z if n.x != 0 else p.x) + .5
 					v = p.y + .5
-				g.uvs.append(Blocks.tile_uv(tile, u, v))
+				g.uvs.append(_uv(tile, u, v))

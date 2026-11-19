@@ -122,11 +122,31 @@ def export_fixtures():
     return out
 
 
+def export_name_signs():
+    """Ready-made neon name signs in the schematics library (letters on a black backing)."""
+    import schematics
+    black = blocks.CONCRETE[3]
+    for word, colour in (("TALIA", "pink"), ("HISHAM", "blue"), ("LAYAN", "pink"), ("ZAINA", "blue")):
+        clip = {}
+        for i, letter in enumerate(word):
+            clip[(i + 1, 1, 0)] = blocks.NEON[(colour, letter)]
+        for x in range(len(word) + 2):           # a black frame behind and around the letters
+            for y in range(3):
+                clip[(x, y, 1)] = black
+                if y != 1 or x in (0, len(word) + 1):
+                    clip.setdefault((x, y, 0), black)
+        data = schematics.to_data(clip, word.lower())
+        for folder in (ROOT / "schematics", OUT / "schematics"):
+            folder.mkdir(exist_ok=True)
+            (folder / f"{word.lower()}.json").write_text(json.dumps(data, separators=(",", ":")))
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "blocks.json").write_text(json.dumps(export_blocks(), indent=1))
     (OUT / "items.json").write_text(json.dumps(export_items(), indent=1))
     (OUT / "i18n.json").write_text(json.dumps(i18n.export(), indent=1, ensure_ascii=False))
+    export_name_signs()
     atlas = generate_atlas()
     atlas.save(OUT / "atlas.png")
     import item_icons  # noqa: E402

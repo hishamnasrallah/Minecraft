@@ -19,6 +19,7 @@ signal time_pressed(value: float)
 signal freeze_pressed
 signal message(text: String)
 signal drop_stack(stack: Array)
+signal weather_pressed(kind: String)
 
 const SLOT := 60.0
 const GAP := 4.0
@@ -241,6 +242,8 @@ func _ready() -> void:
 		var tb := _button("", func(): time_pressed.emit(t[1]), 48, t[0])
 		tb.tooltip_text = I18n.t(t[0])
 		_creative_tools.add_child(tb)
+	for w in ["clear", "rain"]:
+		_creative_tools.add_child(_button(I18n.t("weather_" + w), func(): weather_pressed.emit(w), 0))
 	var fz := _button("", func(): freeze_pressed.emit(), 48, "freeze")
 	fz.tooltip_text = I18n.t("freeze")
 	_creative_tools.add_child(fz)

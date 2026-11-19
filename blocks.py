@@ -326,6 +326,17 @@ for _crop, _base, _seed, _ripe, _bonus in (("wheat", 971, SEEDS, WHEAT_ITEM, [SE
 PLANT_ON_FARMLAND = {SEEDS: CROPS["wheat"][0], CARROT: CROPS["carrots"][0]}   # item -> crop stage 0
 
 
+# ---------------------------------------------------------------- neon letters
+# glowing letter blocks A-Z in two colours, for signs and names
+NEON_COLORS = [("pink", (255, 70, 190)), ("blue", (60, 210, 255))]
+NEON = {}            # (colour, letter) -> id
+for _c, (_cname, _rgb) in enumerate(NEON_COLORS):
+    for _i, _letter in enumerate("ABCDEFGHIJKLMNOPQRSTUVWXYZ"):
+        NEON[(_cname, _letter)] = block(1600 + _c * 32 + _i, f"{_cname} neon {_letter}", f"neon_{_cname}_{_letter}",
+                                        COLORED, 0.4, emit=11, neon=_rgb, letter=_letter,
+                                        family=f"neon_{_cname}")
+
+
 # ---------------------------------------------------------------- derived lookups
 BLOCKS = {i: d["name"] for i, d in BLOCK_DEFS.items()}
 BLOCK_TILES = {i: d["tiles"] for i, d in BLOCK_DEFS.items()}

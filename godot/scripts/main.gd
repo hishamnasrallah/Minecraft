@@ -184,6 +184,16 @@ func _ready() -> void:
 	hud.respawn_pressed.connect(respawn)
 
 	hud.minimap.world = world
+	weather = Weather.new()
+	add_child(weather)
+	weather.column_top = func(x: int, z: int) -> int:
+		return world.top_y(x, z) if world.is_loaded(x, z) else 0   # never generate a chunk for rain
+	weather.load_data(world.player_data.get("weather", {}))
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--weather="):              # testing: start in this weather, fully
+			weather.set_weather(a.substr(10))
+			weather.rain_amount = 1.0 if a.ends_with("rain") else 0.0
+			weather.cloud_amount = 0.0 if a.ends_with("clear") else 1.0
 	drops = Drops.new()
 	drops.world = world
 	drops.hud = hud
@@ -225,6 +235,7 @@ func _ready() -> void:
 	screen.time_pressed.connect(func(v): world.time_of_day = v)
 	screen.freeze_pressed.connect(func(): time_speed = 0.0 if time_speed != 0.0 else 1.0; hud.flash(I18n.t("time_frozen") if time_speed == 0.0 else I18n.t("time_running")))
 	screen.message.connect(hud.flash)
+	screen.weather_pressed.connect(func(k): weather.set_weather(k); hud.flash(I18n.t("weather_" + k)))
 	screen.drop_stack.connect(func(st):
 		var f := player.forward()
 		drops.spawn(st, player.eye() + f * 0.5 - Vector3(0, 0.3, 0), f * 5.0 + Vector3(0, 2.0, 0), 1.5))
@@ -303,7 +314,7 @@ func _wire_cube(color: Color) -> MeshInstance3D:
 
 # ---------------------------------------------------------------- modes and menus
 func _refresh_mode() -> void:
-	touch.show_button("fly", creative)
+	touch.show_button("fly", true)            # in survival it says flying is for creative
 	touch.show_button("build", creative)
 	touch.show_button("up", creative and player.flying)
 	touch.show_button("down", creative and player.flying)
@@ -511,6 +522,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_F5:
 				save_game()
 				hud.flash(I18n.t("saved"))
+			KEY_Y:
+				weather.set_weather({"clear": "cloudy", "cloudy": "rain", "rain": "clear"}[weather.kind])
+				hud.flash(I18n.t("weather_" + {"clear": "cloudy", "cloudy": "rain", "rain": "clear"}[weather.kind]))
 			KEY_T:
 				time_speed = 40.0 if time_speed != 40.0 else 1.0
 				hud.flash(I18n.f("time_fast", int(time_speed)))
@@ -597,13 +611,13 @@ func target(hit_water := false) -> Dictionary:
 	return world.raycast(player.eye(), aim_dir(), reach(), hit_water)
 
 
-## A tap on the world (touch): use doors / chests / beds, place the held block, eat,
+## A tap anywhere on the view (touch) acts on the block under the crosshair: use doors /
+## chests / beds, place the held block, eat,
 ## or else hit what is there (instant in creative and for soft blocks like flowers).
 func tap_world(pos: Vector2) -> void:
 	if health.dead or not spawned:
 		return
-	_aim_screen = pos
-	var animal = looked_at_animal()
+	var animal = looked_at_animal()        # the crosshair decides, not where the finger tapped
 	var item := inv.item_at(selected)
 	var hit := target()
 	if animal != null:
@@ -619,7 +633,6 @@ func tap_world(pos: Vector2) -> void:
 			break_at(hit["pos"])
 		else:
 			hud.flash(I18n.t("hold_to_break"))
-	_aim_screen = null
 
 
 ## The animal in the crosshair if it is closer than the block behind it.
@@ -973,7 +986,7 @@ func _update_mining(delta: float) -> void:
 	# ghost of the held block (with a crosshair; on touch the finger shows where it goes)
 	var held_item := inv.item_at(selected)
 	var ghost_pos: Vector3i = pos + hit["normal"]
-	ghost.visible = (not use_touch or touch.classic) and Items.placeable.has(held_item) and not held_item in [WorldData.WATER] \
+	ghost.visible = Items.placeable.has(held_item) and not held_item in [WorldData.WATER] \
 		and _replaceable(ghost_pos) and not _overlaps_player(ghost_pos, held_item)
 	if ghost.visible:
 		ghost.position = Vector3(ghost_pos)
@@ -1078,6 +1091,7 @@ var _last_step_pos = null
 var _ready_frames := 0
 var tutorial: Tutorial
 var drops: Drops
+var weather: Weather
 var ghost: MeshInstance3D           # where the held block would go
 var _tut_last = null              # [yaw, pitch, position] last frame, for the tutorial
 
@@ -1187,12 +1201,14 @@ func _update_sky(delta: float) -> void:
 	var day := clampf((sun_height + 0.15) / 0.45, 0, 1)
 	var dusk := clampf(1 - absf(sun_height) / 0.35, 0, 1)
 	var sky_color := NIGHT_SKY.lerp(DAY_SKY, day).lerp(DUSK_SKY, dusk * 0.7 * maxf(day, 0.5))
+	sky_color = weather.tint_sky(sky_color)
 	env.background_color = sky_color
 	env.fog_light_color = sky_color
 	var reach_m := chunks.render_distance * 16.0
 	env.fog_depth_begin = reach_m * 0.55
 	env.fog_depth_end = reach_m * 0.95
-	daylight = 0.16 + 0.84 * day
+	weather.update(delta, player.position, 0.16 + 0.84 * day)
+	daylight = (0.16 + 0.84 * day) * (1.0 - weather.sky_dim())
 	var tint := Vector3(0.65, 0.75, 1.0).lerp(Vector3.ONE, day).lerp(Vector3(1.0, 0.78, 0.6), dusk * 0.5)
 	for m in materials.values():
 		m.set_shader_parameter("daylight", daylight)
@@ -1205,8 +1221,19 @@ func _update_sky(delta: float) -> void:
 
 
 # ---------------------------------------------------------------- main loop
+var _perf_ms := {}                  # system -> smoothed milliseconds per frame
+
+
+func _perf(name: String, usec: int) -> void:
+	_perf_ms[name] = lerpf(_perf_ms.get(name, 0.0), usec / 1000.0, 0.05)
+
+
 func _process(delta: float) -> void:
+	var tc := Time.get_ticks_usec()
 	chunks.update_center(player.position)
+	_perf("world", Time.get_ticks_usec() - tc)
+	_perf("chunks", chunks.last_usec)
+	hud.perf = _perf_ms
 	if not spawned and chunks.is_ready_at(player.position):
 		_ready_frames += 1
 		if _ready_frames >= 3:                     # give the physics engine the new ground first
@@ -1222,19 +1249,27 @@ func _process(delta: float) -> void:
 		_read_controls()
 	touch.show_button("up", creative and player.flying)
 	touch.show_button("down", creative and player.flying)
-	_aim_screen = touch.aim_point if use_touch and touch.aiming else null
+	var t0 := Time.get_ticks_usec()
 	_update_mining(delta)
-	_aim_screen = null
 	_update_footsteps()
 	_update_building()
+	var t1 := Time.get_ticks_usec()
 	_update_sky(delta)
+	var t2 := Time.get_ticks_usec()
 	_update_animals(delta)
+	var t3 := Time.get_ticks_usec()
 	_update_health(delta)
+	_perf("play", t1 - t0)
+	_perf("sky", t2 - t1)
+	_perf("mobs", t3 - t2)
 	_update_tutorial()
 	if spawned:
 		_update_growing(delta)
+	var t4 := Time.get_ticks_usec()
 	if spawned and hud.minimap.visible:
 		hud.minimap.update_map(player.position, player.forward(), spawn_point)
+	var t5 := Time.get_ticks_usec()
+	_perf("map", t5 - t4)
 	if spawned:
 		var got := drops.update(delta, player.position, inv, 1.0)
 		if not got.is_empty():
@@ -1242,6 +1277,14 @@ func _process(delta: float) -> void:
 			hud.show_hotbar(inv, selected, creative)
 			if screen.visible:
 				screen.refresh()
+	if "--stress" in OS.get_cmdline_user_args() and spawned:
+		# testing: fly fast in a straight line to stream many chunks through the worker threads
+		player.flying = true
+		player.position += Vector3(2.5, 0, 1.0)
+		_st_frame += 1
+		if _st_frame > 900:
+			print("STRESS done at ", player.position, " chunks shown ", chunks.views.size(), " fps ", Engine.get_frames_per_second())
+			get_tree().quit()
 	if "--selftest" in OS.get_cmdline_user_args() and spawned:
 		_selftest_step()
 	if "--gloomtest" in OS.get_cmdline_user_args() and spawned and not _st.has("gloom"):
@@ -1277,6 +1320,7 @@ func save_game() -> void:
 	data["survival"] = health.to_data()
 	data["mode"] = "creative" if creative else "survival"
 	data["hotbars"] = saved_hotbars
+	data["weather"] = weather.save_data()
 	data["growing"] = growing.keys().map(func(v): return [v.x, v.y, v.z])
 	data["spawn"] = [spawn_point.x, spawn_point.y, spawn_point.z]
 	world.save(SAVE_PATH, data)

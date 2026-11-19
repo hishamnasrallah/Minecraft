@@ -20,6 +20,10 @@ var translucent := PackedByteArray()
 var solid := PackedByteArray()
 var emit := PackedByteArray()
 var hardness := PackedFloat32Array()
+var shapes := PackedStringArray()   # the same as `shape`, packed: safe to copy for worker threads
+var facing := PackedByteArray()      # stairs / ladders
+var door_axis := PackedByteArray()
+var door_open := PackedByteArray()
 var plants_need_soil := {}
 var ores := []
 var dyes := []
@@ -41,6 +45,9 @@ func _init() -> void:
 	for arr in [transparent, translucent, solid, emit]:
 		arr.resize(MAX_ID)
 	hardness.resize(MAX_ID)
+	shapes.resize(MAX_ID)
+	for arr in [facing, door_axis, door_open]:
+		arr.resize(MAX_ID)
 	solid[0] = 0
 	for key in data["blocks"]:
 		var id := int(key)
@@ -56,6 +63,11 @@ func _init() -> void:
 		solid[id] = 1 if d["solid"] else 0
 		emit[id] = int(d["emit"])
 		hardness[id] = float(d["hardness"])
+		shapes[id] = d["shape"]
+		facing[id] = int(d.get("facing", 0))
+		if d.get("door") is Dictionary:
+			door_axis[id] = int(d["door"]["axis"])
+			door_open[id] = int(d["door"]["open"])
 
 
 func exists(id: int) -> bool:

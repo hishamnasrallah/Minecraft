@@ -6,6 +6,9 @@ extends Node
 
 const PATH := "user://boot.json"
 const OK_AFTER := 15.0
+## Bump with every release: a new version starts without the safe mode a crash of the old
+## version switched on (the fix is probably in the new one).
+const BUILD := "2026-11-20a"
 
 var crashed_last_time := false
 var last_stage := ""            # where the previous run stopped (shown if it crashed)
@@ -22,6 +25,9 @@ func _init() -> void:
 			crashed_last_time = d.get("state", "ok") != "ok"
 			last_stage = d.get("stage", "")
 			safe_mode = bool(d.get("safe_mode", false)) or crashed_last_time
+			if d.get("build", "") != BUILD:
+				crashed_last_time = false
+				safe_mode = false
 	stage("start")
 
 
@@ -45,6 +51,7 @@ func _process(delta: float) -> void:
 
 
 func _write(d: Dictionary) -> void:
+	d["build"] = BUILD
 	var f := FileAccess.open(PATH, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(d))

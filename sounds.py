@@ -131,11 +131,35 @@ def click(rng):
     return [math.sin(2 * math.pi * 1700 * i / RATE) * _env(i / RATE, 0.0005, 0.006) for i in range(n)]
 
 
+def rain(rng):
+    """Steady rain: soft band-passed hiss plus scattered drop ticks, 2 s, made to loop
+    seamlessly (the extra tail is cross-faded into the start)."""
+    n, fade = int(RATE * 2.0), int(RATE * 0.25)
+    total = n + fade
+    hiss = _highpass(_lowpass(_noise(total, rng), 2600), 350)
+    low = _lowpass(_noise(total, rng), 300)
+    ticks = [0.0] * total
+    for _ in range(140):                                   # individual drops
+        at, amp = rng.randrange(total - 400), rng.uniform(0.3, 1.0)
+        for k in range(300):
+            ticks[at + k] += amp * rng.uniform(-1, 1) * math.exp(-k / 45)
+    ticks = _highpass(_lowpass(ticks, 4500), 900)
+    out = []
+    for i in range(total):
+        swell = 1.0 + 0.12 * math.sin(2 * math.pi * 2 * i / n)  # whole cycles per loop
+        out.append((hiss[i] + 0.6 * low[i] + 0.35 * ticks[i]) * swell)
+    for i in range(fade):                                  # equal-power cross-fade
+        t = i / fade
+        out[i] = out[i] * math.sin(t * math.pi / 2) + out[n + i] * math.cos(t * math.pi / 2)
+    return out[:n]
+
+
 SOUNDS = {
     "dig_stone": dig_stone, "dig_dirt": dig_dirt, "dig_wood": dig_wood, "dig_glass": dig_glass,
     "dig_soft": dig_soft, "place": place, "step": step, "splash": splash, "hurt": hurt, "eat": eat,
-    "pop": pop, "click": click,
+    "pop": pop, "click": click, "rain": rain,
 }
+LOOPS = {"rain"}          # ambient loops (longer; the game plays them with looping on)
 
 
 def write_wav(path, samples):

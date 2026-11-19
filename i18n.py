@@ -78,7 +78,8 @@ FAMILIES = {
     "mushrooms": ("Mushrooms", "فطر"), "slabs": ("Slabs", "بلاطات"), "stairs": ("Stairs", "أدراج"),
     "walls": ("Walls", "أسوار"), "ingots": ("Ingots", "سبائك"), "gems": ("Gems", "جواهر"),
     "pickaxes": ("Pickaxes", "معاول"), "axes": ("Axes", "فؤوس"), "shovels": ("Shovels", "مجارف"),
-    "swords": ("Swords", "سيوف"), "hoes": ("Hoes", "معازق"), "doors": ("Doors", "أبواب"),
+    "swords": ("Swords", "سيوف"), "hoes": ("Hoes", "معازق"), "neon_pink": ("Pink neon letters", "حروف نيون وردية"),
+    "neon_blue": ("Blue neon letters", "حروف نيون زرقاء"), "doors": ("Doors", "أبواب"),
 }
 FAMILIES_EN = {f: en for f, (en, _ar) in FAMILIES.items()}
 FAMILIES_AR = {f: ar for f, (_en, ar) in FAMILIES.items()}
@@ -170,8 +171,9 @@ UI = {
     "monsters": ("Night monsters (glooms)", "وحوش الليل (الظلال)"),
     "cause_gloom": ("A gloom got you.", "ظلّ قتلك."),
     # touch actions, log, items screen
-    "show_map": ("Mini map", "خريطة صغيرة"), "vibrate": ("Vibrate", "اهتزاز"),
-    "hold_to_break": ("Hold your finger on a block to break it", "اضغط مطوّل على البلوك لتكسره"),
+    "show_map": ("Mini map", "خريطة صغيرة"),
+    "weather_clear": ("Clear sky", "صحو"), "weather_cloudy": ("Cloudy", "غيوم"), "weather_rain": ("Rain", "مطر"), "vibrate": ("Vibrate", "اهتزاز"),
+    "hold_to_break": ("Aim the + at a block and hold your finger anywhere to break it", "وجّه علامة + على البلوك واضغط مطوّل بأي مكان لتكسره"),
     "touch_buttons": ("Separate break / place buttons", "أزرار منفصلة للكسر والوضع"),
     "show_log": ("Game log (for bug reports)", "سجل اللعبة (لإرسال الأخطاء)"),
     "copy_log": ("Copy", "نسخ"), "log_copied": ("Copied!", "انْسخ!"),
@@ -208,9 +210,9 @@ UI = {
     "tut_jump_t": ("Tap the jump button", "اكبس زر القفز"), "tut_jump_d": ("Press Space to jump", "اكبس Space لتنط"),
     "tut_fly_t": ("Tap the wing button to fly, then Up and Down", "اكبس زر الجناح لتطير، وبعدين فوق وتحت"),
     "tut_fly_d": ("Press Space twice quickly to fly", "اكبس Space مرتين بسرعة لتطير"),
-    "tut_break_t": ("Press and hold your finger on a block to break it", "اضغط بإصبعك مطوّل على بلوك لتكسره"),
+    "tut_break_t": ("Aim the + at a block, then hold your finger on the screen to break it", "وجّه علامة + على بلوك، وبعدين اضغط مطوّل على الشاشة لتكسره"),
     "tut_break_d": ("Aim at a block and hold the left mouse button", "أشّر على بلوك واضغط مطوّل كليك يسار"),
-    "tut_place_t": ("Pick a block on the hotbar, then tap where you want it", "اختار بلوك من الشريط، وبعدين اكبس المكان اللي بدك تحطه فيه"),
+    "tut_place_t": ("Pick a block on the hotbar, aim the + and tap the screen to place it", "اختار بلوك من الشريط، وجّه علامة + واكبس على الشاشة لتحطه"),
     "tut_place_d": ("Pick a block on the hotbar and right click to place it", "اختار بلوك من الشريط واكبس كليك يمين لتحطه"),
     "tut_items_t": ("Open your items with the bag button", "افتح الأغراض من زر الحقيبة"),
     "tut_items_d": ("Open your items with E", "افتح الأغراض بـ E"),
@@ -249,6 +251,8 @@ def arabic_name(item):
         tier = inv.TOOLS[item][3].split()[0]
         return TOOL_KINDS_AR[kind] + " " + TIERS_AR[tier]
     d = BLOCK_DEFS.get(item, {})
+    if d.get("letter"):
+        return "حرف نيون " + d["letter"] + (" وردي" if d["neon"][0] > 200 else " أزرق")
     if d.get("door"):
         species = name.replace(" door", "")
         return NAMES_AR["door"] + (" " + _WOODS_AR[species] if species in _WOODS_AR else "")

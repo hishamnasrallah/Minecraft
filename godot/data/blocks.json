@@ -528,6 +528,58 @@
   "carrots_1",
   "carrots_2",
   "carrots_3",
+  "neon_pink_A",
+  "neon_pink_B",
+  "neon_pink_C",
+  "neon_pink_D",
+  "neon_pink_E",
+  "neon_pink_F",
+  "neon_pink_G",
+  "neon_pink_H",
+  "neon_pink_I",
+  "neon_pink_J",
+  "neon_pink_K",
+  "neon_pink_L",
+  "neon_pink_M",
+  "neon_pink_N",
+  "neon_pink_O",
+  "neon_pink_P",
+  "neon_pink_Q",
+  "neon_pink_R",
+  "neon_pink_S",
+  "neon_pink_T",
+  "neon_pink_U",
+  "neon_pink_V",
+  "neon_pink_W",
+  "neon_pink_X",
+  "neon_pink_Y",
+  "neon_pink_Z",
+  "neon_blue_A",
+  "neon_blue_B",
+  "neon_blue_C",
+  "neon_blue_D",
+  "neon_blue_E",
+  "neon_blue_F",
+  "neon_blue_G",
+  "neon_blue_H",
+  "neon_blue_I",
+  "neon_blue_J",
+  "neon_blue_K",
+  "neon_blue_L",
+  "neon_blue_M",
+  "neon_blue_N",
+  "neon_blue_O",
+  "neon_blue_P",
+  "neon_blue_Q",
+  "neon_blue_R",
+  "neon_blue_S",
+  "neon_blue_T",
+  "neon_blue_U",
+  "neon_blue_V",
+  "neon_blue_W",
+  "neon_blue_X",
+  "neon_blue_Y",
+  "neon_blue_Z",
   "iron_ingot",
   "copper_ingot",
   "tin_ingot",
@@ -11449,6 +11501,1358 @@
     267,
     267,
     267
+   ]
+  },
+  "1600": {
+   "name": "pink neon A",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1600,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "A",
+   "family": "neon_pink",
+   "tiles": [
+    268,
+    268,
+    268
+   ]
+  },
+  "1601": {
+   "name": "pink neon B",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1601,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "B",
+   "family": "neon_pink",
+   "tiles": [
+    269,
+    269,
+    269
+   ]
+  },
+  "1602": {
+   "name": "pink neon C",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1602,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "C",
+   "family": "neon_pink",
+   "tiles": [
+    270,
+    270,
+    270
+   ]
+  },
+  "1603": {
+   "name": "pink neon D",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1603,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "D",
+   "family": "neon_pink",
+   "tiles": [
+    271,
+    271,
+    271
+   ]
+  },
+  "1604": {
+   "name": "pink neon E",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1604,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "E",
+   "family": "neon_pink",
+   "tiles": [
+    272,
+    272,
+    272
+   ]
+  },
+  "1605": {
+   "name": "pink neon F",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1605,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "F",
+   "family": "neon_pink",
+   "tiles": [
+    273,
+    273,
+    273
+   ]
+  },
+  "1606": {
+   "name": "pink neon G",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1606,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "G",
+   "family": "neon_pink",
+   "tiles": [
+    274,
+    274,
+    274
+   ]
+  },
+  "1607": {
+   "name": "pink neon H",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1607,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "H",
+   "family": "neon_pink",
+   "tiles": [
+    275,
+    275,
+    275
+   ]
+  },
+  "1608": {
+   "name": "pink neon I",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1608,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "I",
+   "family": "neon_pink",
+   "tiles": [
+    276,
+    276,
+    276
+   ]
+  },
+  "1609": {
+   "name": "pink neon J",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1609,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "J",
+   "family": "neon_pink",
+   "tiles": [
+    277,
+    277,
+    277
+   ]
+  },
+  "1610": {
+   "name": "pink neon K",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1610,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "K",
+   "family": "neon_pink",
+   "tiles": [
+    278,
+    278,
+    278
+   ]
+  },
+  "1611": {
+   "name": "pink neon L",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1611,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "L",
+   "family": "neon_pink",
+   "tiles": [
+    279,
+    279,
+    279
+   ]
+  },
+  "1612": {
+   "name": "pink neon M",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1612,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "M",
+   "family": "neon_pink",
+   "tiles": [
+    280,
+    280,
+    280
+   ]
+  },
+  "1613": {
+   "name": "pink neon N",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1613,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "N",
+   "family": "neon_pink",
+   "tiles": [
+    281,
+    281,
+    281
+   ]
+  },
+  "1614": {
+   "name": "pink neon O",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1614,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "O",
+   "family": "neon_pink",
+   "tiles": [
+    282,
+    282,
+    282
+   ]
+  },
+  "1615": {
+   "name": "pink neon P",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1615,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "P",
+   "family": "neon_pink",
+   "tiles": [
+    283,
+    283,
+    283
+   ]
+  },
+  "1616": {
+   "name": "pink neon Q",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1616,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "Q",
+   "family": "neon_pink",
+   "tiles": [
+    284,
+    284,
+    284
+   ]
+  },
+  "1617": {
+   "name": "pink neon R",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1617,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "R",
+   "family": "neon_pink",
+   "tiles": [
+    285,
+    285,
+    285
+   ]
+  },
+  "1618": {
+   "name": "pink neon S",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1618,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "S",
+   "family": "neon_pink",
+   "tiles": [
+    286,
+    286,
+    286
+   ]
+  },
+  "1619": {
+   "name": "pink neon T",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1619,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "T",
+   "family": "neon_pink",
+   "tiles": [
+    287,
+    287,
+    287
+   ]
+  },
+  "1620": {
+   "name": "pink neon U",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1620,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "U",
+   "family": "neon_pink",
+   "tiles": [
+    288,
+    288,
+    288
+   ]
+  },
+  "1621": {
+   "name": "pink neon V",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1621,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "V",
+   "family": "neon_pink",
+   "tiles": [
+    289,
+    289,
+    289
+   ]
+  },
+  "1622": {
+   "name": "pink neon W",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1622,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "W",
+   "family": "neon_pink",
+   "tiles": [
+    290,
+    290,
+    290
+   ]
+  },
+  "1623": {
+   "name": "pink neon X",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1623,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "X",
+   "family": "neon_pink",
+   "tiles": [
+    291,
+    291,
+    291
+   ]
+  },
+  "1624": {
+   "name": "pink neon Y",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1624,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "Y",
+   "family": "neon_pink",
+   "tiles": [
+    292,
+    292,
+    292
+   ]
+  },
+  "1625": {
+   "name": "pink neon Z",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1625,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    255,
+    70,
+    190
+   ],
+   "letter": "Z",
+   "family": "neon_pink",
+   "tiles": [
+    293,
+    293,
+    293
+   ]
+  },
+  "1632": {
+   "name": "blue neon A",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1632,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "A",
+   "family": "neon_blue",
+   "tiles": [
+    294,
+    294,
+    294
+   ]
+  },
+  "1633": {
+   "name": "blue neon B",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1633,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "B",
+   "family": "neon_blue",
+   "tiles": [
+    295,
+    295,
+    295
+   ]
+  },
+  "1634": {
+   "name": "blue neon C",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1634,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "C",
+   "family": "neon_blue",
+   "tiles": [
+    296,
+    296,
+    296
+   ]
+  },
+  "1635": {
+   "name": "blue neon D",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1635,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "D",
+   "family": "neon_blue",
+   "tiles": [
+    297,
+    297,
+    297
+   ]
+  },
+  "1636": {
+   "name": "blue neon E",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1636,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "E",
+   "family": "neon_blue",
+   "tiles": [
+    298,
+    298,
+    298
+   ]
+  },
+  "1637": {
+   "name": "blue neon F",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1637,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "F",
+   "family": "neon_blue",
+   "tiles": [
+    299,
+    299,
+    299
+   ]
+  },
+  "1638": {
+   "name": "blue neon G",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1638,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "G",
+   "family": "neon_blue",
+   "tiles": [
+    300,
+    300,
+    300
+   ]
+  },
+  "1639": {
+   "name": "blue neon H",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1639,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "H",
+   "family": "neon_blue",
+   "tiles": [
+    301,
+    301,
+    301
+   ]
+  },
+  "1640": {
+   "name": "blue neon I",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1640,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "I",
+   "family": "neon_blue",
+   "tiles": [
+    302,
+    302,
+    302
+   ]
+  },
+  "1641": {
+   "name": "blue neon J",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1641,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "J",
+   "family": "neon_blue",
+   "tiles": [
+    303,
+    303,
+    303
+   ]
+  },
+  "1642": {
+   "name": "blue neon K",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1642,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "K",
+   "family": "neon_blue",
+   "tiles": [
+    304,
+    304,
+    304
+   ]
+  },
+  "1643": {
+   "name": "blue neon L",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1643,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "L",
+   "family": "neon_blue",
+   "tiles": [
+    305,
+    305,
+    305
+   ]
+  },
+  "1644": {
+   "name": "blue neon M",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1644,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "M",
+   "family": "neon_blue",
+   "tiles": [
+    306,
+    306,
+    306
+   ]
+  },
+  "1645": {
+   "name": "blue neon N",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1645,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "N",
+   "family": "neon_blue",
+   "tiles": [
+    307,
+    307,
+    307
+   ]
+  },
+  "1646": {
+   "name": "blue neon O",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1646,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "O",
+   "family": "neon_blue",
+   "tiles": [
+    308,
+    308,
+    308
+   ]
+  },
+  "1647": {
+   "name": "blue neon P",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1647,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "P",
+   "family": "neon_blue",
+   "tiles": [
+    309,
+    309,
+    309
+   ]
+  },
+  "1648": {
+   "name": "blue neon Q",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1648,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "Q",
+   "family": "neon_blue",
+   "tiles": [
+    310,
+    310,
+    310
+   ]
+  },
+  "1649": {
+   "name": "blue neon R",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1649,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "R",
+   "family": "neon_blue",
+   "tiles": [
+    311,
+    311,
+    311
+   ]
+  },
+  "1650": {
+   "name": "blue neon S",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1650,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "S",
+   "family": "neon_blue",
+   "tiles": [
+    312,
+    312,
+    312
+   ]
+  },
+  "1651": {
+   "name": "blue neon T",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1651,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "T",
+   "family": "neon_blue",
+   "tiles": [
+    313,
+    313,
+    313
+   ]
+  },
+  "1652": {
+   "name": "blue neon U",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1652,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "U",
+   "family": "neon_blue",
+   "tiles": [
+    314,
+    314,
+    314
+   ]
+  },
+  "1653": {
+   "name": "blue neon V",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1653,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "V",
+   "family": "neon_blue",
+   "tiles": [
+    315,
+    315,
+    315
+   ]
+  },
+  "1654": {
+   "name": "blue neon W",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1654,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "W",
+   "family": "neon_blue",
+   "tiles": [
+    316,
+    316,
+    316
+   ]
+  },
+  "1655": {
+   "name": "blue neon X",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1655,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "X",
+   "family": "neon_blue",
+   "tiles": [
+    317,
+    317,
+    317
+   ]
+  },
+  "1656": {
+   "name": "blue neon Y",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1656,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "Y",
+   "family": "neon_blue",
+   "tiles": [
+    318,
+    318,
+    318
+   ]
+  },
+  "1657": {
+   "name": "blue neon Z",
+   "tab": "colored",
+   "hardness": 0.4,
+   "tool": null,
+   "level": 0,
+   "drop": 1657,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 11,
+   "creative": true,
+   "neon": [
+    60,
+    210,
+    255
+   ],
+   "letter": "Z",
+   "family": "neon_blue",
+   "tiles": [
+    319,
+    319,
+    319
    ]
   }
  }

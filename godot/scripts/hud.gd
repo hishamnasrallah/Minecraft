@@ -21,6 +21,7 @@ var mode_label: Label
 var build_label: Label
 var target_label: Label
 var minimap: Minimap
+var perf := {}                       # system -> ms per frame, shown under the FPS counter
 var _message_time := 0.0
 var hotbar_box: HBoxContainer
 var hearts := []
@@ -296,7 +297,13 @@ func show_death(cause: String) -> void:
 
 
 func _process(delta: float) -> void:
-	fps.text = "%d fps" % Engine.get_frames_per_second()
+	var t := "%d fps" % Engine.get_frames_per_second()
+	if not perf.is_empty():
+		var parts := []
+		for k in perf:
+			parts.append("%s %.1f" % [k, perf[k]])
+		t += "  |  " + "  ".join(parts) + " ms"
+	fps.text = t
 	if minimap.visible != bool(I18n.settings.get("show_map", true)):
 		minimap.visible = not minimap.visible
 		_layout()
