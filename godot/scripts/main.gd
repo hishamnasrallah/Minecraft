@@ -1,13 +1,17 @@
 extends Node3D
-## BlockWorld (Godot version) - phase 1: the world, building, day and night, phone and desktop controls.
+## BlockWorld (Godot version): survival and creative, for phones and desktop.
 ##
-## Desktop: WASD + mouse, Space jump, hold left mouse break, right click place,
-##          1-9 / wheel hotbar, F5 save, Esc releases the mouse.
-## Phone:   joystick (left), drag to look (right), JUMP / BREAK (hold) / PLACE buttons, tap the hotbar.
-## Command line (after --): --new for a new world, --touch to show the phone controls on a desktop.
+## Phone:   joystick (left), drag to look (right), JUMP / BREAK (hold) / PLACE / ITEMS buttons,
+##          tap the hotbar; FLY and BUILD in creative.
+## Desktop: WASD + mouse, Space jump (double-tap: fly in creative), Shift down, Ctrl fast,
+##          hold left break / hit, right click place / use / eat, middle click pick block,
+##          1-9 / wheel hotbar, E inventory, G creative/survival, N noclip, T fast time, F1 HUD,
+##          F5 save, Esc close / release the mouse. Creative building: Z X corners, F fill
+##          (Shift+F replace), H hollow, Delete clear, C copy, hold V paste, R rotate, M mirror,
+##          U undo, Q deselect, L buildings library, Alt+1-9 load / Alt+Shift+1-9 save a hotbar.
+## Command line (after --): --new, --creative, --touch, --seed=N, --shot=file.png, --selftest
 
 const SAVE_PATH := "user://save.json"
-const REACH := 6.0
 const DAY_LENGTH := 600.0
 const AUTOSAVE_EVERY := 60.0
 const DAY_SKY := Color(0.62, 0.78, 0.95)
@@ -20,21 +24,42 @@ var chunks: ChunkManager
 var player: Player
 var hud: Hud
 var touch: TouchControls
+var screen: InventoryScreen
+var build_panel: BuildPanel
 var env: Environment
 var materials := {}
 var sun: MeshInstance3D
 var moon: MeshInstance3D
 var highlight: MeshInstance3D
 var crack: MeshInstance3D
+var selection_box: MeshInstance3D
+var paste_preview: MeshInstance3D
 var crack_textures := []
-var hotbar := [1, 22, 4, 7, 41, 12, 50, 61, 11]   # phase 1: a fixed block palette
+var atlas: Texture2D
+
+var inv: Inventory
+var health: Survival
+var wildlife: Wildlife
+var animal_views := {}
+var builder := Builder.new()
+var saved_hotbars := []
+var creative := false
 var selected := 0
+var spawn_point := Vector3.ZERO
+var chest_pos = null
+var chest_inv: Inventory = null
+var daylight := 1.0
+
 var mine_pos = null
 var mine_progress := 0.0
+var _break_was_held := false
 var spawned := false
 var time_speed := 1.0
 var _autosave := AUTOSAVE_EVERY
 var use_touch := false
+var _last_space := -1.0
+var _last_position = null
+var _previewing_paste := false
 var _shot_path := ""            # --shot=file.png: take a screenshot once the world is ready, then quit
 var _shot_frames := 30
 var _initial_look := Vector2.ZERO
@@ -56,11 +81,23 @@ func _ready() -> void:
 			_shot_path = a.substr(7)
 		elif a.begins_with("--frames="):
 			_shot_frames = int(a.substr(9))
-		elif a.begins_with("--look="):          # --look=yaw,pitch in radians (for screenshots)
+		elif a.begins_with("--look="):
 			var parts := a.substr(7).split(",")
 			_initial_look = Vector2(float(parts[0]), float(parts[1]))
 
-	var atlas: Texture2D = load("res://data/atlas.png")
+	var pd := world.player_data
+	creative = "--creative" in args or pd.get("mode") == "creative"
+	inv = Inventory.from_data(pd.get("inventory"))
+	if creative and inv.count(0) == 0 and inv.slots.all(func(s): return s == null):
+		for item in [1, 22, 4, 7, 41, 12, 50, 48, 510]:
+			inv.add(item, Items.max_stack(item))
+	health = Survival.from_data(pd.get("survival"))
+	saved_hotbars = pd.get("hotbars", [])
+	saved_hotbars.resize(9)
+	var sp = pd.get("spawn")
+	spawn_point = Vector3(sp[0], sp[1], sp[2]) if sp is Array else world.spawn_point()
+
+	atlas = load("res://data/atlas.png")
 	var solid := ShaderMaterial.new()
 	solid.shader = load("res://shaders/block.gdshader")
 	solid.set_shader_parameter("atlas", atlas)
@@ -69,8 +106,7 @@ func _ready() -> void:
 	glass.set_shader_parameter("atlas", atlas)
 	var water := glass.duplicate()
 	water.set_shader_parameter("opacity", 0.72)
-	var plants := solid.duplicate()
-	materials = {"solid": solid, "translucent": glass, "water": water, "plants": plants}
+	materials = {"solid": solid, "translucent": glass, "water": water, "plants": solid.duplicate()}
 
 	var we := WorldEnvironment.new()
 	env = Environment.new()
@@ -84,17 +120,19 @@ func _ready() -> void:
 	chunks = ChunkManager.new()
 	chunks.setup(world, materials, 3 if use_touch else 4)
 	add_child(chunks)
+	wildlife = Wildlife.new(world)
 
 	player = Player.new()
 	player.world = world
-	var start = world.player_data.get("position")
-	player.position = Vector3(start[0], start[1], start[2]) if start is Array else world.spawn_point()
+	var start = pd.get("position")
+	player.position = Vector3(start[0], start[1], start[2]) if start is Array else spawn_point
 	player.set_physics_process(false)          # wait until the ground under us exists
 	add_child(player)
 	player.look(-_initial_look)
 
-	highlight = _wire_cube()
-	add_child(highlight)
+	highlight = _wire_cube(Color.BLACK)
+	selection_box = _wire_cube(Color(0.3, 0.9, 1.0))
+	paste_preview = _wire_cube(Color(1, 0.9, 0.2))
 	for i in 6:
 		crack_textures.append(load("res://data/icons/crack_%d.png" % i))
 	crack = MeshInstance3D.new()
@@ -112,17 +150,43 @@ func _ready() -> void:
 	hud = Hud.new()
 	hud.atlas = atlas
 	add_child(hud)
-	touch = TouchControls.new()
+	hud.respawn_pressed.connect(respawn)
+
 	var layer := CanvasLayer.new()
 	layer.layer = 2
-	layer.add_child(touch)
 	add_child(layer)
+	touch = TouchControls.new()
+	layer.add_child(touch)
 	touch.visible = use_touch
 	touch.place_pressed.connect(place_block)
 	touch.hotbar_tapped.connect(func(pos): _select(hud.slot_at(pos)))
 	touch.menu_pressed.connect(func(): save_game(); hud.flash("Saved"))
+	touch.inventory_pressed.connect(open_screen)
+	touch.fly_pressed.connect(func(): set_flying(not player.flying))
+	touch.build_pressed.connect(toggle_build_panel)
+	build_panel = BuildPanel.new()
+	build_panel.builder = builder
+	build_panel.visible = false
+	build_panel.action.connect(build_action)
+	layer.add_child(build_panel)
+
+	var top := CanvasLayer.new()
+	top.layer = 3
+	add_child(top)
+	screen = InventoryScreen.new()
+	screen.hud = hud
+	screen.saved_hotbars = saved_hotbars
+	screen.visible = false
+	screen.closed.connect(close_screen)
+	screen.mode_toggle_pressed.connect(func(): set_mode(not creative); screen.creative = creative; screen.refresh())
+	screen.time_pressed.connect(func(v): world.time_of_day = v)
+	screen.freeze_pressed.connect(func(): time_speed = 0.0 if time_speed != 0.0 else 1.0; hud.flash("Time frozen" if time_speed == 0.0 else "Time running"))
+	screen.message.connect(hud.flash)
+	top.add_child(screen)
+
 	_select(0)
-	hud.flash("Welcome! %s" % ("Joystick left, drag right to look" if use_touch else "Click to play, WASD + mouse"))
+	_refresh_mode()
+	hud.flash("Welcome! %s" % ("Joystick left, drag right to look" if use_touch else "Click to play, WASD + mouse, E for items"))
 
 
 func _sky_quad(color: Color, size: float) -> MeshInstance3D:
@@ -140,18 +204,18 @@ func _sky_quad(color: Color, size: float) -> MeshInstance3D:
 	return mi
 
 
-func _wire_cube() -> MeshInstance3D:
+## A unit cube outline (1x1x1, centred). Scale it for bigger boxes.
+func _wire_cube(color: Color) -> MeshInstance3D:
 	var verts := PackedVector3Array()
-	var c := 0.502
 	var corners := []
-	for x in [-c, c]:
-		for y in [-c, c]:
-			for z in [-c, c]:
+	for x in [-0.5, 0.5]:
+		for y in [-0.5, 0.5]:
+			for z in [-0.5, 0.5]:
 				corners.append(Vector3(x, y, z))
 	for i in 8:
 		for j in range(i + 1, 8):
 			var d: Vector3 = corners[i] - corners[j]
-			if absf(d.x) + absf(d.y) + absf(d.z) < 1.1:      # neighbours along one edge
+			if absf(d.x) + absf(d.y) + absf(d.z) < 1.1:
 				verts.append(corners[i])
 				verts.append(corners[j])
 	var arrays := []
@@ -163,14 +227,91 @@ func _wire_cube() -> MeshInstance3D:
 	mi.mesh = mesh
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.albedo_color = Color(0, 0, 0)
+	m.albedo_color = color
 	mi.material_override = m
 	mi.visible = false
+	add_child(mi)
 	return mi
+
+
+# ---------------------------------------------------------------- modes and menus
+func _refresh_mode() -> void:
+	touch.show_button("fly", creative)
+	touch.show_button("build", creative)
+	touch.show_button("up", creative and player.flying)
+	touch.show_button("down", creative and player.flying)
+	if not creative:
+		build_panel.visible = false
+	var text := "creative" if creative else ""
+	if player.flying:
+		text += " - flying"
+	if player.noclip:
+		text += " - noclip"
+	hud.mode_label.text = text
+	hud.show_hotbar(inv, selected, creative)
+	hud.show_bars(health, creative)
+
+
+func set_mode(to_creative: bool) -> void:
+	creative = to_creative
+	if not creative:
+		set_flying(false)
+	health.fall_top = null
+	hud.flash("Creative mode" if creative else "Survival mode")
+	_refresh_mode()
+
+
+func set_flying(on: bool) -> void:
+	if on and not creative:
+		hud.flash("Flying is a creative-mode thing")
+		on = false
+	player.flying = on
+	if not on:
+		player.noclip = false
+	player.velocity = Vector3.ZERO
+	_refresh_mode()
+
+
+func toggle_build_panel() -> void:
+	build_panel.visible = creative and not build_panel.visible
+	_update_touch_rects()
+
+
+func _update_touch_rects() -> void:
+	touch.ui_rects = []
+	if build_panel.visible:
+		var grid: Control = build_panel.get_child(0)
+		touch.ui_rects.append(Rect2(grid.position, grid.size + Vector2(10, 10)))
+
+
+func open_screen(chest = null) -> void:
+	if health.dead:
+		return
+	chest_pos = chest
+	chest_inv = Inventory.from_data(world.containers.get(chest), 27) if chest != null else null
+	screen.open(inv, creative, chest_inv)
+	player.set_physics_process(false)
+	touch.blocked = true
+	if not use_touch:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func close_screen() -> void:
+	screen.close()
+	if chest_pos != null:
+		world.containers[chest_pos] = chest_inv.to_data()
+		chest_pos = null
+	player.set_physics_process(spawned and not health.dead)
+	touch.blocked = false
+	_refresh_mode()
 
 
 # ---------------------------------------------------------------- input
 func _unhandled_input(event: InputEvent) -> void:
+	if screen.visible or health.dead:
+		if event is InputEventKey and event.pressed and event.physical_keycode in [KEY_E, KEY_ESCAPE] and screen.visible:
+			close_screen()
+		return
 	if use_touch and (event is InputEventScreenTouch or event is InputEventScreenDrag):
 		return
 	if event is InputEventMouseButton and event.pressed:
@@ -180,52 +321,115 @@ func _unhandled_input(event: InputEvent) -> void:
 		match event.button_index:
 			MOUSE_BUTTON_RIGHT:
 				place_block()
+			MOUSE_BUTTON_MIDDLE:
+				pick_block()
 			MOUSE_BUTTON_WHEEL_UP:
 				_select(selected - 1)
 			MOUSE_BUTTON_WHEEL_DOWN:
 				_select(selected + 1)
 	elif event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		player.look(event.relative * MOUSE_SENSITIVITY)
-	elif event is InputEventKey and event.pressed and not event.echo:
-		match event.physical_keycode:
+	elif event is InputEventKey and not event.echo:
+		var key: int = event.physical_keycode
+		if not event.pressed:
+			if key == KEY_V and _previewing_paste:
+				build_action("paste_now")
+			return
+		var n: int = key - KEY_1
+		if n >= 0 and n < 9:
+			if creative and event.alt_pressed:
+				screen.inv = inv
+				screen.save_hotbar_mode = event.shift_pressed
+				screen._hotbar_button(n)
+				_refresh_mode()
+			else:
+				_select(n)
+			return
+		match key:
 			KEY_ESCAPE:
 				Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+			KEY_E:
+				open_screen()
+			KEY_G:
+				set_mode(not creative)
+			KEY_N:
+				if player.flying:
+					player.noclip = not player.noclip
+					_refresh_mode()
+			KEY_SPACE:
+				var now := Time.get_ticks_msec() / 1000.0
+				if creative and now - _last_space < 0.3:
+					set_flying(not player.flying)
+					_last_space = -1.0
+				else:
+					_last_space = now
+					if player.is_on_floor() and not creative:
+						health.exert(float(Items.survival["JUMP"]))
+			KEY_F1:
+				hud.visible = not hud.visible
 			KEY_F5:
 				save_game()
 				hud.flash("Saved")
 			KEY_T:
-				time_speed = 40.0 if time_speed == 1.0 else 1.0
+				time_speed = 40.0 if time_speed != 40.0 else 1.0
 				hud.flash("Time x%d" % int(time_speed))
-			_:
-				var n: int = event.physical_keycode - KEY_1
-				if n >= 0 and n < 9:
-					_select(n)
+			KEY_Z:
+				build_action("corner1")
+			KEY_X:
+				build_action("corner2")
+			KEY_F:
+				build_action("replace" if event.shift_pressed else "fill")
+			KEY_H:
+				build_action("hollow")
+			KEY_DELETE, KEY_BACKSPACE:
+				build_action("clear")
+			KEY_C:
+				build_action("copy")
+			KEY_V:
+				if creative and not builder.clipboard.is_empty():
+					_previewing_paste = true
+			KEY_R:
+				build_action("rotate")
+			KEY_M:
+				build_action("mirror")
+			KEY_U:
+				build_action("undo")
+			KEY_Q:
+				build_action("deselect")
+			KEY_L:
+				build_action("library")
 
 
 func _select(i: int) -> void:
-	if i < 0 and i != -1:
-		i = posmod(i, 9)
 	if i == -1:
 		return
 	selected = posmod(i, 9)
-	hud.show_hotbar(hotbar, selected)
+	hud.show_hotbar(inv, selected, creative)
 
 
 func _read_controls() -> void:
 	var move := Vector2.ZERO
 	var jump := false
+	var vertical := 0.0
+	var fast := false
 	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		move = Vector2(
 			float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A)),
 			float(Input.is_physical_key_pressed(KEY_W)) - float(Input.is_physical_key_pressed(KEY_S)))
 		jump = Input.is_physical_key_pressed(KEY_SPACE)
+		vertical = float(jump) - float(Input.is_physical_key_pressed(KEY_SHIFT))
+		fast = Input.is_physical_key_pressed(KEY_CTRL)
 	if use_touch:
 		if touch.move.length() > 0.05:
 			move = touch.move
 		jump = jump or touch.jump_held
+		if touch.up_held or touch.down_held:
+			vertical = float(touch.up_held) - float(touch.down_held)
 		player.look(touch.take_look())
 	player.move_input = move.limit_length(1.0)
 	player.jump_held = jump
+	player.vertical = vertical
+	player.fast = fast
 
 
 func _breaking() -> bool:
@@ -233,40 +437,235 @@ func _breaking() -> bool:
 		or (use_touch and touch.break_held)
 
 
-# ---------------------------------------------------------------- building
+# ---------------------------------------------------------------- world interaction
+func reach() -> float:
+	return 10.0 if creative else 6.0
+
+
 func target(hit_water := false) -> Dictionary:
-	return world.raycast(player.eye(), player.forward(), REACH, hit_water)
+	return world.raycast(player.eye(), player.forward(), reach(), hit_water)
 
 
-func edit(pos: Vector3i, id: int) -> bool:
-	var keys := world.set_block(pos.x, pos.y, pos.z, id)
-	chunks.rebuild(keys)
-	# light reaches into the chunks around too
-	var c := WorldData.chunk_key(pos.x, pos.z)
-	var around := []
-	for dx in [-1, 0, 1]:
-		for dz in [-1, 0, 1]:
-			around.append(Vector2i(c.x + dx, c.y + dz))
-	chunks.rebuild(around)
+## The animal in the crosshair if it is closer than the block behind it.
+func looked_at_animal():
+	var best = null
+	var best_d := reach()
+	for a in animal_views:
+		var d: float = animal_views[a].ray_hit(player.eye(), player.forward(), best_d)
+		if d >= 0 and d < best_d:
+			best = a
+			best_d = d
+	if best == null:
+		return null
+	var hit := target()
+	return best if hit.is_empty() or best_d < hit["distance"] + 0.3 else null
+
+
+func edit(pos: Vector3i, id: int, force := false, flood := true) -> bool:
+	var keys := world.set_block(pos.x, pos.y, pos.z, id, force, flood)
+	_rebuild(keys)
 	return not keys.is_empty()
 
 
+func _rebuild(keys: Array) -> void:
+	var all := {}
+	for k in keys:
+		for dx in [-1, 0, 1]:
+			for dz in [-1, 0, 1]:
+				all[Vector2i(k.x + dx, k.y + dz)] = true
+	chunks.rebuild(all.keys())
+
+
+func break_at(pos: Vector3i) -> void:
+	var id := world.get_block(pos.x, pos.y, pos.z)
+	if id == 0 or id == WorldData.WATER or (Blocks.hardness[id] < 0 and not creative):
+		return
+	if Blocks.hardness[id] < 0:
+		edit(pos, 0, true)
+		return
+	var tool := inv.item_at(selected)
+	var m := Items.mining(id, tool)
+	var contents = world.containers.get(pos)
+	world.containers.erase(pos)
+	if not edit(pos, 0) or creative:
+		return
+	health.exert(float(Items.survival["MINE"]))
+	var stacks := []
+	var drop := Items.drop_for(id) if m[1] else 0
+	if drop != 0:
+		stacks.append([drop, 1])
+	if contents is Array:
+		for s in contents:
+			if s != null:
+				stacks.append(s.map(func(v): return int(v)))
+	for s in stacks:
+		if inv.give(s) != null:
+			hud.flash("Inventory full")
+	if not m[1] and int(Blocks.defs[id]["level"]) > 0:
+		hud.flash("%s needs a better tool to drop anything" % Blocks.name_of[id])
+	if m[2] and inv.wear(selected):
+		hud.flash("Your %s broke!" % Items.name_of(tool))
+	hud.show_hotbar(inv, selected, creative)
+
+
+func attack(animal) -> void:
+	var item := inv.item_at(selected)
+	var meat: int = animal.hit(player.position, Items.attack_damage(item) if not creative else 100)
+	if creative:
+		return
+	health.exert(float(Items.survival["ATTACK"]))
+	if Items.tools.has(item) and inv.wear(selected):
+		hud.flash("Your %s broke!" % Items.name_of(item))
+	if meat > 0:
+		if inv.add(int(Items.S["RAW_MEAT"]), meat) > 0:
+			hud.flash("Inventory full")
+		else:
+			hud.flash("+%d raw meat" % meat)
+	hud.show_hotbar(inv, selected, creative)
+
+
+func _replaceable(p: Vector3i) -> bool:
+	return world.get_block(p.x, p.y, p.z) in [0, WorldData.WATER, 51, 52]
+
+
+func _overlaps_player(p: Vector3i, id: int) -> bool:
+	if player.noclip or not Blocks.solid[id]:
+		return false
+	var feet := Vector3i(floori(player.position.x + 0.5), floori(player.position.y + 0.5), floori(player.position.z + 0.5))
+	return p.x == feet.x and p.z == feet.z and p.y in [feet.y, feet.y + 1]
+
+
+## Doors open and close, chests open, beds set your spawn point (and skip the night).
+func use_block(pos: Vector3i) -> bool:
+	var id := world.get_block(pos.x, pos.y, pos.z)
+	var d: Dictionary = Blocks.defs.get(id, {})
+	if d.has("door"):
+		var other_y: int = pos.y - 1 if d["door"]["top"] else pos.y + 1
+		for p in [pos, Vector3i(pos.x, other_y, pos.z)]:
+			var b := world.get_block(p.x, p.y, p.z)
+			if Blocks.defs.get(b, {}).has("door"):
+				edit(p, b - 2 if Blocks.defs[b]["door"]["open"] else b + 2)
+		return true
+	if d.get("container", false):
+		open_screen(pos)
+		return true
+	if id == 62:
+		spawn_point = Vector3(pos.x, pos.y + 1.5, pos.z)
+		if world.time_of_day > 0.5 and world.time_of_day < 0.97:
+			world.time_of_day = 0.0
+			hud.flash("You slept until morning. Spawn point set.")
+		else:
+			hud.flash("Spawn point set. You can only sleep at night.")
+		return true
+	return false
+
+
+func _facing() -> int:
+	var f := player.forward()
+	if absf(f.x) > absf(f.z):
+		return 1 if f.x > 0 else 3
+	return 0 if f.z > 0 else 2
+
+
 func place_block() -> void:
+	if health.dead:
+		return
 	var hit := target()
+	var item := inv.item_at(selected)
+	if not hit.is_empty() and use_block(hit["pos"]):
+		return
+	if Items.food.has(item) and not creative:
+		if health.eat(Items.food[item]):
+			inv.use_one(selected)
+			hud.flash("Ate %s" % Items.name_of(item))
+		else:
+			hud.flash("You're not hungry")
+		_refresh_mode()
+		return
+	if item == int(Items.S["BUCKET"]):
+		var w := target(true)
+		if not w.is_empty() and world.get_block(w["pos"].x, w["pos"].y, w["pos"].z) == WorldData.WATER:
+			edit(w["pos"], 0, true, false)
+			if not creative:
+				inv.use_one(selected)
+				if inv.add(int(Items.S["WATER_BUCKET"])) > 0:
+					hud.flash("Inventory full")
+			_refresh_mode()
+		return
 	if hit.is_empty():
 		return
 	var pos: Vector3i = hit["pos"] + hit["normal"]
-	var item: int = hotbar[selected]
-	if world.get_block(pos.x, pos.y, pos.z) not in [0, WorldData.WATER, 51, 52]:
+	if item == int(Items.S["WATER_BUCKET"]):
+		if _replaceable(pos) and edit(pos, WorldData.WATER) and not creative:
+			inv.slots[selected] = [int(Items.S["BUCKET"]), 1]
+			_refresh_mode()
 		return
-	var feet := Vector3i(floori(player.position.x + 0.5), floori(player.position.y + 0.5), floori(player.position.z + 0.5))
-	if Blocks.solid[item] and pos.x == feet.x and pos.z == feet.z and pos.y in [feet.y, feet.y + 1]:
-		return                                   # don't build inside yourself
-	edit(pos, item)
+	if not Items.placeable.has(item) or not _replaceable(pos) or _overlaps_player(pos, item):
+		return
+	var d: Dictionary = Blocks.defs[item]
+	var below := world.get_block(pos.x, pos.y - 1, pos.z)
+	if d["shape"] in ["cross", "torch"] and (below == 0 or not Blocks.solid[below]):
+		return                                 # plants and torches need ground
+	var id := item
+	match d["shape"]:
+		"stair":
+			id = item + _facing()
+		"ladder":
+			var n: Vector3i = hit["normal"]
+			var by_normal := {Vector2i(0, -1): 0, Vector2i(-1, 0): 1, Vector2i(0, 1): 2, Vector2i(1, 0): 3}
+			id = 500 + by_normal.get(Vector2i(n.x, n.z), _facing())
+		"door":
+			var above := pos + Vector3i(0, 1, 0)
+			if not _replaceable(above) or _overlaps_player(above, 512):
+				return
+			var axis := 0 if _facing() in [0, 2] else 1
+			if edit(pos, 510 + axis * 4) and edit(above, 511 + axis * 4) and not creative:
+				inv.use_one(selected)
+			_refresh_mode()
+			return
+	if edit(pos, id) and not creative:
+		inv.use_one(selected)
+		_refresh_mode()
+
+
+func pick_block() -> void:
+	var hit := target()
+	if hit.is_empty():
+		return
+	var id := world.get_block(hit["pos"].x, hit["pos"].y, hit["pos"].z)
+	var d: Dictionary = Blocks.defs.get(id, {})
+	var item := id
+	if d.has("door"):
+		item = 510
+	elif d.get("shape") == "ladder":
+		item = 500
+	elif d.get("shape") == "stair":
+		item = id - int(d["facing"])
+	if not Items.placeable.has(item):
+		return
+	for i in 9:
+		if inv.item_at(i) == item:
+			_select(i)
+			return
+	if creative:
+		inv.slots[selected] = Items.new_stack(item, Items.max_stack(item))
+	else:
+		for i in inv.slots.size():
+			if inv.item_at(i) == item:
+				var t = inv.slots[selected]
+				inv.slots[selected] = inv.slots[i]
+				inv.slots[i] = t
+				break
+	_refresh_mode()
 
 
 func _update_mining(delta: float) -> void:
-	var hit := target() if spawned else {}
+	var held := _breaking() and not screen.visible and not health.dead
+	var animal = looked_at_animal() if spawned else null
+	if held and not _break_was_held and animal != null:
+		attack(animal)
+	_break_was_held = held
+	var hit := target() if spawned and animal == null else {}
 	highlight.visible = not hit.is_empty()
 	if hit.is_empty():
 		mine_pos = null
@@ -274,40 +673,185 @@ func _update_mining(delta: float) -> void:
 		return
 	var pos: Vector3i = hit["pos"]
 	highlight.position = Vector3(pos)
+	highlight.scale = Vector3.ONE * 1.004
 	var id := world.get_block(pos.x, pos.y, pos.z)
-	if _breaking() and Blocks.hardness[id] >= 0:
+	if held and (Blocks.hardness[id] >= 0 or creative):
+		if creative:
+			if mine_pos != pos:
+				break_at(pos)                  # creative: instant, one block per press
+				mine_pos = pos
+			return
 		if mine_pos != pos:
 			mine_pos = pos
 			mine_progress = 0.0
-		mine_progress += delta / maxf(Blocks.hardness[id] * 1.5, 0.05)
+		mine_progress += delta / maxf(Items.mining(id, inv.item_at(selected))[0], 0.05)
 		if mine_progress >= 1.0:
-			edit(pos, 0)
+			break_at(pos)
 			mine_pos = null
 			mine_progress = 0.0
 	else:
 		mine_pos = null
 		mine_progress = 0.0
-	crack.visible = mine_pos != null and mine_progress > 0
+	crack.visible = not creative and mine_pos != null and mine_progress > 0
 	if crack.visible:
 		crack.position = Vector3(pos)
 		crack.material_override.albedo_texture = crack_textures[mini(int(mine_progress * 6), 5)]
 
 
-# ---------------------------------------------------------------- day and night
+# ---------------------------------------------------------------- building tools
+func build_action(name: String) -> void:
+	if not creative:
+		return
+	var hit := target()
+	var msg := ""
+	var result := []
+	var item := inv.item_at(selected)
+	var fill_ok: bool = Items.placeable.has(item) and Blocks.defs[item]["shape"] != "door"
+	match name:
+		"corner1", "corner2":
+			if hit.is_empty():
+				return
+			builder.set(name, hit["pos"])
+			msg = "Corner %s at %s" % [name.right(1), hit["pos"]]
+		"fill", "hollow":
+			if not fill_ok:
+				msg = "Hold a block to build with"
+			else:
+				result = builder.fill(world, item, name == "hollow")
+		"replace":
+			if hit.is_empty() or not fill_ok:
+				msg = "Hold a block and look at the block type to replace"
+			else:
+				result = builder.fill(world, item, false, world.get_block(hit["pos"].x, hit["pos"].y, hit["pos"].z))
+		"clear":
+			result = builder.fill(world, 0)
+		"copy":
+			msg = builder.copy(world)
+		"paste":
+			_previewing_paste = not builder.clipboard.is_empty()
+			msg = "Aim, then tap Paste again" if _previewing_paste else "Nothing copied yet"
+			if _previewing_paste and use_touch:
+				_paste_armed = not _paste_armed
+				if not _paste_armed:
+					build_action("paste_now")
+					return
+		"paste_now":
+			_previewing_paste = false
+			_paste_armed = false
+			if not hit.is_empty():
+				result = builder.paste(world, hit["pos"] + hit["normal"], Input.is_physical_key_pressed(KEY_SHIFT))
+		"rotate":
+			msg = builder.rotate()
+		"mirror":
+			msg = builder.mirror()
+		"undo":
+			result = builder.undo(world)
+		"deselect":
+			builder.corner1 = null
+			builder.corner2 = null
+			msg = "Selection cleared"
+		"library":
+			build_panel.visible = true
+			build_panel.open_library()
+			_update_touch_rects()
+		_:
+			if name.begins_with("loaded:"):
+				msg = "Loaded %s - %s" % [name.substr(7), "tap Paste" if use_touch else "hold V to place it"]
+	if not result.is_empty():
+		_rebuild(result[0])
+		msg = result[1]
+	if msg != "":
+		hud.flash(msg)
+
+
+var _paste_armed := false
+var _ready_frames := 0
+
+
+func _update_building() -> void:
+	var b = builder.bounds() if creative else null
+	selection_box.visible = b != null
+	var parts := []
+	if b != null:
+		selection_box.position = (Vector3(b[0]) + Vector3(b[1])) / 2.0
+		selection_box.scale = Vector3(b[1] - b[0]) + Vector3.ONE * 1.02
+		var s = builder.size()
+		parts.append("selection %dx%dx%d (%d)" % [s.x, s.y, s.z, builder.volume()])
+	if creative and not builder.clipboard.is_empty():
+		var c = builder.clipboard_size()
+		parts.append("copy %dx%dx%d" % [c.x, c.y, c.z])
+	hud.build_label.text = "   |   ".join(parts)
+	var hit := target() if _previewing_paste and creative else {}
+	paste_preview.visible = not hit.is_empty()
+	if paste_preview.visible:
+		var size: Vector3i = builder.clipboard_size()
+		var origin: Vector3i = hit["pos"] + hit["normal"]
+		paste_preview.position = Vector3(origin) + (Vector3(size) - Vector3.ONE) / 2.0
+		paste_preview.scale = Vector3(size) + Vector3.ONE * 0.02
+
+
+# ---------------------------------------------------------------- animals, health, sky
+func _update_animals(delta: float) -> void:
+	wildlife.update(delta, player.position)
+	var alive := {}
+	for a in wildlife.animals:
+		alive[a] = true
+		if not animal_views.has(a):
+			var v := AnimalView.new(a)
+			add_child(v)
+			animal_views[a] = v
+		animal_views[a].sync(delta, daylight, world)
+	for a in animal_views.keys():
+		if not alive.has(a):
+			animal_views[a].queue_free()
+			animal_views.erase(a)
+
+
+func _update_health(delta: float) -> void:
+	if creative or health.dead or not spawned:
+		_last_position = null
+		hud.show_bars(health, creative)
+		return
+	var moved := 0.0
+	if _last_position != null:
+		moved = Vector2(player.position.x - _last_position.x, player.position.z - _last_position.z).length()
+		if moved > 5:
+			moved = 0.0
+			health.fall_top = null
+	_last_position = player.position
+	var taken := health.tick(delta, moved, player.head_under_water())
+	taken += health.track_fall(player.position.y, player.is_on_floor() or player.on_ladder, player.swimming)
+	if taken > 0:
+		hud.hurt_flash()
+	if health.dead:
+		hud.show_death(health.cause)
+		player.set_physics_process(false)
+		if not use_touch:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	hud.show_bars(health, creative)
+
+
+func respawn() -> void:
+	health.respawn()
+	hud.death.visible = false
+	player.position = spawn_point
+	player.velocity = Vector3.ZERO
+	player.set_physics_process(true)
+	_refresh_mode()
+
+
 func _update_sky(delta: float) -> void:
 	world.time_of_day = fposmod(world.time_of_day + delta * time_speed / DAY_LENGTH, 1.0)
 	var angle := world.time_of_day * TAU
 	var sun_height := sin(angle)
 	var day := clampf((sun_height + 0.15) / 0.45, 0, 1)
 	var dusk := clampf(1 - absf(sun_height) / 0.35, 0, 1)
-	var sky := NIGHT_SKY.lerp(DAY_SKY, day).lerp(DUSK_SKY, dusk * 0.7 * maxf(day, 0.5))
-	env.background_color = sky
-	var daylight := 0.16 + 0.84 * day
+	env.background_color = NIGHT_SKY.lerp(DAY_SKY, day).lerp(DUSK_SKY, dusk * 0.7 * maxf(day, 0.5))
+	daylight = 0.16 + 0.84 * day
 	var tint := Vector3(0.65, 0.75, 1.0).lerp(Vector3.ONE, day).lerp(Vector3(1.0, 0.78, 0.6), dusk * 0.5)
 	for m in materials.values():
 		m.set_shader_parameter("daylight", daylight)
 		m.set_shader_parameter("sky_tint", Color(tint.x, tint.y, tint.z))
-	# the world is mirrored compared to the Python version's left-handed axes, so z flips here
 	var dir := Vector3(cos(angle), sun_height, -0.3).normalized()
 	sun.global_position = player.eye() + dir * 300
 	moon.global_position = player.eye() - dir * 300
@@ -319,12 +863,20 @@ func _update_sky(delta: float) -> void:
 func _process(delta: float) -> void:
 	chunks.update_center(player.position)
 	if not spawned and chunks.is_ready_at(player.position):
-		spawned = true
-		player.set_physics_process(true)
+		_ready_frames += 1
+		if _ready_frames >= 3:                     # give the physics engine the new ground first
+			spawned = true
+			player.set_physics_process(not screen.visible and not health.dead)
 	touch.hotbar_rect = hud.hotbar_rect()
-	_read_controls()
+	if not screen.visible:
+		_read_controls()
+	touch.show_button("up", creative and player.flying)
+	touch.show_button("down", creative and player.flying)
 	_update_mining(delta)
+	_update_building()
 	_update_sky(delta)
+	_update_animals(delta)
+	_update_health(delta)
 	if "--selftest" in OS.get_cmdline_user_args() and spawned:
 		_selftest_step()
 	if _shot_path != "" and spawned:
@@ -340,8 +892,15 @@ func _process(delta: float) -> void:
 
 
 func save_game() -> void:
+	if chest_pos != null and chest_inv != null:
+		world.containers[chest_pos] = chest_inv.to_data()
 	var data: Dictionary = world.player_data.duplicate()
 	data["position"] = [player.position.x, player.position.y + 0.1, player.position.z]
+	data["inventory"] = inv.to_data()
+	data["survival"] = health.to_data()
+	data["mode"] = "creative" if creative else "survival"
+	data["hotbars"] = saved_hotbars
+	data["spawn"] = [spawn_point.x, spawn_point.y, spawn_point.z]
 	world.save(SAVE_PATH, data)
 
 
@@ -373,48 +932,93 @@ func _drag(index: int, pos: Vector2, rel: Vector2) -> void:
 	Input.parse_input_event(e)
 
 
-## Drives the game with real touch events and prints what happened.
+func _st_shot(name: String) -> void:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--shotdir="):
+			get_viewport().get_texture().get_image().save_png(a.substr(10) + "/" + name + ".png")
+
+
+func _press(name: String, index: int, down: bool) -> void:
+	var b: Panel = touch._buttons[name]
+	_touch(index, b.position + b.size / 2, down)
+
+
+## Drives the game with real touch events and prints what happened. Starts in survival.
 func _selftest_step() -> void:
 	_st_frame += 1
 	var s := get_viewport().get_visible_rect().size
 	match _st_frame:
 		5:
 			_st["start"] = player.position
-			_touch(0, Vector2(200, s.y - 200), true)              # joystick finger down
-			_drag(0, Vector2(200, s.y - 290), Vector2(0, -90))    # push forward
+			_touch(0, Vector2(200, s.y - 200), true)
+			_drag(0, Vector2(200, s.y - 290), Vector2(0, -90))
 		60:
 			_touch(0, Vector2(200, s.y - 290), false)
 			print("SELFTEST walked: ", snappedf(_st["start"].distance_to(player.position), 0.1), " blocks")
-		90:
-			var b: Panel = touch._buttons["jump"]
-			_st["y"] = player.position.y
-			_st["floor"] = player.is_on_floor()
-			_touch(1, b.position + b.size / 2, true)
-		96:
-			print("SELFTEST jump rose: ", player.position.y > _st["y"] + 0.3, " (was on floor: ", _st["floor"], ")")
-			var b: Panel = touch._buttons["jump"]
-			_touch(1, b.position + b.size / 2, false)
-		130:
-			var r := hud.hotbar_rect()
-			_touch(2, r.position + Vector2(3.5 * (Hud.SLOT + 4), Hud.SLOT / 2), true)
-			_touch(2, r.position + Vector2(3.5 * (Hud.SLOT + 4), Hud.SLOT / 2), false)
-		132:
-			print("SELFTEST hotbar slot selected: ", selected, " (", Blocks.name_of[hotbar[selected]], ")")
-			player.look(Vector2(0, 0.9))                              # look down at the ground
-		135:
-			var hit := target()
-			_st["placed_at"] = hit["pos"] + hit["normal"] if not hit.is_empty() else null
-			var b: Panel = touch._buttons["place"]
-			_touch(3, b.position + b.size / 2, true)
-			_touch(3, b.position + b.size / 2, false)
-		137:
-			var p = _st["placed_at"]
-			print("SELFTEST placed: ", p != null and world.get_block(p.x, p.y, p.z) == hotbar[selected])
-			var b: Panel = touch._buttons["break"]
-			_touch(4, b.position + b.size / 2, true)
+			health.damage(5, "test")
+			health.hunger = 13
+			hud.show_bars(health, creative)
+			_st_shot("t1_survival_hud")
+		70:
+			player.look(Vector2(0, 0.9))                       # look down at the ground
+			_st["ground"] = target()["pos"]
+			_press("break", 1, true)                             # survival: dig the block (dirt/grass/sand)
 		400:
-			var b: Panel = touch._buttons["break"]
-			_touch(4, b.position + b.size / 2, false)
-			var p = _st["placed_at"]
-			print("SELFTEST broken by holding BREAK: ", world.get_block(p.x, p.y, p.z) == 0)
+			_press("break", 1, false)
+			var g: Vector3i = _st["ground"]
+			print("SELFTEST dug a block by hand: ", world.get_block(g.x, g.y, g.z) == 0, ", got: ", inv.slots.filter(func(x): return x != null))
+		405:
+			inv.add(4, 2)                                        # two logs to craft with
+			_press("inventory", 2, true)
+			_press("inventory", 2, false)
+		410:
+			print("SELFTEST inventory open: ", screen.visible, ", touch blocked: ", touch.blocked)
+			var planks: Dictionary = Items.recipes[0]
+			screen._craft(planks)
+			print("SELFTEST crafted planks: ", inv.count(7) == 4)
+		412:
+			_st_shot("t2_crafting")
+			screen.closed.emit()
+		415:
+			print("SELFTEST inventory closed: ", not screen.visible)
+			set_mode(true)
+			_press("fly", 3, true)
+			_press("fly", 3, false)
+		420:
+			_st["fly_y"] = player.position.y
+			_press("up", 4, true)
+		450:
+			_press("up", 4, false)
+			print("SELFTEST creative flying rose: ", snappedf(player.position.y - _st["fly_y"], 0.1), " blocks")
+			_press("build", 5, true)
+			_press("build", 5, false)
+		452:
+			open_screen()
+		456:
+			_st_shot("t3_creative_menu")
+			screen.closed.emit()
+		460:
+			print("SELFTEST build panel open: ", build_panel.visible)
+			var px := floori(player.position.x + 0.5)
+			var pz := floori(player.position.z + 0.5)
+			player.position.y = world.top_y(px, pz) + 3.0      # come back down near the ground
+			player.look(Vector2(0, 0.5))
+			var hit := target()
+			if hit.is_empty():
+				print("SELFTEST nothing to aim at for building")
+				get_tree().quit()
+				return
+			builder.corner1 = hit["pos"] + Vector3i(-1, 1, -1)
+			builder.corner2 = hit["pos"] + Vector3i(1, 3, 1)
+			inv.slots[selected] = [41, 64]
+			build_action("hollow")
+			print("SELFTEST hollow box: ", hud.message.text)
+		500:
+			_st_shot("t4_build_panel")
+		501:
+			build_action("undo")
+			print("SELFTEST undo: ", hud.message.text)
+			save_game()
+			var again := WorldData.load_from(SAVE_PATH)
+			print("SELFTEST saved mode / inventory: ", again.player_data["mode"], " / ", again.player_data["inventory"].filter(func(x): return x != null).size(), " stacks")
 			get_tree().quit()

@@ -8,6 +8,7 @@ const SWIM_SPEED := 3.5
 const GRAVITY := 24.0
 const JUMP_VELOCITY := 7.8          # about 1.25 blocks high
 const EYE_HEIGHT := 1.62
+const FLY_SPEED := 10.0
 
 var world: WorldData
 var move_input := Vector2.ZERO      # x = right, y = forward, length <= 1
@@ -15,6 +16,11 @@ var jump_held := false
 var yaw := 0.0
 var pitch := 0.0
 var swimming := false
+var flying := false
+var fast := false                   # sprint / fast flying
+var vertical := 0.0                 # flying: +1 up, -1 down
+var noclip := false
+var on_ladder := false
 var camera: Camera3D
 
 
@@ -65,13 +71,31 @@ func head_under_water() -> bool:
 func _physics_process(delta: float) -> void:
 	if world == null:
 		return
+	# safety net: if a lag spike (or a collision shape that wasn't ready yet) let us sink
+	# into a solid block, climb back out on top of it
+	if not noclip:
+		var inside := world.get_block(_cell(position.x), _cell(position.y + 0.3), _cell(position.z))
+		if inside != 0 and Blocks.solid[inside] and Blocks.shape[inside] == "cube":
+			position.y = _cell(position.y + 0.3) + 0.5
+			velocity.y = 0.0
 	swimming = _water_at(position + Vector3(0, 0.6, 0)) or _water_at(position + Vector3(0, -0.4, 0))
-	var speed := SWIM_SPEED if swimming else WALK_SPEED
+	var feet_block := world.get_block(_cell(position.x), _cell(position.y + 0.5), _cell(position.z))
+	on_ladder = Blocks.defs.get(feet_block, {}).get("climbable", false)
+	var speed := SWIM_SPEED if swimming else WALK_SPEED * (1.4 if fast else 1.0)
+	if flying:
+		speed = FLY_SPEED * (2.5 if fast else 1.0)
 	var basis_flat := Basis(Vector3.UP, yaw)
 	var wish := basis_flat * Vector3(move_input.x, 0, -move_input.y)
 	velocity.x = wish.x * speed
 	velocity.z = wish.z * speed
-	if swimming:
+	var mask := 0 if noclip else 1
+	if collision_mask != mask:
+		collision_mask = mask
+	if flying:
+		velocity.y = vertical * speed
+	elif on_ladder:
+		velocity.y = 3.0 if (move_input.y > 0.3 or jump_held) else maxf(velocity.y - GRAVITY * delta, -1.5)
+	elif swimming:
 		velocity.y = maxf(velocity.y - GRAVITY * 0.15 * delta, -2.0)
 		if jump_held:
 			velocity.y = 4.0
@@ -81,7 +105,10 @@ func _physics_process(delta: float) -> void:
 			velocity.y = JUMP_VELOCITY
 		elif is_on_floor() and wish.length() > 0.1 and _step_ahead(wish):
 			velocity.y = JUMP_VELOCITY      # auto-jump onto a single block step
-	move_and_slide()
+	if noclip:
+		position += velocity * delta
+	else:
+		move_and_slide()
 	if position.y < -20:
 		position = world.spawn_point()
 		velocity = Vector3.ZERO

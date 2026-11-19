@@ -538,3 +538,12 @@ static func load_from(path: String) -> WorldData:
 		edits[p] = int(e[3])
 		w.changes[key] = edits
 	return w
+
+
+## [top solid y, water surface y] of a loaded column, or null if its chunk isn't loaded.
+func column(x: int, z: int):
+	var key := chunk_key(x, z)
+	if not chunks.has(key):
+		return null
+	var info := column_info(key)
+	return [info[0][(x & 15) * CS + (z & 15)], info[1][(x & 15) * CS + (z & 15)]]

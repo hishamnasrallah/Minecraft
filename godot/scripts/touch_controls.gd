@@ -10,6 +10,9 @@ extends Control
 signal place_pressed
 signal hotbar_tapped(position: Vector2)
 signal menu_pressed
+signal inventory_pressed
+signal fly_pressed
+signal build_pressed
 
 const JOY_RADIUS := 90.0
 const LOOK_SENSITIVITY := 0.006
@@ -18,6 +21,8 @@ var move := Vector2.ZERO
 var look_delta := Vector2.ZERO        # accumulated, read and cleared by the game every frame
 var jump_held := false
 var break_held := false
+var up_held := false
+var down_held := false
 var hotbar_rect := Rect2()            # set by the HUD so taps there select a slot
 
 var _joy_finger := -1
@@ -39,7 +44,14 @@ func _ready() -> void:
 	_add_button("jump", "JUMP", Vector2(-150, -170), 120)
 	_add_button("break", "BREAK", Vector2(-290, -120), 110)
 	_add_button("place", "PLACE", Vector2(-150, -300), 110)
-	_add_button("menu", "II", Vector2(-80, 20), 60, true)
+	_add_button("menu", "SAVE", Vector2(-80, 20), 64, true)
+	_add_button("inventory", "ITEMS", Vector2(-300, -330), 90)
+	_add_button("fly", "FLY", Vector2(-80, 100), 70, true)
+	_add_button("build", "BUILD", Vector2(-80, 180), 70, true)
+	_add_button("up", "UP", Vector2(-290, -250), 80)
+	_add_button("down", "DOWN", Vector2(-290, -40), 80)
+	show_button("up", false)
+	show_button("down", false)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 
@@ -79,9 +91,15 @@ func _layout() -> void:
 		p.position = Vector2(s.x + o.x - p.size.x / 2, (o.y if p.get_meta("top") else s.y + o.y) - p.size.y / 2)
 
 
+func show_button(name: String, on: bool) -> void:
+	_buttons[name].visible = on
+
+
 func _button_at(pos: Vector2) -> String:
 	for name in _buttons:
 		var p: Panel = _buttons[name]
+		if not p.visible:
+			continue
 		if pos.distance_to(p.position + p.size / 2) <= p.size.x / 2 + 10:
 			return name
 	return ""
@@ -100,11 +118,32 @@ func _set_button(name: String, down: bool) -> void:
 		"menu":
 			if down:
 				menu_pressed.emit()
+		"inventory":
+			if down:
+				inventory_pressed.emit()
+		"fly":
+			if down:
+				fly_pressed.emit()
+		"build":
+			if down:
+				build_pressed.emit()
+		"up":
+			up_held = down
+		"down":
+			down_held = down
+
+
+var blocked := false        # true while a full-screen menu is open: let the menu have the touches
+var ui_rects: Array = []    # other on-screen controls (e.g. the build buttons) that keep their touches
 
 
 func _input(event: InputEvent) -> void:
-	if not visible:
+	if not visible or blocked:
 		return
+	if event is InputEventScreenTouch and event.pressed:
+		for r in ui_rects:
+			if r.has_point(event.position):
+				return
 	if event is InputEventScreenTouch:
 		var pos: Vector2 = event.position
 		if event.pressed:
