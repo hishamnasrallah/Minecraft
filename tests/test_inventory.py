@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from inventory import (Inventory, RECIPES, STACK_SIZE, HOTBAR_SIZE, STICK, COAL, ITEMS, ITEM_ICONS,  # noqa: E402
-                       drop_for, recipe_text)
+                       TOOLS, WOOD_PICKAXE, STONE_PICKAXE, WOOD_AXE, drop_for, mining, recipe_text)
 from world import TILES, GLASS, LAMP, COAL_ORE  # noqa: E402
 
 
@@ -120,3 +120,55 @@ def test_save_round_trip():
     again = Inventory.from_data(inv.to_data())
     assert again.slots == inv.slots
     assert Inventory.from_data(None).slots == [None] * 36
+
+
+def test_mining_speed_depends_on_tool():
+    hand, _, _ = mining(4)
+    axe, drops, wears = mining(4, WOOD_AXE)
+    assert axe < hand and drops and wears
+    assert mining(4, STONE_PICKAXE)[0] == hand        # wrong tool: no help, no wear
+    assert mining(4, STONE_PICKAXE)[2] is False
+    assert mining(3, STONE_PICKAXE)[0] < mining(3, WOOD_PICKAXE)[0]
+
+
+def test_stone_needs_a_pickaxe_to_drop():
+    seconds, drops, _ = mining(3)
+    assert not drops and seconds > mining(3, WOOD_PICKAXE)[0] * 5
+    assert mining(13, WOOD_PICKAXE)[1]
+    assert mining(2)[1]                                # dirt is fine by hand
+
+
+def test_tools_do_not_stack_and_keep_durability():
+    inv = Inventory()
+    inv.add(WOOD_PICKAXE, 2)
+    assert inv.slots[0] == (WOOD_PICKAXE, 1, TOOLS[WOOD_PICKAXE][2])
+    assert inv.slots[1] == (WOOD_PICKAXE, 1, TOOLS[WOOD_PICKAXE][2])
+    inv.wear(0)
+    worn = inv.slots[0]
+    cursor = inv.click(0, None, right=True)            # right-click a tool: take it whole
+    assert cursor == worn
+    cursor = inv.click(1, cursor)                       # click onto another pickaxe: swap, not merge
+    assert inv.slots[1] == worn and cursor[2] == TOOLS[WOOD_PICKAXE][2]
+    assert inv.click(5, cursor, right=True) is None and inv.slots[5][2] == TOOLS[WOOD_PICKAXE][2]
+    inv.quick_move(1)
+    assert worn in inv.slots[HOTBAR_SIZE:]
+    again = Inventory.from_data(inv.to_data())
+    assert again.slots == inv.slots
+
+
+def test_tool_breaks_when_worn_out():
+    inv = Inventory()
+    inv.slots[0] = (WOOD_AXE, 1, 2)
+    assert inv.wear(0) is False and inv.slots[0] == (WOOD_AXE, 1, 1)
+    assert inv.wear(0) is True and inv.slots[0] is None
+    assert inv.wear(0) is False
+
+
+def test_craft_tools():
+    inv = Inventory()
+    inv.add(7, 3)
+    inv.add(STICK, 2)
+    recipe = next(r for r in RECIPES if r[1][0] == WOOD_PICKAXE)
+    assert inv.craft(recipe)
+    assert inv.count(WOOD_PICKAXE) == 1 and inv.count(7) == 0 and inv.count(STICK) == 0
+    assert inv.slots[next(i for i, s in enumerate(inv.slots) if s)][2] == TOOLS[WOOD_PICKAXE][2]

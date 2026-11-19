@@ -2,7 +2,7 @@
 
 Controls:
   WASD / mouse   move / look        Space   jump
-  Left click     break block        Right click  place block
+  Hold left      mine block         Right click  place block
   1-9 / scroll   choose hotbar slot E      inventory & crafting
   T              fast-forward time  F5     save
   Esc            close inventory / save and quit
@@ -20,9 +20,9 @@ from ursina.shaders import unlit_shader
 from ursina.prefabs.first_person_controller import FirstPersonController
 
 from world import World, WATER, UNBREAKABLE, TRANSPARENT, WATER_LEVEL
-from inventory import (Inventory, ITEMS, ITEM_ICONS, PLACEABLE, RECIPES, HOTBAR_SIZE, STACK_SIZE,
-                       drop_for, recipe_text)
-from textures import load_atlas, tile_image
+from inventory import (Inventory, ITEMS, ITEM_ICONS, PLACEABLE, RECIPES, HOTBAR_SIZE, STACK_SIZE, TOOLS,
+                       NEEDS_TOOL, drop_for, mining, recipe_text)
+from textures import load_atlas, tile_image, crack_stages
 from lighting import block_shader
 
 SAVE_FILE = Path(__file__).with_name("save.json")
@@ -151,12 +151,25 @@ class SlotView:
         self.icon = Entity(parent=parent, model="quad", scale=size * 0.78, position=(x, y, -0.01), enabled=False)
         self.count = Text(parent=parent, text="", position=(x + size * 0.5, y - size * 0.3, -0.02),
                           origin=(0.5, -0.5), scale=0.8)
+        # durability bar for tools
+        self.size, self.x = size, x
+        self.bar_back = Entity(parent=parent, model="quad", color=color.black, position=(x, y - size * 0.36, -0.02),
+                               scale=(size * 0.8, size * 0.08), enabled=False)
+        self.bar = Entity(parent=parent, model="quad", position=(x, y - size * 0.36, -0.03),
+                          scale=(size * 0.8, size * 0.08), enabled=False)
 
     def show(self, stack):
         self.icon.enabled = bool(stack)
         if stack:
             self.icon.texture = ICONS[stack[0]]
         self.count.text = str(stack[1]) if stack and stack[1] > 1 and not CREATIVE else ""
+        worn = bool(stack) and len(stack) == 3 and stack[2] < TOOLS[stack[0]][2]
+        self.bar_back.enabled = self.bar.enabled = worn
+        if worn:
+            left = stack[2] / TOOLS[stack[0]][2]
+            self.bar.scale_x = self.size * 0.8 * left
+            self.bar.x = self.x - self.size * 0.4 * (1 - left)
+            self.bar.color = lerp(color.red, color.lime, left)
 
 
 # hotbar along the bottom of the screen
@@ -203,6 +216,8 @@ def refresh_items():
         view.frame.color = color.white if i == selected else color.black66
     stack = inventory.slots[selected]
     label.text = ITEMS[stack[0]] if stack else ""
+    if stack and len(stack) == 3:
+        label.text += f"  ({stack[2]}/{TOOLS[stack[0]][2]})"
     if inv_root.enabled:
         for i, view in enumerate(inventory_views):
             view.show(inventory.slots[i])
@@ -275,17 +290,55 @@ def edit(pos, block_id):
     return bool(changed)
 
 
-def break_block():
-    inside, _ = target()
-    if not inside:
+def break_at(pos):
+    block_id = world.get(*pos)
+    if not block_id or block_id in UNBREAKABLE:
         return
-    block_id = world.get(*inside)
-    if not block_id or block_id in UNBREAKABLE or not edit(inside, 0) or CREATIVE:
+    tool = inventory.item_at(selected)
+    _, drops, wears = mining(block_id, tool)
+    if not edit(pos, 0) or CREATIVE:
         return
-    drop = drop_for(block_id)
+    drop = drop_for(block_id) if drops else None
     if drop and inventory.add(drop):
         flash("Inventory full")
+    if not drops and block_id in NEEDS_TOOL:
+        flash(f"{ITEMS[block_id]} needs a pickaxe to drop anything")
+    if wears and inventory.wear(selected):
+        flash(f"Your {ITEMS[tool]} broke!")
     refresh_items()
+
+
+# mining: hold the left button; cracks grow until the block breaks
+CRACKS = []
+for image in crack_stages():
+    CRACKS.append(Texture(image))
+    CRACKS[-1].filtering = None
+highlight = Entity(model="wireframe_cube", color=Color(0, 0, 0, 0.85), scale=1.004, enabled=False)
+crack = Entity(model="cube", scale=1.008, enabled=False, shader=unlit_shader)
+mine_pos, mine_progress = None, 0.0
+
+
+def update_mining():
+    global mine_pos, mine_progress
+    inside, _ = target() if player.enabled else (None, None)
+    highlight.enabled = inside is not None
+    if inside:
+        highlight.position = inside
+    block_id = world.get(*inside) if inside else 0
+    if not CREATIVE and held_keys["left mouse"] and block_id and block_id not in UNBREAKABLE:
+        if inside != mine_pos:                    # started on a new block (or looked away)
+            mine_pos, mine_progress = inside, 0.0
+        seconds, _, _ = mining(block_id, inventory.item_at(selected))
+        mine_progress += time.dt / max(seconds, 0.05)
+        if mine_progress >= 1:
+            break_at(inside)
+            mine_pos, mine_progress = None, 0.0
+    else:
+        mine_pos, mine_progress = None, 0.0
+    crack.enabled = mine_pos is not None and mine_progress > 0
+    if crack.enabled:
+        crack.position = mine_pos
+        crack.texture = CRACKS[min(int(mine_progress * len(CRACKS)), len(CRACKS) - 1)]
 
 
 def place_block():
@@ -323,8 +376,10 @@ def input(key):
         elif key in ("left mouse down", "right mouse down"):
             inventory_click(right=key.startswith("right"))
         return
-    if key == "left mouse down":
-        break_block()
+    if key == "left mouse down" and CREATIVE:
+        inside, _ = target()
+        if inside:
+            break_at(inside)
     elif key == "right mouse down":
         place_block()
     elif key == "e":
@@ -381,6 +436,7 @@ def update():
         elif build_queue:
             build_chunk(build_queue.pop(0))
     update_sky()
+    update_mining()
     if inv_root.enabled:
         cursor_view.icon.position = (mouse.x, mouse.y, -0.2)
         cursor_view.count.position = (mouse.x + 0.028, mouse.y - 0.012, -0.21)

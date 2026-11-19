@@ -195,6 +195,67 @@ def coal(rng):
     return img
 
 
+WOOD_HEAD, STONE_HEAD = (184, 140, 84), (140, 140, 146)
+
+
+def _handle(img, rng):
+    for i in range(2, 12):                      # diagonal handle, bottom-left to the middle
+        img.putpixel((i, TILE - 1 - i), _shade((120, 86, 48), 1 + rng.uniform(-0.1, 0.1)) + (255,))
+        img.putpixel((i + 1, TILE - 1 - i), (80, 56, 30, 255))
+
+
+def _pickaxe(rng, head):
+    img = Image.new("RGBA", (TILE, TILE), (0, 0, 0, 0))
+    _handle(img, rng)
+    for i in range(10):                          # curved head across the top-right
+        x, y = 5 + i, 2 + abs(i - 5) // 2
+        for dy in (0, 1):
+            img.putpixel((x, y + dy), _shade(head, 1 + rng.uniform(-0.1, 0.1) - 0.25 * dy) + (255,))
+    return img
+
+
+def _axe(rng, head):
+    img = Image.new("RGBA", (TILE, TILE), (0, 0, 0, 0))
+    _handle(img, rng)
+    for x in range(8, 14):                       # blade next to the top of the handle
+        for y in range(1, 7):
+            if (x - 8) + (6 - y) < 9:
+                img.putpixel((x, y), _shade(head, 1 + rng.uniform(-0.1, 0.1) - (0.25 if x == 13 else 0)) + (255,))
+    return img
+
+
+def wood_pickaxe(rng):
+    return _pickaxe(rng, WOOD_HEAD)
+
+
+def stone_pickaxe(rng):
+    return _pickaxe(rng, STONE_HEAD)
+
+
+def wood_axe(rng):
+    return _axe(rng, WOOD_HEAD)
+
+
+def stone_axe(rng):
+    return _axe(rng, STONE_HEAD)
+
+
+def crack_stages(stages=6, seed=99):
+    """Transparent overlays with more and more cracks, shown while a block is being mined."""
+    rng = random.Random(seed)
+    img = Image.new("RGBA", (TILE, TILE), (0, 0, 0, 0))
+    result = []
+    for _ in range(stages):
+        for _ in range(3):                       # each stage adds a few random-walk cracks
+            x, y = rng.randrange(TILE), rng.randrange(TILE)
+            for _ in range(7):
+                img.putpixel((x, y), (20, 20, 20, 200))
+                x = max(0, min(TILE - 1, x + rng.choice((-1, 0, 1))))
+                y = max(0, min(TILE - 1, y + rng.choice((-1, 0, 1))))
+        result.append(img.copy())
+    return result
+
+
 GENERATORS = {name: globals()[name] for name in TILES}
 
 
