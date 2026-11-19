@@ -21,6 +21,8 @@ var mode_label: Label
 var build_label: Label
 var target_label: Label
 var minimap: Minimap
+var chat_log: Label
+var _chat_lines := []                # [text, time shown]
 var perf := {}                       # system -> ms per frame, shown under the FPS counter
 var _message_time := 0.0
 var hotbar_box: HBoxContainer
@@ -83,6 +85,9 @@ func _ready() -> void:
 	target_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	build_label = _label(16)
 	build_label.add_theme_color_override("font_color", Color(0.4, 0.9, 1.0))
+	chat_log = _label(18)
+	chat_log.add_theme_color_override("font_color", Color(1, 1, 1))
+	chat_log.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	minimap = Minimap.new()
 	root.add_child(minimap)
 	_make_death_screen()
@@ -206,6 +211,8 @@ func _layout() -> void:
 	message.position = Vector2(12, 40 + y0)
 	mode_label.position = Vector2(12, 70 + y0)
 	build_label.position = Vector2(12, 94 + y0)
+	chat_log.position = Vector2(12, s.y - SLOT - 230)
+	chat_log.size = Vector2(minf(560, s.x * 0.45), 150)
 	var box: Control = death.get_child(0)
 	box.position = s / 2 - box.get_combined_minimum_size() / 2
 
@@ -281,6 +288,20 @@ func show_target(text: String) -> void:
 		target_label.text = text
 
 
+## A chat message from a friend (or us): shown for 12 seconds, the last 6 at most.
+func chat(name: String, text: String) -> void:
+	_chat_lines.append(["%s: %s" % [name, text], Time.get_ticks_msec()])
+	if _chat_lines.size() > 6:
+		_chat_lines.pop_front()
+	_show_chat()
+
+
+func _show_chat() -> void:
+	var now := Time.get_ticks_msec()
+	_chat_lines = _chat_lines.filter(func(l): return now - int(l[1]) < 12000)
+	chat_log.text = "\n".join(_chat_lines.map(func(l): return l[0]))
+
+
 func flash(text: String) -> void:
 	message.text = text
 	message.modulate.a = 1.0
@@ -297,6 +318,8 @@ func show_death(cause: String) -> void:
 
 
 func _process(delta: float) -> void:
+	if not _chat_lines.is_empty() and Engine.get_process_frames() % 30 == 0:
+		_show_chat()
 	var t := "%d fps" % Engine.get_frames_per_second()
 	if not perf.is_empty():
 		var parts := []

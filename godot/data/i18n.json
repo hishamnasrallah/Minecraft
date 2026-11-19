@@ -520,6 +520,22 @@
    "en": "Play with friends",
    "ar": "العب مع أصحابك"
   },
+  "btn_chat": {
+   "en": "Chat",
+   "ar": "دردشة"
+  },
+  "chat_hint": {
+   "en": "Write to your friends...",
+   "ar": "اكتب لأصحابك..."
+  },
+  "send": {
+   "en": "Send",
+   "ar": "إرسال"
+  },
+  "in_world": {
+   "en": "In this world: %s",
+   "ar": "بالعالم: %s"
+  },
   "your_name": {
    "en": "Your name",
    "ar": "اسمك"

@@ -179,7 +179,9 @@ UI = {
     "cause_gloom": ("A night creature got you.", "وحش ليلي قتلك."),
     # touch actions, log, items screen
     "show_map": ("Mini map", "خريطة صغيرة"),
-    "join_friends": ("Play with friends", "العب مع أصحابك"), "your_name": ("Your name", "اسمك"),
+    "join_friends": ("Play with friends", "العب مع أصحابك"),
+    "btn_chat": ("Chat", "دردشة"), "chat_hint": ("Write to your friends...", "اكتب لأصحابك..."), "send": ("Send", "إرسال"),
+    "in_world": ("In this world: %s", "بالعالم: %s"), "your_name": ("Your name", "اسمك"),
     "join_hint": ("Friends on the same Wi-Fi who opened their world appear here. Or type the IP their phone shows.",
                   "الأصحاب اللي على نفس الواي فاي وفاتحين عالمهم بيطلعوا هون. أو اكتب الـ IP اللي بيطلع عندهم."),
     "ip_hint": ("Host IP, e.g. 192.168.1.20", "IP المضيف، مثلاً 192.168.1.20"), "join": ("Join", "انضم"),

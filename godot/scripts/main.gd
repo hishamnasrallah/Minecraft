@@ -200,6 +200,7 @@ func _ready() -> void:
 	weather = Weather.new()
 	add_child(weather)
 	remote_players = RemotePlayers.new()
+	remote_players.icon_for = hud.icon_for
 	add_child(remote_players)
 	Net.remote_edits.connect(_apply_remote_edits)
 	Net.remote_container.connect(func(p, data): world.containers[p] = data)
@@ -213,6 +214,15 @@ func _ready() -> void:
 	Net.failed.connect(func(reason):
 		if _remote_world:
 			hud.flash(I18n.t("net_" + reason)))
+	Net.animals.connect(func(data): wildlife.apply_snapshot(data))
+	Net.animal_drop.connect(func(st): drops.spawn(st, player.position + Vector3(0, 1.0, 0), Vector3.ZERO, 0.0))
+	Net.hurt.connect(func(dmg): _take_damage(dmg))
+	Net.animal_hit.connect(_on_friend_hit_animal)
+	Net.chat_message.connect(func(name, text): hud.chat(name, text); Sfx.play("pop", -10.0, 1.4))
+	Net.failed.connect(func(reason):
+		if reason == "host_left" and _remote_world:
+			await get_tree().create_timer(3.0).timeout
+			get_tree().change_scene_to_file("res://scenes/menu.tscn"))
 	Net.get_world_data = func() -> Dictionary:
 		return {"seed": world.seed, "changes": world.changes, "containers": world.containers,
 			"time": world.time_of_day, "weather": weather.kind, "creative": creative,
@@ -256,6 +266,7 @@ func _ready() -> void:
 	touch.fly_pressed.connect(func(): set_flying(not player.flying))
 	touch.build_pressed.connect(toggle_build_panel)
 	touch.settings_pressed.connect(open_settings)
+	touch.chat_pressed.connect(open_chat)
 	tutorial = Tutorial.new()
 	tutorial.visible = false
 	tutorial.finished.connect(_update_touch_rects)
@@ -283,6 +294,12 @@ func _ready() -> void:
 		var f := player.forward()
 		drops.spawn(st, player.eye() + f * 0.5 - Vector3(0, 0.3, 0), f * 5.0 + Vector3(0, 2.0, 0), 1.5))
 	top.add_child(screen)
+	chat_box = ChatBox.new()
+	chat_box.closed.connect(func():
+		touch.blocked = false
+		if not use_touch:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	top.add_child(chat_box)
 	settings = SettingsScreen.new()
 	settings.in_game = true
 	settings.visible = false
@@ -359,6 +376,7 @@ func _wire_cube(color: Color) -> MeshInstance3D:
 # ---------------------------------------------------------------- modes and menus
 func _refresh_mode() -> void:
 	touch.show_button("fly", true)            # in survival it says flying is for creative
+	touch.show_button("chat", Net.active())
 	touch.show_button("build", creative)
 	touch.show_button("up", creative and player.flying)
 	touch.show_button("down", creative and player.flying)
@@ -470,6 +488,15 @@ func open_screen(chest = null, kind := "") -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
+func open_chat() -> void:
+	if not Net.active():
+		return
+	chat_box.open()
+	touch.blocked = true
+	if not use_touch:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
 func open_settings() -> void:
 	settings.visible = true
 	player.set_physics_process(false)
@@ -543,6 +570,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		match key:
 			KEY_ESCAPE:
 				Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+			KEY_ENTER:
+				open_chat()
 			KEY_E:
 				open_screen()
 			KEY_G:
@@ -753,6 +782,22 @@ func break_at(pos: Vector3i) -> void:
 func attack(animal) -> void:
 	var item := inv.item_at(selected)
 	var feeding: bool = animal.wants_food(item)
+	if _remote_world:
+		# the host owns the animals: it applies the hit and sends back what dropped
+		Net.hit_animal(animal.uid, Items.attack_damage(item) if not creative else 100, item, player.position)
+		animal.hurt_time = 0.25
+		if feeding:
+			if not creative:
+				inv.use_one(selected)
+				_refresh_mode()
+			Sfx.play("eat", -6.0)
+			return
+		Sfx.play("hurt", -4.0, 1.7)
+		if not creative:
+			health.exert(float(Items.survival["ATTACK"]))
+			if Items.tools.has(item) and inv.wear(selected):
+				hud.flash(I18n.f("tool_broke", Items.name_of(item)))
+		return
 	var drop: Array = animal.hit(player.position, Items.attack_damage(item) if not creative else 100)
 	if feeding:
 		return                                    # fed, not hit: the animal plays its own sound
@@ -830,6 +875,7 @@ func _host_game() -> void:
 	Net.world_name = _world_title()
 	hud.flash(I18n.f("hosting", ", ".join(Net.local_ips())))
 	close_settings()
+	_refresh_mode()                                 # shows the chat button
 
 
 func _world_title() -> String:
@@ -839,18 +885,47 @@ func _world_title() -> String:
 	return "BlockWorld"
 
 
+var _animals_timer := 0.0
+var _chests_timer := 0.0
+
+
 func _update_net(delta: float) -> void:
+	hud.minimap.others = remote_players.positions()
 	if not Net.active():
 		return
 	_net_timer -= delta
 	if _net_timer <= 0.0:
 		_net_timer = 0.1
-		Net.send_state(player.position, player.yaw, player.pitch, inv.item_at(selected))
+		Net.send_state(player.position, player.yaw, player.pitch, inv.item_at(selected), not creative and not health.dead)
 	if Net.is_host():
 		_clock_timer -= delta
 		if _clock_timer <= 0.0:
 			_clock_timer = 2.0
 			Net.send_clock(world.time_of_day, weather.kind)
+		_animals_timer -= delta
+		if _animals_timer <= 0.0:
+			_animals_timer = 0.15                       # about 7 times a second, smoothed on arrival
+			Net.send_animals(wildlife.snapshot())
+		_chests_timer -= delta
+		if _chests_timer <= 0.0 and not power.changed_containers.is_empty():
+			_chests_timer = 0.5
+			for p in power.changed_containers:
+				Net.send_container(p, world.containers.get(p))
+			power.changed_containers.clear()
+
+
+## Host: a friend hit or fed one of our animals.
+func _on_friend_hit_animal(from_id: int, uid: int, damage: int, held: int, from: Vector3) -> void:
+	var a = wildlife.by_uid(uid)
+	if a == null:
+		return
+	var mine := Wildlife.held_item
+	Wildlife.held_item = held
+	var drop: Array = a.hit(from, damage)
+	Wildlife.held_item = mine
+	a.fed = false                                       # the friend paid for the food, not us
+	if not drop.is_empty():
+		Net.send_drop(from_id, drop)
 
 
 var _net_edits_in := 0
@@ -879,6 +954,14 @@ func _apply_remote_edits(edits: Dictionary) -> void:
 	_applying_remote = false
 	if not keys.is_empty():
 		_rebuild(keys.keys(), maxi(lo - 16, 0), mini(hi + 16, WorldData.H - 1))
+	# hear your friends dig and build (a few sounds at most, quieter further away)
+	var sounds := 0
+	for p in edits:
+		var d := player.position.distance_to(Vector3(p))
+		if d < 24.0 and sounds < 2 and not power.parts.has(p):
+			var id: int = edits[p]
+			Sfx.play("place" if id != 0 else "dig_stone", -6.0 - d * 0.8)
+			sounds += 1
 
 
 # ---------------------------------------------------------------- pasting big buildings
@@ -1335,6 +1418,7 @@ var tutorial: Tutorial
 var drops: Drops
 var weather: Weather
 var remote_players: RemotePlayers
+var chat_box: ChatBox
 var _remote_world := false          # we joined a friend: their phone saves the world, not ours
 var _applying_remote := false       # edits from the network must not be sent back
 var _net_timer := 0.0
@@ -1386,17 +1470,28 @@ func _update_building() -> void:
 
 
 # ---------------------------------------------------------------- animals, health, sky
+func _take_damage(damage: int, cause := "gloom") -> void:
+	if damage <= 0 or creative or health.dead:
+		return
+	health.damage(damage, cause)
+	hud.hurt_flash()
+	Sfx.play("hurt")
+	hud.show_bars(health, creative)
+	if health.dead:
+		hud.show_death(health.cause)
+		player.set_physics_process(false)
+
+
 func _update_animals(delta: float) -> void:
-	var monsters: bool = I18n.settings.get("monsters", true)
-	var damage := wildlife.update(delta, player.position, daylight, monsters, not creative and not health.dead)
-	if damage > 0 and not creative and not health.dead:
-		health.damage(damage, "gloom")
-		hud.hurt_flash()
-		Sfx.play("hurt")
-		hud.show_bars(health, creative)
-		if health.dead:
-			hud.show_death(health.cause)
-			player.set_physics_process(false)
+	if _remote_world:
+		wildlife.puppet_step(delta, player.position)      # the host moves them; we glide along
+	else:
+		var monsters: bool = I18n.settings.get("monsters", true)
+		Wildlife.others = remote_players.targets() if Net.is_host() else []
+		_take_damage(wildlife.update(delta, player.position, daylight, monsters, not creative and not health.dead))
+		for peer in Wildlife.remote_damage:               # night creatures that hit a friend
+			Net.send_hurt(peer, Wildlife.remote_damage[peer])
+		Wildlife.remote_damage.clear()
 	var alive := {}
 	for a in wildlife.animals:
 		alive[a] = true
@@ -1588,7 +1683,7 @@ func _process(delta: float) -> void:
 	if "--netlog" in OS.get_cmdline_user_args() and Engine.get_process_frames() % 120 == 0:
 		print("NETSTATE active=%s joined=%s host=%s peer=%s remote_world=%s" % [Net.active(), Net.joined, Net.hosting, multiplayer.multiplayer_peer, _remote_world])
 	if Net.active() and "--netlog" in OS.get_cmdline_user_args() and Engine.get_process_frames() % 120 == 0:
-		print("NET host=%s players=%d remote_edits=%d" % [Net.is_host(), remote_players.count(), _net_edits_in])
+		print("NET host=%s players=%d remote_edits=%d animals=%d chat=%d" % [Net.is_host(), remote_players.count(), _net_edits_in, wildlife.animals.size(), hud._chat_lines.size()])
 	if "--netbot" in OS.get_cmdline_user_args() and spawned and not _st.has("netbot") and Net.active():
 		_st["netbot"] = true                            # testing: a friend builds a small tower
 		var bx := floori(player.position.x + 0.5) + 2
@@ -1597,6 +1692,17 @@ func _process(delta: float) -> void:
 		for i in 5:
 			edit(Vector3i(bx, by + i, bz), 1600 + "HELLO".unicode_at(i) - 65)
 		print("NETBOT built HELLO at ", Vector3i(bx, by, bz))
+		Net.say("مرحبا من البوت")
+		Net.animal_drop.connect(func(st): print("NETBOT got a drop from the host: ", st))
+	if "--netbot" in OS.get_cmdline_user_args() and _st.has("netbot") and Engine.get_process_frames() % 20 == 0 and _remote_world:
+		var best = null                                 # keep hitting the nearest animal
+		var bd := 40.0
+		for a in wildlife.animals:
+			if not a.ambient and player.position.distance_to(a.pos) < bd:
+				best = a
+				bd = player.position.distance_to(a.pos)
+		if best != null:
+			attack(best)
 	if "--debristest" in OS.get_cmdline_user_args() and spawned and Engine.get_process_frames() % 12 == 0:
 		debris.burst(player.eye() + player.forward() * 3.0, 1)        # testing: pieces in front of the camera
 	if "--machines" in OS.get_cmdline_user_args() and spawned and not _st.has("machines"):

@@ -16,6 +16,7 @@ signal inventory_pressed
 signal fly_pressed
 signal build_pressed
 signal settings_pressed
+signal chat_pressed
 
 const JOY_RADIUS := 90.0
 const LOOK_SENSITIVITY := 0.006
@@ -63,8 +64,10 @@ func _ready() -> void:
 	_add_button("settings", "settings", "btn_settings", Vector2(-170, 50), 72, true)
 	_add_button("fly", "fly", "btn_fly", Vector2(-80, 140), 72, true)
 	_add_button("build", "build", "btn_build", Vector2(-80, 230), 72, true)
+	_add_button("chat", "chat", "btn_chat", Vector2(-260, 50), 72, true)
 	show_button("up", false)
 	show_button("down", false)
+	show_button("chat", false)
 	set_classic(bool(I18n.settings.get("touch_buttons", false)))
 	get_viewport().size_changed.connect(_layout)
 	_layout()
@@ -171,6 +174,9 @@ func _set_button(name: String, down: bool) -> void:
 		"settings":
 			if down:
 				settings_pressed.emit()
+		"chat":
+			if down:
+				chat_pressed.emit()
 		"up":
 			up_held = down
 		"down":

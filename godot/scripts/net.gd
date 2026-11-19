@@ -21,6 +21,11 @@ signal player_state(id: int, state: Array)   # [position, yaw, pitch, held item,
 signal player_left(id: int)
 signal player_joined(id: int, name: String)
 signal clock(time_of_day: float, weather: String)
+signal animals(data: PackedFloat32Array)         # friend: the host's animals
+signal animal_hit(from_id: int, uid: int, damage: int, held: int, from: Vector3)   # host
+signal animal_drop(stack: Array)                 # friend: what the animal we hit dropped
+signal hurt(damage: int)                         # friend: a night creature hit us on the host
+signal chat_message(name: String, text: String)
 
 const PORT := 7777
 const DISCOVERY_PORT := 7778
@@ -238,9 +243,9 @@ func container(pos: Vector3i, data) -> void:
 	remote_container.emit(pos, data)
 
 
-func send_state(pos: Vector3, yaw: float, pitch: float, held: int) -> void:
+func send_state(pos: Vector3, yaw: float, pitch: float, held: int, can_be_hit := true) -> void:
 	if active():
-		state.rpc([pos, yaw, pitch, held, _my_name()])
+		state.rpc([pos, yaw, pitch, held, _my_name(), can_be_hit])
 
 
 @rpc("any_peer", "unreliable_ordered")
@@ -256,3 +261,61 @@ func send_clock(time_of_day: float, weather: String) -> void:
 @rpc("authority", "unreliable_ordered")
 func clock_rpc(time_of_day: float, weather: String) -> void:
 	clock.emit(time_of_day, weather)
+
+
+# ---------------------------------------------------------------- animals (the host owns them)
+func send_animals(data: PackedFloat32Array) -> void:
+	if hosting and not names.is_empty():
+		animals_rpc.rpc(data)
+
+
+@rpc("authority", "unreliable_ordered")
+func animals_rpc(data: PackedFloat32Array) -> void:
+	animals.emit(data)
+
+
+func hit_animal(uid: int, damage: int, held: int, from: Vector3) -> void:
+	if joined:
+		hit_animal_rpc.rpc_id(1, uid, damage, held, from)
+
+
+@rpc("any_peer", "reliable")
+func hit_animal_rpc(uid: int, damage: int, held: int, from: Vector3) -> void:
+	if hosting:
+		animal_hit.emit(multiplayer.get_remote_sender_id(), uid, damage, held, from)
+
+
+func send_drop(to: int, stack: Array) -> void:
+	drop_rpc.rpc_id(to, stack)
+
+
+@rpc("authority", "reliable")
+func drop_rpc(stack: Array) -> void:
+	animal_drop.emit(stack)
+
+
+func send_hurt(to: int, damage: int) -> void:
+	hurt_rpc.rpc_id(to, damage)
+
+
+@rpc("authority", "reliable")
+func hurt_rpc(damage: int) -> void:
+	hurt.emit(damage)
+
+
+# ---------------------------------------------------------------- chat
+func say(text: String) -> void:
+	text = text.strip_edges().left(160)
+	if text == "" or not active():
+		return
+	chat_rpc.rpc(_my_name(), text)
+	chat_message.emit(_my_name(), text)
+
+
+@rpc("any_peer", "reliable")
+func chat_rpc(name: String, text: String) -> void:
+	chat_message.emit(name.left(24), text.left(160))
+
+
+func player_names() -> Array:
+	return [_my_name()] + names.values()

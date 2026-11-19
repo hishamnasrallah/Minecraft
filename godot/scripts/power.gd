@@ -34,6 +34,7 @@ var _acc := 0.0
 var _slow := 0.0
 var _info := {}                    # block id -> [kind, facing, on]
 var _emit := {}                    # this tick: positions that power all neighbours
+var changed_containers := {}       # chests the machines changed (sent to friends by the host)
 var _ids := {}                     # Vector3i -> block id of every part (no world lookups per tick)
 var _by_kind := {}                 # kind -> [positions]
 var _lists_dirty := true
@@ -361,6 +362,7 @@ func _collect(p: Vector3i) -> void:
 				mine.add(int(src.slots[i][0]), 1)
 				src.use_one(i)
 				world.containers[above] = src.to_data()
+				changed_containers[above] = true
 				changed = true
 				break
 	# into the container below (a smelter takes it into its input slots)
@@ -380,10 +382,12 @@ func _collect(p: Vector3i) -> void:
 					dst.slots[slot][1] += 1
 				mine.use_one(i)
 				world.containers[below] = dst.to_data()
+				changed_containers[below] = true
 				changed = true
 				break
 	if changed:
 		world.containers[p] = mine.to_data()
+		changed_containers[p] = true
 
 
 func _slot_for(inv: Inventory, item: int, last: int) -> int:
@@ -406,6 +410,7 @@ func take_drop(p: Vector3i, stack: Array):
 	var inv := _container(p)
 	var left = inv.give(stack)
 	world.containers[p] = inv.to_data()
+	changed_containers[p] = true
 	return left
 
 
@@ -436,6 +441,7 @@ func _smelt(p: Vector3i) -> void:
 		var cur = inv.slots[out_slot]
 		inv.slots[out_slot] = [int(r["out"][0]), int(r["out"][1]) + (int(cur[1]) if cur != null else 0)]
 		world.containers[p] = inv.to_data()
+		changed_containers[p] = true
 		return
 
 

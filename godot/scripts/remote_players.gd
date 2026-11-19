@@ -5,6 +5,7 @@ extends Node3D
 
 var _players := {}                 # peer id -> {"node", "target", "yaw", "pitch", "head", "seen"}
 var _box: BoxMesh
+var icon_for: Callable             # item id -> Texture2D (the HUD's icons) for what they hold
 
 
 func _ready() -> void:
@@ -33,10 +34,24 @@ func _make(name: String) -> Dictionary:
 	var skin := Color(0.93, 0.76, 0.6)
 	# the position is the player's feet; the figure looks towards -z, like the camera
 	_part(root, Vector3(0.5, 0.7, 0.28), Vector3(0, 1.05, 0), shirt)            # body
-	_part(root, Vector3(0.22, 0.7, 0.24), Vector3(-0.13, 0.35, 0), Color(0.2, 0.25, 0.45))
-	_part(root, Vector3(0.22, 0.7, 0.24), Vector3(0.13, 0.35, 0), Color(0.2, 0.25, 0.45))
-	_part(root, Vector3(0.18, 0.66, 0.2), Vector3(-0.34, 1.05, 0), shirt.darkened(0.2))
-	_part(root, Vector3(0.18, 0.66, 0.2), Vector3(0.34, 1.05, 0), shirt.darkened(0.2))
+	# legs and arms swing from the hip / shoulder (pivot nodes at the joint)
+	var limbs := []
+	for spec in [[Vector3(-0.13, 0.7, 0), Vector3(0.22, 0.7, 0.24), Color(0.2, 0.25, 0.45)],
+			[Vector3(0.13, 0.7, 0), Vector3(0.22, 0.7, 0.24), Color(0.2, 0.25, 0.45)],
+			[Vector3(-0.34, 1.38, 0), Vector3(0.18, 0.66, 0.2), shirt.darkened(0.2)],
+			[Vector3(0.34, 1.38, 0), Vector3(0.18, 0.66, 0.2), shirt.darkened(0.2)]]:
+		var joint := Node3D.new()
+		joint.position = spec[0]
+		root.add_child(joint)
+		_part(joint, spec[1], Vector3(0, -spec[1].y / 2, 0), spec[2])
+		limbs.append(joint)
+	var held := Sprite3D.new()                 # what they hold, in the right hand
+	held.pixel_size = 0.014
+	held.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	held.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	held.shaded = false
+	held.position = Vector3(0, -0.62, -0.18)
+	limbs[3].add_child(held)
 	var head := Node3D.new()
 	head.position = Vector3(0, 1.62, 0)
 	root.add_child(head)
@@ -53,7 +68,8 @@ func _make(name: String) -> Dictionary:
 	label.no_depth_test = true
 	root.add_child(label)
 	return {"node": root, "head": head, "label": label, "target": Vector3.ZERO, "yaw": 0.0, "pitch": 0.0,
-		"seen": Time.get_ticks_msec(), "fresh": true}
+		"seen": Time.get_ticks_msec(), "fresh": true, "limbs": limbs, "held": held, "item": -1,
+		"phase": 0.0, "can_hit": true}
 
 
 ## [position, yaw, pitch, held item, name] from a player.
@@ -67,8 +83,13 @@ func update_state(id: int, s: Array) -> void:
 	p["yaw"] = float(s[1])
 	p["pitch"] = float(s[2])
 	p["seen"] = Time.get_ticks_msec()
+	p["can_hit"] = bool(s[5]) if s.size() > 5 else true
 	if p["label"].text != str(s[4]):
 		p["label"].text = str(s[4])
+	var item := int(s[3])
+	if item != int(p["item"]):
+		p["item"] = item
+		p["held"].texture = icon_for.call(item) if item > 0 and icon_for.is_valid() else null
 
 
 func remove(id: int) -> void:
@@ -86,11 +107,40 @@ func _process(delta: float) -> void:
 		var p: Dictionary = _players[id]
 		var node: Node3D = p["node"]
 		var target: Vector3 = p["target"]
+		var before := node.position
 		if p["fresh"]:
 			node.position = target
 			p["fresh"] = false
 		else:
 			node.position = node.position.lerp(target, minf(1.0, delta * 12.0))
+		# walking: legs and arms swing with the speed
+		var speed := Vector2(node.position.x - before.x, node.position.z - before.z).length() / maxf(delta, 0.001)
+		p["phase"] += delta * clampf(speed, 0.0, 6.0) * 2.2
+		var swing := sin(p["phase"]) * clampf(speed / 4.0, 0.0, 1.0) * 0.7
+		var limbs: Array = p["limbs"]
+		limbs[0].rotation.x = swing
+		limbs[1].rotation.x = -swing
+		limbs[2].rotation.x = -swing
+		limbs[3].rotation.x = swing - (0.3 if int(p["item"]) > 0 else 0.0)
 		node.rotation.y = p["yaw"]
 		p["head"].rotation.x = float(p["pitch"])
 		node.visible = Time.get_ticks_msec() - int(p["seen"]) < 5000
+
+
+## For the host's animals: [peer id, position, can be attacked] of every friend.
+func targets() -> Array:
+	var out := []
+	for id in _players:
+		var p: Dictionary = _players[id]
+		if p["node"].visible:
+			out.append([id, p["target"], p["can_hit"]])
+	return out
+
+
+## For the mini map.
+func positions() -> Array:
+	var out := []
+	for id in _players:
+		if _players[id]["node"].visible:
+			out.append(_players[id]["target"])
+	return out

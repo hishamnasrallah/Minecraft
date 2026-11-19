@@ -93,6 +93,19 @@ func _ready() -> void:
 	sound.drag_ended.connect(func(_c): Sfx.play("pop"))
 	box.add_child(sound)
 
+	var name_row := HBoxContainer.new()
+	box.add_child(name_row)
+	var name_label := _caption(I18n.t("your_name"), "")
+	name_row.add_child(name_label)
+	var name_edit := LineEdit.new()
+	name_edit.text = str(I18n.settings.get("player_name", ""))
+	name_edit.placeholder_text = OS.get_model_name()
+	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_edit.max_length = 20
+	name_edit.custom_minimum_size.y = 46
+	name_edit.text_changed.connect(func(t): I18n.settings["player_name"] = t.strip_edges())
+	name_row.add_child(name_edit)
+
 	var monsters := CheckBox.new()
 	monsters.text = I18n.t("monsters")
 	monsters.button_pressed = bool(I18n.settings.get("monsters", true))

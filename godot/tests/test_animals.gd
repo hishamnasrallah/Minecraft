@@ -306,3 +306,43 @@ func test_update_cost() -> String:
 		per = minf(per, (Time.get_ticks_usec() - t) / 100.0)
 	print("        wildlife update with %d creatures: %.0f us/frame" % [life.animals.size(), per])
 	return "" if per < 600.0 else "too slow: %.0f us" % per
+
+
+func test_snapshot_roundtrip_for_friends() -> String:
+	var w := _flat()
+	var host := Wildlife.new(w)
+	host._spawn_timer = 1e9
+	for k in ["woolly", "hen", "fish", "gloom"]:
+		host.animals.append(Wildlife.Animal.new(k, Vector3(8, WorldData.SURFACE_OFFSET + 14, 8)))
+	host.update(0.016, Vector3(8, WorldData.SURFACE_OFFSET + 14, 30), 0.1, true, false)
+	var data := host.snapshot()
+	var friend := Wildlife.new(w)
+	friend.apply_snapshot(data)
+	if friend.animals.size() != host.animals.size():
+		return "friend sees %d of %d" % [friend.animals.size(), host.animals.size()]
+	var kinds := friend.animals.map(func(a): return a.kind)
+	for a in host.animals:
+		if not a.kind in kinds:
+			return "missing %s" % a.kind
+	host.animals.pop_back()
+	friend.apply_snapshot(host.snapshot())
+	if friend.animals.size() != host.animals.size():
+		return "a gone animal should go for the friend too"
+	return ""
+
+
+func test_night_creatures_chase_the_nearest_player() -> String:
+	var w := _flat()
+	var life := Wildlife.new(w)
+	life._spawn_timer = 1e9
+	var y := WorldData.SURFACE_OFFSET + 14
+	var g := Wildlife.Animal.new("gloom", Vector3(30, y, 8))
+	life.animals.append(g)
+	Wildlife.others = [[7, Vector3(31.0, y, 8), true]]      # a friend right next to it
+	var host_damage := 0
+	for i in 80:
+		host_damage += life.update(0.05, Vector3(0, y, 8), 0.0, true, true)
+	var friend_damage: int = Wildlife.remote_damage.get(7, 0)
+	Wildlife.others = []
+	Wildlife.remote_damage.clear()
+	return "" if friend_damage > 0 and host_damage == 0 else "friend hurt %d, host hurt %d" % [friend_damage, host_damage]

@@ -13,6 +13,7 @@ var world: WorldData
 var center := Vector2i.ZERO          # world x, z of the middle
 var facing := Vector2(0, 1)          # player forward on the map (x right, z down)
 var home := Vector3.ZERO
+var others: Array = []               # friends' positions (blue dots)
 var _img: Image
 var _tex: ImageTexture
 var _row := 0
@@ -84,7 +85,7 @@ func update_map(player_pos: Vector3, forward: Vector3, home_pos: Vector3) -> voi
 				_tex.update(_img)
 				_drawn[0] = Vector2i(-99999, 0)      # force a redraw
 				break
-	var key := [center, facing.snapped(Vector2(0.05, 0.05))]
+	var key := [center, facing.snapped(Vector2(0.05, 0.05)), others.size(), others.hash()]
 	if key != _drawn:
 		_drawn = key
 		queue_redraw()
@@ -135,6 +136,12 @@ func _draw() -> void:
 		var k := minf((size.x / 2 - 10) / maxf(absf(d.x), 0.001), (size.y / 2 - 10) / maxf(absf(d.y), 0.001))
 		hp = size / 2 + d * k
 	draw_texture_rect(_home_icon, Rect2(hp - Vector2(10, 10), Vector2(20, 20)), false, Color(1, 0.85, 0.4))
+	for o in others:
+		var op: Vector3 = o
+		var dp := size / 2 + Vector2(op.x - center.x, op.z - center.y) * cell
+		dp = dp.clamp(Vector2(4, 4), size - Vector2(4, 4))
+		draw_circle(dp, 4.0, Color(0.3, 0.7, 1.0))
+		draw_arc(dp, 4.0, 0, TAU, 12, Color.WHITE, 1.0)
 	# you
 	var c := size / 2
 	var side := Vector2(-facing.y, facing.x)

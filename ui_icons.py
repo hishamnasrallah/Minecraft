@@ -406,6 +406,15 @@ def drop_item():
     return img
 
 
+def chat():
+    img, d = _canvas()
+    d.rounded_rectangle([24, 36, 232, 176], radius=40, fill=W)
+    d.polygon([(70, 168), (60, 230), (130, 172)], fill=W)
+    for x in (80, 128, 176):
+        d.ellipse([x - 14, 92, x + 14, 120], fill=(0, 0, 0, 0))
+    return img
+
+
 ICONS = {
     "jump": jump, "break": pickaxe, "place": place, "items": bag, "fly": wing, "build": hammer, "up": up,
     "down": down, "save": floppy, "settings": gear, "close": cross, "half": half, "quick": bolt, "trash": trash,
@@ -414,7 +423,7 @@ ICONS = {
     "replace": swap, "clear": eraser, "copy": copy, "paste": clipboard, "rotate": rotate, "mirror": mirror,
     "undo": undo, "deselect": deselect, "library": book, "language": globe, "save_hotbar": floppy,
     "star": star, "recent": clock, "sort": sort, "all": grid, "plus": plus, "check": check, "home": house,
-    "log": log_lines, "furnace": flame, "drop": drop_item,
+    "log": log_lines, "chat": chat, "furnace": flame, "drop": drop_item,
 }
 
 

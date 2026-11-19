@@ -97,6 +97,10 @@ const NIGHT_RESTERS := ["woolly", "hen", "goat", "deer"]
 const AROUND := [Vector2i(4, 0), Vector2i(-4, 0), Vector2i(0, 4), Vector2i(0, -4), Vector2i(3, 3), Vector2i(-3, -3)]
 
 static var held_item := 0       # what the player is holding (food makes animals follow)
+## Playing with friends (host): the other players, [peer id, position, can be attacked].
+## Night creatures chase whoever is nearest; their hits on friends are collected here.
+static var others: Array = []
+static var remote_damage := {}  # peer id -> damage this frame
 
 
 static func cell(v: float) -> int:
@@ -151,6 +155,8 @@ class Animal:
 	var player_dist := 0.0
 	var rest_check := 0.0         # standing still: the ground is only re-checked now and then
 	var frozen := false           # testing lineup: stands still
+	var uid := 0                  # number shared with friends (given by the host)
+	var net_pos := Vector3.ZERO   # friends: where the host says it is (we glide there)
 
 	func _init(k: String, p: Vector3) -> void:
 		kind = k
@@ -474,6 +480,9 @@ var _born := []
 var _counts := {"land": 0, "fish": 0, "ambient": 0, "hostile": 0}
 var _player := Vector3.ZERO
 var _zoo := 0                   # testing: 1 = show every creature in a row (`-- --zoo`), 2 = done
+var _next_uid := 1
+var puppet := false             # a friend's game: the host moves the animals, we only show them
+var _by_uid := {}
 
 
 func _init(w: WorldData) -> void:
@@ -504,9 +513,23 @@ func update(dt: float, player: Vector3, daylight := 1.0, hostile := true, can_ta
 			a.hidden = false
 			i -= 1
 			continue
+		if a.uid == 0:
+			a.uid = _next_uid
+			_next_uid += 1
 		var dx := a.pos.x - player.x
 		var dz := a.pos.z - player.z
 		var d2 := dx * dx + dz * dz
+		var target := player
+		var target_peer := 0
+		var target_ok := can_target
+		for o in others:                       # friends count as players too
+			var op: Vector3 = o[1]
+			var od := (a.pos.x - op.x) * (a.pos.x - op.x) + (a.pos.z - op.z) * (a.pos.z - op.z)
+			if od < d2:
+				d2 = od
+				target = op
+				target_peer = int(o[0])
+				target_ok = bool(o[2])
 		var hide := d2 > far2
 		a.hidden = hide
 		var every := 1
@@ -514,10 +537,13 @@ func update(dt: float, player: Vector3, daylight := 1.0, hostile := true, can_ta
 			every = 6 if hide else (3 if d2 > near2 else 2)
 		a.acc += dt
 		if every == 1 or (_frame + a.slot) % every == 0:
-			a.update(a.acc, world, player, can_target)
+			a.update(a.acc, world, target, target_ok)
 			a.acc = 0.0
 		if a.wants_attack:
-			damage += int(a.spec.get("damage", ATTACK_DAMAGE))
+			if target_peer == 0:
+				damage += int(a.spec.get("damage", ATTACK_DAMAGE))
+			else:
+				remote_damage[target_peer] = int(remote_damage.get(target_peer, 0)) + int(a.spec.get("damage", ATTACK_DAMAGE))
 		if a.hostile:
 			if not hostile:
 				a.dead = true
@@ -559,11 +585,15 @@ func update(dt: float, player: Vector3, daylight := 1.0, hostile := true, can_ta
 	if _spawn_timer <= 0:
 		_spawn_timer = SPAWN_EVERY
 		_spawn_turn += 1
-		try_spawn(player)
+		# take turns spawning around each player
+		var around := player
+		if not others.is_empty() and _spawn_turn % (others.size() + 1) != 0:
+			around = others[_spawn_turn % (others.size() + 1) - 1][1]
+		try_spawn(around)
 		if _spawn_turn % 2 == 0:
-			try_spawn_ambient(player, daylight)
+			try_spawn_ambient(around, daylight)
 		if hostile:
-			try_spawn_hostile(player, daylight)
+			try_spawn_hostile(around, daylight)
 	return damage
 
 
@@ -884,3 +914,68 @@ func spawn_lineup(origin: Vector3, forward: Vector3) -> Array:
 			out.append(an)
 	animals.append_array(out)
 	return out
+
+
+# ---------------------------------------------------------------- playing with friends
+const NET_FIELDS := 11
+
+
+## Host: every animal in 11 numbers (uid, kind, position, yaw, moving, colour, age, hurt, fade).
+func snapshot() -> PackedFloat32Array:
+	var kinds: Array = SPECIES.keys()
+	var out := PackedFloat32Array()
+	for a: Animal in animals:
+		if a.uid == 0:
+			continue
+		out.append_array([a.uid, kinds.find(a.kind), a.pos.x, a.pos.y, a.pos.z, a.yaw, 1.0 if a.moving else 0.0,
+			a.variant, a.age, a.hurt_time, a.fade])
+	return out
+
+
+## Friend: show what the host sent. New animals appear, missing ones go.
+func apply_snapshot(data: PackedFloat32Array) -> void:
+	puppet = true
+	var kinds: Array = SPECIES.keys()
+	var seen := {}
+	for i in range(0, data.size() - NET_FIELDS + 1, NET_FIELDS):
+		var uid := int(data[i])
+		var kind_i := int(data[i + 1])
+		if kind_i < 0 or kind_i >= kinds.size():
+			continue
+		var p := Vector3(data[i + 2], data[i + 3], data[i + 4])
+		var a: Animal = _by_uid.get(uid)
+		if a == null:
+			a = Animal.new(kinds[kind_i], p)
+			a.uid = uid
+			_by_uid[uid] = a
+			animals.append(a)
+		a.net_pos = p
+		a.yaw = data[i + 5]
+		a.moving = data[i + 6] > 0.5
+		a.variant = int(data[i + 7])
+		a.age = data[i + 8]
+		a.hurt_time = data[i + 9]
+		a.fade = data[i + 10]
+		seen[uid] = true
+	for uid in _by_uid.keys():
+		if not seen.has(uid):
+			animals.erase(_by_uid[uid])
+			_by_uid.erase(uid)
+
+
+## Friend: glide towards the host's positions between snapshots.
+func puppet_step(dt: float, player: Vector3) -> void:
+	for a: Animal in animals:
+		a.pos = a.pos.lerp(a.net_pos, minf(1.0, dt * 10.0))
+		if a.moving:
+			a.walk_phase += dt * 8.0
+		var dx := a.pos.x - player.x
+		var dz := a.pos.z - player.z
+		a.hidden = dx * dx + dz * dz > FAR * FAR
+
+
+func by_uid(uid: int) -> Animal:
+	for a: Animal in animals:
+		if a.uid == uid:
+			return a
+	return null
