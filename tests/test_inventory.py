@@ -103,7 +103,8 @@ def test_drops():
     rng = random.Random(0)
     assert drop_for(1, rng) == 2
     assert drop_for(COAL_ORE, rng) == COAL
-    assert drop_for(3, rng) == 3
+    assert drop_for(3, rng) == 22                # stone -> cobblestone
+    assert drop_for(8, rng) == 8
     leaves = [drop_for(5, rng) for _ in range(1000)]
     assert set(leaves) == {None, STICK, APPLE}
     assert 100 < leaves.count(STICK) < 300 and 40 < leaves.count(APPLE) < 130
@@ -112,7 +113,7 @@ def test_drops():
 def test_every_item_has_an_icon_and_recipes_read_well():
     for item in ITEMS:
         assert ITEM_ICONS[item] in TILES
-    assert recipe_text(RECIPES[0]) == "4 planks  =  1 wood"
+    assert recipe_text(RECIPES[0]) == "4 oak planks  =  1 oak log"
 
 
 def test_save_round_trip():

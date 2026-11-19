@@ -9,41 +9,23 @@ import random
 from collections import deque
 from pathlib import Path
 
+from blocks import (BLOCK_DEFS, BLOCKS, BLOCK_TILES, TRANSPARENT, TRANSLUCENT, NON_SOLID, LIGHT_EMIT,
+                    UNBREAKABLE, PLANTS_NEED_SOIL, WATER, LAMP, GLASS, CUBE, CROSS, SLAB, STAIR, FENCE, LADDER,
+                    DOOR, BED, TORCH, DOORS)
+
 CHUNK_SIZE = 16
 MAX_HEIGHT = 64
 WATER_LEVEL = 11
 TREE_CHANCE = 0.012
-WATER = 10
-LAMP = 11
-GLASS = 12
 COAL_ORE = 13
 MAX_LIGHT = 15
-LIGHT_EMIT = {LAMP: 14}      # block id -> light level it gives off
 CAVE_THRESHOLD = 0.016     # bigger = more/wider caves
 CAVE_GRID = 4              # cave noise is sampled every N blocks and interpolated
-
-# id -> name
-BLOCKS = {
-    1: "grass",
-    2: "dirt",
-    3: "stone",
-    4: "wood",
-    5: "leaves",
-    6: "sand",
-    7: "planks",
-    8: "brick",
-    9: "bedrock",
-    10: "water",
-    11: "lamp",
-    12: "glass",
-    13: "coal ore",
-}
-UNBREAKABLE = {9, WATER}
-TRANSPARENT = {WATER, GLASS}  # blocks you can see through (light passes, faces behind them are drawn)
+SNOW_LINE = 27             # mountain tops above this are snowy with pine trees
 
 # Texture atlas layout: ATLAS_COLS x ATLAS_COLS tiles, read left-to-right, top-to-bottom.
-ATLAS_COLS = 5
-TILES = [
+ATLAS_COLS = 12
+_BASE_TILES = [
     "grass_top", "grass_side", "dirt", "stone",
     "log_side", "log_top", "leaves", "sand",
     "planks", "brick", "bedrock", "water",
@@ -51,22 +33,19 @@ TILES = [
     "wood_pickaxe", "stone_pickaxe", "wood_axe", "stone_axe",
     "raw_meat", "cooked_meat", "apple",
 ]
-# id -> (top, side, bottom) tile names
-BLOCK_TILES = {
-    1: ("grass_top", "grass_side", "dirt"),
-    2: ("dirt",) * 3,
-    3: ("stone",) * 3,
-    4: ("log_top", "log_side", "log_top"),
-    5: ("leaves",) * 3,
-    6: ("sand",) * 3,
-    7: ("planks",) * 3,
-    8: ("brick",) * 3,
-    9: ("bedrock",) * 3,
-    10: ("water",) * 3,
-    11: ("lamp",) * 3,
-    12: ("glass",) * 3,
-    13: ("coal_ore",) * 3,
-}
+ITEM_TILES = [
+    "iron_ingot", "copper_ingot", "tin_ingot", "gold_ingot", "bronze_ingot", "diamond", "bucket", "water_bucket",
+    "iron_pickaxe", "diamond_pickaxe", "iron_axe", "diamond_axe",
+    "wood_shovel", "stone_shovel", "iron_shovel", "diamond_shovel",
+    "wood_sword", "stone_sword", "iron_sword", "diamond_sword",
+]
+TILES = list(_BASE_TILES)
+for _tiles in BLOCK_TILES.values():
+    for _t in _tiles:
+        if _t not in TILES:
+            TILES.append(_t)
+TILES += [t for t in ITEM_TILES if t not in TILES]
+assert len(TILES) <= ATLAS_COLS * ATLAS_COLS, "texture atlas is full"
 NEIGHBOURS = ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1))
 
 # (normal, brightness) — simple fake lighting so cube edges are visible.
@@ -213,6 +192,8 @@ class World:
         self._columns = {}        # cache: (cx, cz) -> {(x, z): (top solid y, water surface y)}
         self.time_of_day = 0.2    # 0 = sunrise, 0.25 = noon, 0.5 = sunset, 0.75 = midnight
         self.player_data = {}     # inventory etc., stored by the game in the save file
+        self.containers = {}      # chest contents: (x, y, z) -> list of slots
+        self._climate = {}        # cache: (x, z) -> column noise results
 
     # -- basic access
     @staticmethod
@@ -235,18 +216,31 @@ class World:
         else:
             self.lamps.discard(pos)
 
-    def set(self, x, y, z, block_id):
-        """Player edit. Returns the loaded chunk keys whose mesh must be rebuilt."""
+    def set(self, x, y, z, block_id, force=False, flood=True):
+        """Player edit. Returns the loaded chunk keys whose mesh must be rebuilt.
+        force: allow removing unbreakable blocks (creative, buckets). flood: let water flow in."""
         pos = (x, y, z)
         key = self.chunk_key(x, z)
         if not 0 <= y < MAX_HEIGHT or key not in self.chunks:
             return set()
-        if block_id == 0 and self.get(*pos) in UNBREAKABLE:
+        old = self.get(*pos)
+        if block_id == 0 and old in UNBREAKABLE and not force:
             return set()
         self._edit(pos, block_id)
         touched = [pos]
         if block_id == 0:
-            touched += self._flood(pos)
+            if old in DOORS:                       # a door is two blocks: remove the other half too
+                other = (x, y - 1, z) if DOORS[old]["top"] else (x, y + 1, z)
+                if self.get(*other) in DOORS:
+                    self._edit(other, 0)
+                    touched.append(other)
+            above = (x, y + 1, z)                  # plants, torches, cactus and reeds need something below
+            while self.get(*above) in PLANTS_NEED_SOIL | {50, 60}:
+                self._edit(above, 0)
+                touched.append(above)
+                above = (above[0], above[1] + 1, above[2])
+            if flood:
+                touched += self._flood(pos)
         # neighbours across a chunk border also need a rebuild
         return {k for (tx, _, tz) in touched
                 for k in (self.chunk_key(tx + dx, tz + dz) for dx, dz in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)))
@@ -278,12 +272,39 @@ class World:
 
     # -- generation
     def height_at(self, x, z):
-        hills = fbm(x / 28, z / 28, self.seed)
-        mountains = fbm(x / 90, z / 90, self.seed + 7) ** 2
-        return int(3 + hills * 12 + mountains * 22)
+        return self._column_climate(x, z)[0]
+
+    def _column_climate(self, x, z):
+        """(height, desert?, tree?, tree kind, forest density) of a column, cached: these noise
+        lookups are asked for many times per column while generating."""
+        cached = self._climate.get((x, z))
+        if cached:
+            return cached
+        seed = self.seed
+        hills = fbm(x / 28, z / 28, seed)
+        mountains = fbm(x / 90, z / 90, seed + 7) ** 2
+        h = int(3 + hills * 12 + mountains * 22)
+        desert = WATER_LEVEL + 1 < h < SNOW_LINE - 3 and fbm(x / 140, z / 140, seed + 31, 2) > 0.6
+        forest = fbm(x / 60, z / 60, seed + 41, 2)
+        tree = (not desert and h > WATER_LEVEL
+                and _hash(x, z, seed + 777) < TREE_CHANCE * (0.6 + 1.6 * forest))
+        if h >= SNOW_LINE - 3:
+            kind = "pine"
+        else:
+            kind = "birch" if tree and fbm(x / 50, z / 50, seed + 43, 2) > 0.56 else "oak"
+        if len(self._climate) > 400_000:
+            self._climate.clear()
+        result = self._climate[(x, z)] = (h, desert, tree, kind, forest)
+        return result
 
     def has_tree(self, x, z):
-        return _hash(x, z, self.seed + 777) < TREE_CHANCE and self.height_at(x, z) > WATER_LEVEL
+        return self._column_climate(x, z)[2]
+
+    def is_desert(self, x, z):
+        return self._column_climate(x, z)[1]
+
+    def tree_kind(self, x, z):
+        return self._column_climate(x, z)[3]
 
     def ensure_chunk(self, key):
         """Generate a chunk (and re-apply the player's edits in it) if it isn't loaded."""
@@ -292,33 +313,102 @@ class World:
         self.chunks[key] = set()
         cx, cz = key
         x0, z0 = cx * CHUNK_SIZE, cz * CHUNK_SIZE
+        seed = self.seed
+        surface = {}
         for x in range(x0, x0 + CHUNK_SIZE):
             for z in range(z0, z0 + CHUNK_SIZE):
                 h = self.height_at(x, z)
                 beach = h <= WATER_LEVEL + 1
+                desert = self.is_desert(x, z)
+                snowy = h >= SNOW_LINE
+                if desert:
+                    top_block, filler = 6, 6
+                elif beach:
+                    top_block, filler = 6, 6
+                    if h < WATER_LEVEL - 1:              # sea floor: patches of clay and gravel
+                        r = _hash(x >> 2, z >> 2, seed + 61)
+                        top_block = filler = 15 if r < 0.25 else 14 if r < 0.4 else 6
+                else:
+                    top_block, filler = (16 if snowy else 1), 2
                 for y in range(h + 1):
                     if y == 0:
                         b = 9
                     elif y < h - 3:
-                        # coal comes in small clusters: a coarse 2x2x2 cell decides, then each block
-                        b = COAL_ORE if (_hash3(x >> 1, y >> 1, z >> 1, self.seed + 55) < 0.05
-                                         and _hash3(x, y, z, self.seed + 56) < 0.6) else 3
+                        b = self._rock(x, y, z) if not (desert and y >= h - 6) else 20
                     elif y < h:
-                        b = 6 if beach and y >= h - 2 else 2
+                        b = filler
                     else:
-                        b = 6 if beach else 1
+                        b = top_block
                     self._put((x, y, z), b)
                 for y in range(h + 1, WATER_LEVEL + 1):
                     self._put((x, y, z), WATER)
+                surface[(x, z)] = (h, top_block, desert)
         self._carve_caves(key)
+        self._plants(key, surface)
         # trees near the border overlap neighbouring chunks; each chunk keeps only its part
         for tx in range(x0 - 2, x0 + CHUNK_SIZE + 2):
             for tz in range(z0 - 2, z0 + CHUNK_SIZE + 2):
                 if self.has_tree(tx, tz):
-                    self._tree(tx, self.height_at(tx, tz) + 1, tz, key)
+                    self._tree(tx, self.height_at(tx, tz) + 1, tz, key, self.tree_kind(tx, tz))
         for pos, b in self.changes.get(key, {}).items():
             self._put(pos, b)
         return True
+
+    # ores: (block, chance band, deepest y it can appear at)
+    ORES = [(COAL_ORE, 0.050, 64), (26, 0.064, 36), (27, 0.074, 36), (25, 0.086, 28), (28, 0.091, 14),
+            (29, 0.094, 9), (14, 0.104, 64)]   # the last band is gravel pockets
+
+    def _rock(self, x, y, z):
+        """Underground block: stone with patches of other rock, and ore clusters by depth."""
+        seed = self.seed
+        r = _hash3(x >> 1, y >> 1, z >> 1, seed + 55)          # 2x2x2 cells decide ore clusters
+        if r < 0.104:
+            for block_id, band, max_y in self.ORES:
+                if r < band:
+                    if y <= max_y and _hash3(x, y, z, seed + 56) < 0.6:
+                        return block_id
+                    break
+        v = _hash3(x >> 3, y >> 2, z >> 3, seed + 71)          # big blobs of other rock types
+        if v < 0.08:
+            return 18                                             # granite
+        if v < 0.15 and y < 20:
+            return 19                                             # basalt, deeper down
+        if v < 0.19:
+            return 21                                             # marble
+        return 3
+
+    def _plants(self, key, surface):
+        """Grass tufts, flowers, ferns, mushrooms, reeds by the water and cacti in deserts."""
+        seed = self.seed
+        flowers = (53, 54, 55, 56)
+        for (x, z), (h, top_block, desert) in surface.items():
+            y = h + 1
+            if self.get(x, h, z) != top_block or self.get(x, y, z) or self.has_tree(x, z):
+                continue                                          # carved away, under water or a trunk spot
+            r = _hash(x, z, seed + 91)
+            if desert:
+                if r < 0.012:
+                    for dy in range(1 + int(_hash(x, z, seed + 92) * 3)):
+                        self._put((x, y + dy, z), 60)
+                continue
+            if top_block == 6 and h == WATER_LEVEL + 1 and r < 0.25:
+                near_water = any(self.height_at(x + dx, z + dz) <= WATER_LEVEL
+                                 for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+                if near_water:
+                    for dy in range(1 + int(_hash(x, z, seed + 93) * 3)):
+                        self._put((x, y + dy, z), 59)
+                continue
+            if top_block != 1:
+                continue
+            forest = self._column_climate(x, z)[4]
+            if r < 0.10:
+                self._put((x, y, z), 51)
+            elif r < 0.12:
+                self._put((x, y, z), flowers[int(_hash(x, z, seed + 94) * 4)])
+            elif r < 0.12 + 0.05 * forest:
+                self._put((x, y, z), 52)
+            elif r < 0.125 + 0.05 * forest and forest > 0.5:
+                self._put((x, y, z), 57 if _hash(x, z, seed + 95) < 0.4 else 58)
 
     def _carve_caves(self, key):
         """Hollow out tunnels. Noise is sampled on a coarse grid and interpolated, and
@@ -371,18 +461,29 @@ class World:
                                 if c0 + (c1 - c0) * fx < CAVE_THRESHOLD:
                                     self._put((x, y, z), 0)
 
-    def _tree(self, x, y, z, key):
+    def _tree(self, x, y, z, key, kind="oak"):
         def put(p, b):
-            if self.chunk_key(p[0], p[2]) == key and p[1] < MAX_HEIGHT and self.get(*p) in (0, WATER):
+            if self.chunk_key(p[0], p[2]) == key and p[1] < MAX_HEIGHT and self.get(*p) in (0, WATER, 51, 52):
                 self._put(p, b)
 
-        for dy in range(4):
-            put((x, y + dy, z), 4)
-        for dy, r in ((2, 2), (3, 2), (4, 1)):
+        if kind == "pine":                      # tall and cone shaped
+            for dy in range(6):
+                put((x, y + dy, z), 38)
+            for dy, r in ((2, 2), (3, 2), (4, 1), (5, 1), (6, 1), (7, 0)):
+                for dx in range(-r, r + 1):
+                    for dz in range(-r, r + 1):
+                        if abs(dx) + abs(dz) <= r + (1 if r == 2 else 0):
+                            put((x + dx, y + dy, z + dz), 40)
+            return
+        log, leaves, height = (35, 37, 5) if kind == "birch" else (4, 5, 4)
+        for dy in range(height):
+            put((x, y + dy, z), log)
+        top = height - 2
+        for dy, r in ((top, 2), (top + 1, 2), (top + 2, 1)):
             for dx in range(-r, r + 1):
                 for dz in range(-r, r + 1):
                     if abs(dx) + abs(dz) < r * 2:
-                        put((x + dx, y + dy, z + dz), 5)
+                        put((x + dx, y + dy, z + dz), leaves)
 
     def unload_chunk(self, key):
         for pos in self.chunks.pop(key, ()):
@@ -401,8 +502,7 @@ class World:
         """Can something stand on / bump into this cell? (Unloaded chunks count as solid walls.)"""
         if self.chunk_key(x, z) not in self.chunks:
             return True
-        b = self.blocks.get((x, y, z), 0)
-        return bool(b) and b != WATER
+        return self.blocks.get((x, y, z), 0) not in NON_SOLID
 
     def spawn_point(self):
         return (8, self.top_y(8, 8) + 1.5, 8)
@@ -496,31 +596,39 @@ class World:
 
     # -- meshing
     def chunk_mesh(self, cx, cz):
-        """Mesh data for a chunk: {"solid": (verts, colors, uvs), "water": (...)}.
-
-        Only visible faces are emitted. Neighbouring chunks are generated first so
-        faces on the border are culled correctly.
+        """Mesh data for a chunk, by how it is drawn:
+        "solid" (opaque + cut-out, collides), "translucent" (coloured glass/ice, collides),
+        "water" (no collision) and "plants" (walk-through: plants, torches, ladders).
+        Each is (verts, colors, uvs); only visible faces are emitted. Neighbouring chunks are
+        generated first so faces on the border are culled correctly.
         """
         for dx in (-1, 0, 1):
             for dz in (-1, 0, 1):
                 self.ensure_chunk((cx + dx, cz + dz))
-        out = {"solid": ([], [], []), "water": ([], [], [])}
+        out = {"solid": ([], [], []), "translucent": ([], [], []), "water": ([], [], []), "plants": ([], [], [])}
         blocks = self.blocks
         light_at = self.compute_light(cx, cz)
         for pos in self.chunks[(cx, cz)]:
             x, y, z = pos
             block_id = blocks[pos]
+            d = BLOCK_DEFS.get(block_id)
+            if d is None:
+                continue
+            if d["shape"] != CUBE:
+                self._shape_mesh(out, block_id, d, x, y, z, light_at)
+                continue
             water = block_id == WATER
-            verts, colors, uvs = out["water" if water else "solid"]
+            group = "water" if water else "translucent" if block_id in TRANSLUCENT else "solid"
+            verts, colors, uvs = out[group]
             # water surface sits a little lower than a full block
             lowered = water and blocks.get((x, y + 1, z)) != WATER
             for i, ((nx, ny, nz), shade, corners, _) in enumerate(FACE_VERTS):
                 neighbour = blocks.get((x + nx, y + ny, z + nz), 0)
                 if water:
                     if neighbour == WATER or (neighbour and neighbour not in TRANSPARENT):
-                        continue           # water shows against air and glass
+                        continue           # water shows against air and see-through blocks
                 elif (neighbour and (neighbour not in TRANSPARENT or neighbour == block_id)) or (ny == -1 and y == 0):
-                    continue               # hidden behind an opaque block, or glass next to glass
+                    continue               # hidden behind an opaque block, or glass next to the same glass
                 # vertex colour carries the light for the shader: r = sky, g = block light, b = face shade
                 sky, lamp = light_at(x + nx, y + ny, z + nz)
                 if block_id in LIGHT_EMIT:
@@ -534,6 +642,111 @@ class World:
                 uvs.extend(_FACE_UVS[(block_id, i)])
         return out
 
+    def shape_boxes(self, block_id, x, y, z):
+        """The boxes (x0, y0, z0, x1, y1, z1 within -0.5..0.5) a non-cube block is made of."""
+        d = BLOCK_DEFS[block_id]
+        shape = d["shape"]
+        if shape == SLAB:
+            return [(-.5, -.5, -.5, .5, 0, .5)]
+        if shape == STAIR:
+            upper = [(-.5, 0, 0, .5, .5, .5), (0, 0, -.5, .5, .5, .5),
+                     (-.5, 0, -.5, .5, .5, 0), (-.5, 0, -.5, 0, .5, .5)][d["facing"]]
+            return [(-.5, -.5, -.5, .5, 0, .5), upper]
+        if shape == BED:
+            return [(-.5, -.5, -.5, .5, .06, .5)]
+        if shape == TORCH:
+            return [(-.0625, -.5, -.0625, .0625, .3, .0625)]
+        if shape == LADDER:
+            return [[(-.5, -.5, .42, .5, .5, .5), (.42, -.5, -.5, .5, .5, .5),
+                     (-.5, -.5, -.5, .5, .5, -.42), (-.5, -.5, -.5, -.42, .5, .5)][d["facing"]]]
+        if shape == DOOR:
+            door = d["door"]
+            if door["axis"] == 0:
+                return [(-.5, -.5, -.5, -.32, .5, .5)] if door["open"] else [(-.5, -.5, -.09, .5, .5, .09)]
+            return [(-.5, -.5, -.5, .5, .5, -.32)] if door["open"] else [(-.09, -.5, -.5, .09, .5, .5)]
+        if shape == FENCE:
+            boxes = [(-.125, -.5, -.125, .125, .5, .125)]
+            for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                n = self.blocks.get((x + dx, y, z + dz), 0)
+                if n == block_id or (n and n not in TRANSPARENT):
+                    for y0, y1 in ((.1, .32), (-.25, -.05)):
+                        if dx:
+                            a, b = (.125, .5) if dx > 0 else (-.5, -.125)
+                            boxes.append((a, y0, -.06, b, y1, .06))
+                        else:
+                            a, b = (.125, .5) if dz > 0 else (-.5, -.125)
+                            boxes.append((-.06, y0, a, .06, y1, b))
+            return boxes
+        return [(-.5, -.5, -.5, .5, .5, .5)]
+
+    def _shape_mesh(self, out, block_id, d, x, y, z, light_at):
+        sky, lamp = light_at(x, y, z)
+        if block_id in LIGHT_EMIT:
+            lamp = MAX_LIGHT
+        top, side, bottom = d["tiles"]
+        if d["shape"] == CROSS:                       # two crossed, double-sided quads
+            verts, colors, uvs = out["plants"]
+            col = (sky / MAX_LIGHT, lamp / MAX_LIGHT, 0.9, 1.0)
+            for (ax, az), (bx, bz) in (((-.45, -.45), (.45, .45)), ((-.45, .45), (.45, -.45))):
+                quad = [(ax, -.5, az), (bx, -.5, bz), (bx, .5, bz), (ax, .5, az)]
+                quad_uv = [(0, 0), (1, 0), (1, 1), (0, 1)]
+                for order in ((0, 1, 2, 2, 3, 0), (0, 3, 2, 2, 1, 0)):
+                    for i in order:
+                        vx, vy, vz = quad[i]
+                        verts.append((x + vx, y + vy, z + vz))
+                        uvs.append(tile_uv(side, *quad_uv[i]))
+                    colors.extend((col,) * 6)
+            return
+        group = "plants" if d["shape"] in (LADDER, TORCH) else "solid"
+        verts, colors, uvs = out[group]
+        blocks = self.blocks
+        for box in self.shape_boxes(block_id, x, y, z):
+            lo, hi = box[:3], box[3:]
+            for (normal, shade, corners, _) in FACE_VERTS:
+                axis = next(a for a in range(3) if normal[a])
+                on_edge = (hi if normal[axis] > 0 else lo)[axis] == (0.5 if normal[axis] > 0 else -0.5)
+                if on_edge:
+                    n = blocks.get((x + normal[0], y + normal[1], z + normal[2]), 0)
+                    if n and n not in TRANSPARENT:
+                        continue                      # flush against an opaque block
+                tile = top if normal[1] > 0 else bottom if normal[1] < 0 else side
+                col = (sky / MAX_LIGHT, lamp / MAX_LIGHT, shade, 1.0)
+                for c in corners:
+                    p = [lo[a] if c[a] < 0 else hi[a] for a in range(3)]
+                    verts.append((x + p[0], y + p[1], z + p[2]))
+                    # project onto the face so a half-height slab shows half the texture
+                    if normal[1]:
+                        u, v = p[0] + .5, p[2] + .5
+                    else:
+                        u, v = (p[2] if normal[0] else p[0]) + .5, p[1] + .5
+                    uvs.append(tile_uv(tile, u, v))
+                colors.extend((col,) * 6)
+
+    def raycast(self, origin, direction, max_distance=6.0, hit_water=False):
+        """Walk the voxel grid from `origin` along `direction` (DDA). Returns
+        (block position, face normal, distance) of the first block hit, or (None, None, None)."""
+        ox, oy, oz = origin[0] + 0.5, origin[1] + 0.5, origin[2] + 0.5   # blocks are centred on integers
+        dx, dy, dz = direction
+        cell = [math.floor(ox), math.floor(oy), math.floor(oz)]
+        step, t_max, t_delta = [0, 0, 0], [math.inf] * 3, [math.inf] * 3
+        for a, (o, d) in enumerate(((ox, dx), (oy, dy), (oz, dz))):
+            if d > 0:
+                step[a], t_max[a], t_delta[a] = 1, (math.floor(o) + 1 - o) / d, 1 / d
+            elif d < 0:
+                step[a], t_max[a], t_delta[a] = -1, (o - math.floor(o)) / -d, -1 / d
+        normal = (0, 0, 0)
+        t = 0.0
+        while t <= max_distance:
+            b = self.blocks.get(tuple(cell), 0)
+            if b and (b != WATER or hit_water):
+                return tuple(cell), normal, t
+            a = t_max.index(min(t_max))
+            t = t_max[a]
+            t_max[a] += t_delta[a]
+            cell[a] += step[a]
+            normal = tuple(-step[a] if i == a else 0 for i in range(3))
+        return None, None, None
+
     # -- persistence (only the seed + player edits are stored)
     def save(self, path, player=None):
         data = {
@@ -541,6 +754,7 @@ class World:
             "version": 3,
             "seed": self.seed,
             "time_of_day": self.time_of_day,
+            "containers": [[list(pos), slots] for pos, slots in self.containers.items()],
             "changes": [[x, y, z, b] for edits in self.changes.values() for (x, y, z), b in edits.items()],
         }
         Path(path).write_text(json.dumps(data))
@@ -551,6 +765,7 @@ class World:
         world = cls(seed=data["seed"])
         world.time_of_day = data.get("time_of_day", world.time_of_day)
         world.player_data = data.get("player", {})
+        world.containers = {tuple(pos): slots for pos, slots in data.get("containers", [])}
         for x, y, z, b in data["changes"]:
             world.changes.setdefault(cls.chunk_key(x, z), {})[(x, y, z)] = b
         return world

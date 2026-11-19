@@ -24,6 +24,7 @@ uniform sampler2D p3d_Texture0;
 uniform vec4 p3d_ColorScale;
 uniform float daylight;
 uniform vec3 sky_tint;
+uniform float alpha_cut;                    // pixels more see-through than this are dropped
 in vec2 uvs;
 in vec4 light;
 out vec4 fragColor;
@@ -33,10 +34,10 @@ float curve(float level) { return pow(level, 1.6); }
 
 void main() {
     vec4 tex = texture(p3d_Texture0, uvs);
-    if (tex.a < 0.5) discard;               // see-through pixels (glass)
+    if (tex.a < alpha_cut) discard;         // see-through pixels (glass, plants)
     vec3 sky = vec3(curve(light.r) * daylight) * sky_tint;
     vec3 lamp = vec3(curve(light.g)) * vec3(1.0, 0.86, 0.62);
     vec3 total = max(max(sky, lamp), vec3(0.03));
-    fragColor = vec4(tex.rgb * total * light.b, tex.a * p3d_ColorScale.a);
+    fragColor = vec4(tex.rgb * total * light.b, (alpha_cut > 0.1 ? 1.0 : tex.a) * p3d_ColorScale.a);
 }
 """)
