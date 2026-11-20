@@ -548,6 +548,18 @@
    "en": "Your surroundings. Tap anywhere to close.",
    "ar": "المنطقة حواليك. اكبس بأي مكان لتسكّر."
   },
+  "btn_mine": {
+   "en": "Break",
+   "ar": "كسر"
+  },
+  "mode_break": {
+   "en": "Break mode: tap or hold to break",
+   "ar": "وضع الكسر: اكبس أو اضغط مطوّل لتكسّر"
+  },
+  "mode_build": {
+   "en": "Build mode",
+   "ar": "وضع البناء"
+  },
   "cause_void": {
    "en": "You fell off the sky islands.",
    "ar": "وقعت عن جزر السما."

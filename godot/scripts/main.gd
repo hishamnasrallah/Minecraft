@@ -284,6 +284,7 @@ func _ready() -> void:
 	touch.world_tapped.connect(tap_world)
 	touch.hotbar_tapped.connect(func(pos): _select(hud.slot_at(pos)))
 	touch.map_tapped.connect(open_map)
+	touch.mine_toggled.connect(func(on): hud.flash(I18n.t("mode_break" if on else "mode_build")))
 	hud.big_map.gui_input.connect(func(e):
 		if (e is InputEventMouseButton or e is InputEventScreenTouch) and e.pressed:
 			close_map())
@@ -442,6 +443,8 @@ static func default_view_distance() -> int:
 	var gb := float(mem.get("physical", 0)) / 1073741824.0
 	if not OS.has_feature("mobile"):
 		return 6
+	if gb < 0.5:
+		return 5                                  # the phone did not say: assume a decent one
 	# phones report a little less than the box says (an "8 GB" tablet shows ~7.3)
 	return 6 if gb >= 7.0 else (5 if gb >= 5.2 else (4 if gb >= 3.4 else 3))
 
@@ -701,6 +704,9 @@ func _select(i: int) -> void:
 	if i == -1:
 		return
 	selected = posmod(i, 9)
+	if touch != null and touch.mine_mode:
+		touch.set_mine_mode(false)                # picked something to hold: back to building
+		hud.flash(I18n.t("mode_build"))
 	hud.show_hotbar(inv, selected, creative)
 
 
@@ -777,6 +783,13 @@ func tap_world(pos: Vector2) -> void:
 	var hit := target()
 	if animal != null:
 		attack(animal)
+	elif touch.mine_mode:
+		if not hit.is_empty():
+			var mid := world.get_block(hit["pos"].x, hit["pos"].y, hit["pos"].z)
+			if creative or Blocks.hardness[mid] == 0:
+				break_at(hit["pos"])
+			else:
+				hud.flash(I18n.t("hold_to_break"))
 	elif not hit.is_empty() and use_block(hit["pos"]):
 		pass
 	elif Items.placeable.has(item) or Items.food.has(item) or Items.plant.has(item) or _is_hoe(item) \
@@ -814,12 +827,17 @@ func edit(pos: Vector3i, id: int, force := false, flood := true) -> bool:
 
 ## Rows: the height range that changed (default: anything, e.g. building tools).
 func _rebuild(keys: Array, y_lo := -1, y_hi := -1) -> void:
-	var all := {}
+	# the chunks the edit touched show it at once; the ring around them only needs its light
+	# touched up, so it waits for a free moment (fast building merges into one redraw)
+	var ring := {}
 	for k in keys:
 		for dx in [-1, 0, 1]:
 			for dz in [-1, 0, 1]:
-				all[Vector2i(k.x + dx, k.y + dz)] = true
-	chunks.rebuild(all.keys(), y_lo, y_hi)
+				var r := Vector2i(k.x + dx, k.y + dz)
+				if not r in keys:
+					ring[r] = true
+	chunks.rebuild(keys, y_lo, y_hi)
+	chunks.rebuild(ring.keys(), y_lo, y_hi, false)
 
 
 func break_at(pos: Vector3i) -> void:
@@ -918,6 +936,10 @@ func _drop_attached(pos: Vector3i) -> void:
 func attack(animal) -> void:
 	var item := inv.item_at(selected)
 	var feeding: bool = animal.wants_food(item)
+	if animal.tame and not feeding and Items.attack_damage(item) <= 1:
+		var call := str(animal.spec.get("call", ""))
+		Sfx.play(call if call != "" else "pop", -3.0, 1.15)          # a pat: it answers, unhurt
+		return
 	if _remote_world:
 		# the host owns the animals: it applies the hit and sends back what dropped
 		Net.hit_animal(animal.uid, Items.attack_damage(item) if not creative else 100, item, player.position)
@@ -1679,7 +1701,8 @@ func _update_placing(delta: float) -> bool:
 	var item := inv.item_at(selected)
 	var hold_touch: bool = use_touch and not touch.classic and touch.aiming
 	var hold_mouse: bool = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
-	var placing: bool = (hold_touch or hold_mouse) and Items.placeable.has(item) and not screen.visible and not health.dead
+	var placing: bool = (hold_touch or hold_mouse) and Items.placeable.has(item) and not screen.visible and not health.dead \
+		and not (use_touch and touch.mine_mode)
 	if not placing:
 		_place_timer = 0.0
 		_hold_used = false
@@ -2030,9 +2053,13 @@ func _perf(name: String, usec: int) -> void:
 var _frame_t0 := 0
 
 
+var _perf_last_main := 0.0          # this frame's script time (ms), for tests
+
+
 func _process(delta: float) -> void:
 	_frame_t0 = Time.get_ticks_usec()
 	_process_inner(delta)
+	_perf_last_main = (Time.get_ticks_usec() - _frame_t0) / 1000.0
 	_perf("main", Time.get_ticks_usec() - _frame_t0)
 
 
@@ -2048,7 +2075,10 @@ func _process_inner(delta: float) -> void:
 		if _ready_frames >= 3:                     # give the physics engine the new ground first
 			spawned = true
 			Boot.stage("playing")
-			print("World ready in %.1f s (%d chunks, view distance %d)" % [(Time.get_ticks_msec() - _load_t0) / 1000.0, world.chunks.size(), chunks.render_distance])
+			var mem: Dictionary = OS.get_memory_info()
+			print("World ready in %.1f s (%d chunks, view distance %d, chosen in settings: %s, memory %.1f GB)" % [
+				(Time.get_ticks_msec() - _load_t0) / 1000.0, world.chunks.size(), chunks.render_distance,
+				int(I18n.settings["view_distance"]) > 0, float(mem.get("physical", 0)) / 1073741824.0])
 			var args := Array(OS.get_cmdline_user_args())
 			var testing := args.any(func(a): return a.begins_with("--shot") or a in ["--selftest", "--gloomtest", "--menutest", "--machines", "--bosstest", "--portaltest", "--walkplace", "--playtest", "--survivaltest"])
 			if "--tutorial" in args or (not testing and not I18n.settings.get("tutorial_done", false)):
@@ -2343,12 +2373,21 @@ func _process_inner(delta: float) -> void:
 			_select(5)
 			player.look(Vector2(0, 0.6))
 			_st["planks"] = inv.count(7)
-			_touch(1, get_viewport().get_visible_rect().size / 2, true)
+			_st["jobs"] = chunks.jobs_started
+			_st["worst"] = 0.0
+		if _st_frame > 10 and _st_frame <= 160:
+			_st["worst"] = maxf(_st["worst"], _perf_last_main)
+			if not "--noplace" in OS.get_cmdline_user_args():
+				_touch(1, get_viewport().get_visible_rect().size / 2, true)
 		if _st_frame > 10 and _st_frame < 130:
 			player.position.x += 0.04                   # walk while holding
 		if _st_frame == 130:
 			_touch(1, get_viewport().get_visible_rect().size / 2, false)
 			print("HOLDPLACE placed ", _st["planks"] - inv.count(7), " planks while holding for 2 s")
+		if _st_frame == 160:
+			print("HOLDPLACE mesh jobs started: %d, worst frame on the main thread %.1f ms" % [chunks.jobs_started - _st["jobs"], _st["worst"]])
+			if not _shot_path:
+				get_tree().quit()
 			if not _shot_path:
 				get_tree().quit()
 	if "--portaltest" in OS.get_cmdline_user_args() and spawned and not _st.has("portal"):
@@ -2586,6 +2625,38 @@ func _process_inner(delta: float) -> void:
 		if _st_frame == 900:
 			var a = _st["pet"]
 			print("PETFOLLOW pet is %.1f blocks from you after you walked %.0f blocks" % [Vector2(a.pos.x - player.position.x, a.pos.z - player.position.z).length(), 0.05 * 597])
+			get_tree().quit()
+	if "--minetest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: a hotbar full of blocks can still break
+		var mid := get_viewport().get_visible_rect().size / 2
+		if _st_frame == 5:
+			set_mode(true)
+			for i in 9:
+				inv.slots[i] = [3, 64]                   # every slot a block, like a creative hotbar
+			_select(0)
+			player.look(Vector2(0, 0.7))
+			var h := target()
+			_st["aim"] = h.get("pos")
+			var btn: Panel = touch._buttons["mine"]
+			_touch(5, btn.position + btn.size / 2, true)
+			_touch(5, btn.position + btn.size / 2, false)
+		if _st_frame == 8:
+			_st["on"] = touch.mine_mode
+			_touch(6, mid, true)
+			_touch(6, mid, false)
+		if _st_frame == 12:
+			var p: Vector3i = _st["aim"]
+			print("MINE button turns break mode on: %s, a tap broke the block with %s in hand: %s" % [_st["on"],
+				Items.name_of(inv.item_at(selected)), world.get_block(p.x, p.y, p.z) == 0])
+			_touch(7, mid, true)                        # now hold: several blocks go
+			_st["n"] = world.changes.values().reduce(func(acc, d): return acc + d.size(), 0)
+		if _st_frame == 80:
+			_touch(7, mid, false)
+			var n: int = world.changes.values().reduce(func(acc, d): return acc + d.size(), 0)
+			print("MINE holding broke %d more blocks" % (n - _st["n"]))
+			_select(2)
+		if _st_frame == 83:
+			print("MINE picking a hotbar slot goes back to building: %s" % (not touch.mine_mode))
 			get_tree().quit()
 	if "--pettest" in OS.get_cmdline_user_args() and spawned and not _st.has("pet"):
 		_st["pet"] = true                               # testing: a tamed animal survives save and load

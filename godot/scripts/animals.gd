@@ -214,6 +214,8 @@ class Animal:
 				fed = true
 			tame = true
 			return []
+		if tame and damage <= 1:
+			return []                          # a bare hand is a pat: pets are not hurt by it
 		health -= damage
 		hurt_time = 0.25
 		if health <= 0:

@@ -12,6 +12,7 @@ signal place_pressed
 signal world_tapped(position: Vector2)
 signal hotbar_tapped(position: Vector2)
 signal map_tapped
+signal mine_toggled(on: bool)
 signal menu_pressed
 signal inventory_pressed
 signal fly_pressed
@@ -61,6 +62,7 @@ func _ready() -> void:
 	_add_button("break", "break", "btn_break", Vector2(-290, -120), 110)
 	_add_button("place", "place", "btn_place", Vector2(-150, -300), 110)
 	_add_button("inventory", "items", "btn_items", Vector2(-300, -330), 90)
+	_add_button("mine", "break", "btn_mine", Vector2(-300, -440), 84)
 	_add_button("up", "up", "btn_up", Vector2(-290, -250), 80)
 	_add_button("down", "down", "btn_down", Vector2(-290, -40), 80)
 	_add_button("menu", "save", "btn_save", Vector2(-80, 50), 72, true)
@@ -126,6 +128,19 @@ func set_classic(on: bool) -> void:
 	classic = on
 	show_button("break", on)
 	show_button("place", on)
+	show_button("mine", not on)          # the separate buttons already have their own break
+
+
+## Break mode: a tap or a held finger breaks, whatever is in your hand (so a hotbar full of
+## blocks can still dig). Picking a hotbar slot turns it off again.
+const MINE_ON := Color(1.0, 0.62, 0.3)
+var mine_mode := false
+
+
+func set_mine_mode(on: bool) -> void:
+	mine_mode = on
+	if _buttons.has("mine"):
+		_buttons["mine"].modulate = MINE_ON if on else Color.WHITE
 
 
 func _process(delta: float) -> void:
@@ -154,7 +169,13 @@ func _button_at(pos: Vector2) -> String:
 
 func _set_button(name: String, down: bool) -> void:
 	_buttons[name].modulate = Color(1.6, 1.6, 1.6) if down else Color.WHITE
+	if name == "mine" and not down and mine_mode:
+		_buttons[name].modulate = MINE_ON
 	match name:
+		"mine":
+			if down:
+				set_mine_mode(not mine_mode)
+				mine_toggled.emit(mine_mode)
 		"jump":
 			jump_held = down
 		"break":

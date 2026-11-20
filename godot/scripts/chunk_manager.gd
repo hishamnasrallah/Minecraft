@@ -13,6 +13,8 @@ signal chunk_ready(key: Vector2i)
 
 const SEC := Mesher.SEC
 const APPLY_PER_FRAME := 2
+const MAX_URGENT_JOBS := 2           # edited chunks meshing at once; more edits wait and merge
+const RING_CALM_MS := 400            # the ring around edits is redrawn after this much quiet
 const COLLISION_RANGE := 1          # chunks around the player that need collision
 const BELOW := 24                   # rows under the player that are kept meshed
 const ABOVE := 40                   # ... and above (caves, a ceiling)
@@ -33,6 +35,7 @@ var _heights := {}                  # Vector2i -> [lowest ground, highest block]
 var _generating := {}               # Vector2i -> true while a generation job runs
 var _meshing := {}                  # Vector2i -> true while a mesh job runs
 var _dirty := {}                    # Vector2i -> {section: true} to (re)mesh ({} = decide after generation)
+var _calm := {}                      # ring chunks of recent edits -> when last touched (ms)
 var _urgent := {}                   # edited chunks, meshed before anything else
 var _results: Array = []            # finished jobs, filled by worker threads
 var _lock := Mutex.new()
@@ -129,7 +132,9 @@ func _mark(key: Vector2i) -> void:
 
 ## Edited chunks: re-mesh their sections around the edited rows first.
 ## No rows given (building tools, growing trees): every shown section of those chunks.
-func rebuild(keys: Array, y_lo := -1, y_hi := -1) -> void:
+## urgent: the player just changed these (meshed first, even past the job limit). The ring
+## around an edit only needs its light touched up: it waits its turn and merges repeats.
+func rebuild(keys: Array, y_lo := -1, y_hi := -1, urgent := true) -> void:
 	for k in keys:
 		if not (views.has(k) or _dirty.has(k)):
 			continue
@@ -151,7 +156,11 @@ func rebuild(keys: Array, y_lo := -1, y_hi := -1) -> void:
 			if sections.has(section_key(k, s)) or s in want:
 				d[s] = true
 		_dirty[k] = d
-		_urgent[k] = true
+		if urgent:
+			_urgent[k] = true
+			_calm.erase(k)
+		elif not _urgent.has(k):
+			_calm[k] = Time.get_ticks_msec()     # redraw once the building around it pauses
 
 
 func update_center(position: Vector3, force := false) -> void:
@@ -302,6 +311,12 @@ func _schedule() -> void:
 	for key in _sorted_dirty():
 		if _jobs() >= max_jobs and not _urgent.has(key):
 			return
+		if _urgent.has(key) and _meshing.size() >= MAX_URGENT_JOBS:
+			return                                  # fast building: let edits pile into one job
+		if _calm.has(key):
+			if Time.get_ticks_msec() - int(_calm[key]) < RING_CALM_MS:
+				continue
+			_calm.erase(key)
 		if _meshing.has(key) and not _urgent.has(key):
 			continue                                # an edited chunk may start again at once
 		var missing := _missing_around(key)
@@ -368,7 +383,11 @@ func _generate_job(g: WorldData, key: Vector2i, transparent: PackedByteArray) ->
 	_lock.unlock()
 
 
+var jobs_started := 0                # for tests and the log
+
+
 func _start_mesh(key: Vector2i, secs: Array) -> void:
+	jobs_started += 1
 	_meshing[key] = int(_meshing.get(key, 0)) + 1     # how many jobs for it are running
 	_dirty.erase(key)
 	_urgent.erase(key)
