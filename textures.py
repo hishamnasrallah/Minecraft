@@ -1633,7 +1633,7 @@ def power_cell_top(rng):
 
 
 def pressure_plate(rng):
-    img = _plate((150, 150, 156), rivets=False)(rng)
+    img = _noise(rng, (150, 150, 154), 0.06).convert("RGBA")
     for i in range(2, 14):
         for x, y in ((i, 2), (i, 13), (2, i), (13, i)):
             img.putpixel((x, y), (100, 100, 108, 255))
@@ -1641,22 +1641,30 @@ def pressure_plate(rng):
 
 
 def light_sensor(rng):
-    img = _plate((90, 80, 70))(rng)
+    """Blue glass panes in a wooden frame, catching the daylight."""
+    img = _blank()
     for x in range(TILE):
         for y in range(TILE):
-            d = ((x - 7.5) ** 2 + (y - 7.5) ** 2) ** 0.5
-            if d < 5:
-                img.putpixel((x, y), _shade((150, 200, 240), 1.2 - d / 8) + (255,))
+            if x in (0, 15) or y in (0, 15) or x in (7, 8) or y in (7, 8):
+                _px(img, x, y, _shade((150, 110, 66), 1 + rng.uniform(-0.1, 0.1)))
+            else:
+                shine = 1.25 if (x + y) % 9 == 0 else 1.0
+                _px(img, x, y, _shade((70, 110, 170), shine + rng.uniform(-0.08, 0.08)))
     return img
 
 
 def powered_lamp(on):
+    """A lamp of glowing cells in a dark frame: dim amber when off, bright warm light when on."""
     def gen(rng):
-        img = _plate(COPPER)(rng)
-        for x in range(3, 13):
-            for y in range(3, 13):
-                c = (255, 214, 120) if on else (90, 70, 50)
-                img.putpixel((x, y), _shade(c, 1 + rng.uniform(-0.08, 0.08) - (0.15 if (x in (3, 12) or y in (3, 12)) else 0)) + (255,))
+        img = _blank()
+        frame = (70, 44, 30) if not on else (120, 74, 40)
+        for x in range(TILE):
+            for y in range(TILE):
+                if x in (0, 15) or y in (0, 15) or x in (5, 10) or y in (5, 10):
+                    _px(img, x, y, _shade(frame, 1 + rng.uniform(-0.1, 0.1)))
+                else:
+                    c = (255, 222, 130) if on else (130, 88, 50)
+                    _px(img, x, y, _shade(c, 1 + rng.uniform(-0.12, 0.12)))
         return img
     return gen
 
@@ -1733,11 +1741,22 @@ def collector_top(rng):
     return img
 
 
+def _dark_stone(rng):
+    img = _noise(rng, (92, 92, 96), 0.12).convert("RGBA")
+    for i in range(TILE):
+        for x, y in ((i, 0), (i, 15), (0, i), (15, i)):
+            img.putpixel((x, y), (64, 64, 68, 255))
+    return img
+
+
 def smelter_front(rng):
-    img = _plate(COPPER)(rng)
+    """A stone furnace face with a glowing fire window."""
+    img = _dark_stone(rng)
     for x in range(4, 12):
-        for y in range(7, 13):
-            img.putpixel((x, y), _shade((250, 140, 40), 1 + rng.uniform(-0.2, 0.2)) + (255,))
+        for y in range(8, 14):
+            img.putpixel((x, y), _shade((250, 130, 30) if y > 10 else (255, 200, 70), 1 + rng.uniform(-0.2, 0.2)) + (255,))
+    for x in range(4, 12):
+        img.putpixel((x, 7), (40, 40, 44, 255))
     return img
 
 
@@ -1809,7 +1828,7 @@ EXTRA_GENERATORS.update({
     "light_sensor": light_sensor, "machine_side": _plate(), "machine_bottom": _plate((80, 82, 90), rivets=False),
     "powered_lamp_off": powered_lamp(False), "powered_lamp_on": powered_lamp(True),
     "gate_side": smooth_stone, "collector_top": collector_top, "collector_side": _plate((96, 100, 110)),
-    "smelter_top": _plate(COPPER), "smelter_front": smelter_front,
+    "smelter_top": _dark_stone, "smelter_front": smelter_front,
 })
 for _kind in GATE_SYMBOLS:
     for _f in range(4):

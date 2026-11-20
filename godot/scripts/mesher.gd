@@ -464,6 +464,14 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 			if out:
 				return [[Vector3(-.5, -.5, -.5), Vector3(.5, .5, .5), tile_side[22]]]
 			return [[body_lo, body_hi, tile_side[22]], [plate_lo, plate_hi, tile_side[7]]]
+		"funnel":
+			# a wide bowl on top narrowing to a spout below: things go in at the top, out below
+			var rim: int = tile_side[id]
+			return [[Vector3(-.5, .12, -.5), Vector3(.5, .5, .5)],
+				[Vector3(-.3, -.22, -.3), Vector3(.3, .12, .3), rim],
+				[Vector3(-.12, -.5, -.12), Vector3(.12, -.22, .12), rim]]
+		"plate":
+			return [[Vector3(-.44, -.5, -.44), Vector3(.44, -.44, .44)]]
 		"pusher_head":
 			# a wooden plate at the far side of the cell, on a rod back to the pusher
 			var dv: Vector3 = [Vector3(0, 0, 1), Vector3(1, 0, 0), Vector3(0, 0, -1), Vector3(-1, 0, 0),
@@ -530,7 +538,7 @@ func _shape(out: Dictionary, id: int, x: int, y: int, z: int) -> void:
 					g.colors.append(col)
 					g.uvs.append(_uv(tile, quv[i].x, quv[i].y))
 		return
-	var g: Group = out["plants"] if shape in ["ladder", "torch", "carpet", "wire", "lever", "button", "track"] else out["solid"]   # plants: no collision
+	var g: Group = out["plants"] if shape in ["ladder", "torch", "carpet", "wire", "lever", "button", "track", "plate"] else out["solid"]   # plants: no collision
 	for box in shape_boxes(id, x, y, z):
 		var lo: Vector3 = box[0]
 		var hi: Vector3 = box[1]

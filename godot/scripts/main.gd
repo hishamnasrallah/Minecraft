@@ -1877,6 +1877,8 @@ func _outline_box(id: int) -> Array:
 			return [Vector3(1, 0.08, 1), Vector3(0, -0.46, 0)]
 		"gate":
 			return [Vector3(1, 0.36, 1), Vector3(0, -0.32, 0)]
+		"plate":
+			return [Vector3(0.9, 0.08, 0.9), Vector3(0, -0.46, 0)]
 		"lever":
 			return [Vector3(0.5, 0.75, 0.62), Vector3(0, -0.13, 0)]
 		"button":

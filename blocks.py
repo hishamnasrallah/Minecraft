@@ -370,7 +370,7 @@ _logic(1703, "switch", ("switch_on", "switch_side", "switch_side"), "switch", sh
 _logic(1704, "push button", ("button_top", "button_side", "button_side"), "button", shape="button", solid=False,
        hardness=0.6)
 _logic(1705, "power cell", ("power_cell_top", "power_cell", "power_cell_top"), "cell", hardness=1.5, emit=6)
-_logic(1706, "pressure plate", "pressure_plate", "plate", shape=CARPET, solid=False, hardness=0.5)
+_logic(1706, "pressure plate", "pressure_plate", "plate", shape="plate", solid=False, hardness=0.5)
 _logic(1707, "light sensor", ("light_sensor", "machine_side", "machine_side"), "sensor", shape=SLAB, hardness=0.8)
 _logic(1708, "powered lamp", "powered_lamp_off", "lamp", on=False, hardness=0.4)
 _logic(1709, "powered lamp", "powered_lamp_on", "lamp", on=True, creative=False, drop=1708, emit=15, hardness=0.4)
@@ -389,7 +389,7 @@ for _f in range(6):
 for _f in range(4):
     _logic(1742 + _f, "conveyor belt", (f"conveyor_{_f}", "machine_side", "machine_bottom"), "conveyor", shape=SLAB,
            facing=_f, creative=_f == 0, drop=1742, hardness=0.8)
-_logic(1746, "collector", ("collector_top", "collector_side", "machine_bottom"), "collector", container=True,
+_logic(1746, "collector", ("collector_top", "collector_side", "machine_bottom"), "collector", container=True, shape="funnel",
        hardness=1.5)
 _logic(1747, "auto-smelter", ("smelter_top", "smelter_front", "machine_bottom"), "smelter", container=True,
        hardness=2.0)
@@ -444,7 +444,7 @@ NON_SOLID = {0} | {i for i, d in BLOCK_DEFS.items() if not d["solid"]}
 LIGHT_EMIT = {i: d["emit"] for i, d in BLOCK_DEFS.items() if d["emit"]}
 UNBREAKABLE = {i for i, d in BLOCK_DEFS.items() if d["hardness"] < 0}
 LEAVES = {i for i, d in BLOCK_DEFS.items() if d.get("leaves")}
-PLANTS_NEED_SOIL = {i for i, d in BLOCK_DEFS.items() if d["shape"] in (CROSS, CARPET, "wire", "lever", "button", "track")}   # fall without ground
+PLANTS_NEED_SOIL = {i for i, d in BLOCK_DEFS.items() if d["shape"] in (CROSS, CARPET, "wire", "lever", "button", "track", "plate")}   # fall without ground
 SHAPED = {i for i, d in BLOCK_DEFS.items() if d["shape"] != CUBE}
 
 
