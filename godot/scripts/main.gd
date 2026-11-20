@@ -1533,13 +1533,14 @@ func place_block(allow_use := true) -> void:
 		"stair":
 			id = item + _facing()
 		"ladder":
-			var n: Vector3i = hit["normal"]
-			var by_normal := {Vector2i(0, -1): 0, Vector2i(-1, 0): 1, Vector2i(0, 1): 2, Vector2i(1, 0): 3}
-			id = 500 + by_normal.get(Vector2i(n.x, n.z), _facing())
+			var f := _ladder_facing(hit["pos"], hit["normal"], pos)
+			if f < 0:
+				return                                # a ladder needs a wall behind it
+			id = 500 + f
 		"door":
 			var above := pos + Vector3i(0, 1, 0)
-			if not _replaceable(above) or _overlaps_player(above, 512):
-				return
+			if not _replaceable(above) or _overlaps_player(above, 512) or not _solid_at(pos - Vector3i(0, 1, 0)):
+				return                                # a door stands on a solid block
 			var axis := 0 if _facing() in [0, 2] else 1
 			if edit(pos, item + axis * 4) and edit(above, item + 1 + axis * 4) and not creative:
 				inv.use_one(selected)
@@ -1555,6 +1556,26 @@ func place_block(allow_use := true) -> void:
 		if not creative:
 			inv.use_one(selected)
 			_refresh_mode()
+
+
+const FACE_VECS := [Vector2i(0, 1), Vector2i(1, 0), Vector2i(0, -1), Vector2i(-1, 0)]
+
+
+## Which way a ladder placed at `at` hangs (the wall it leans on), or -1 if there is no wall.
+## Tapping the side of a block hangs it there; tapping the top or bottom of a ladder extends
+## it; otherwise it goes on the wall in front of you.
+func _ladder_facing(on: Vector3i, n: Vector3i, at: Vector3i) -> int:
+	if n.y == 0:
+		var f: int = FACE_VECS.find(Vector2i(-n.x, -n.z))
+		return f if _solid_at(at - n) else -1
+	var below: Dictionary = Blocks.defs.get(world.get_block(on.x, on.y, on.z), {})
+	if below.get("shape", "") == "ladder":
+		var f2 := int(below.get("facing", 0))
+		var v: Vector2i = FACE_VECS[f2]
+		return f2 if _solid_at(at + Vector3i(v.x, 0, v.y)) else -1
+	var f3 := _facing()
+	var w: Vector2i = FACE_VECS[f3]
+	return f3 if _solid_at(at + Vector3i(w.x, 0, w.y)) else -1
 
 
 ## The outline around the block you aim at: hugs thin things (torches, plants, slabs).
@@ -1592,7 +1613,14 @@ func _ghost_box(item: int, at: Vector3i, n: Vector3i) -> Array:
 		"carpet":
 			return [Vector3(1, 0.07, 1), Vector3(0, -0.46, 0)]
 		"door":
-			return [Vector3(1, 2, 1), Vector3(0, 0.5, 0)]
+			return [Vector3(1, 2, 1), Vector3(0, 0.5, 0)] if _solid_at(at - Vector3i(0, 1, 0)) else []
+		"ladder":
+			var hit := target()
+			var f := _ladder_facing(hit["pos"], hit["normal"], at) if not hit.is_empty() else -1
+			if f < 0:
+				return []
+			var v: Vector2i = FACE_VECS[f]
+			return [Vector3(1 - absf(v.x) * 0.88, 1, 1 - absf(v.y) * 0.88), Vector3(v.x, 0, v.y) * 0.44]
 	return [Vector3.ONE, Vector3.ZERO]
 
 
@@ -2462,6 +2490,58 @@ func _process_inner(delta: float) -> void:
 		kept.append("door %s" % ("stayed" if dk == 510 else "FELL (now %d)" % dk))
 		print("KEEP ", kept, ", extra drops ", drops.drops.size() - before)
 		get_tree().quit()
+	if "--placetest" in OS.get_cmdline_user_args() and spawned and not _st.has("place"):
+		_st["place"] = true                             # testing: ladders and doors need support
+		var o := Vector3i(floori(player.position.x + 0.5) + 4, floori(player.position.y) + 8, floori(player.position.z + 0.5))
+		for y in 4:
+			edit(o + Vector3i(0, y, 0), 3, true, false)          # a stone wall column
+		edit(o + Vector3i(4, 0, 0), 3, true, false)              # a lone block in the air
+		var res := []
+		inv.slots[selected] = [500, 10]
+		_place_on(o, Vector3i(1, 0, 0))                          # side of the wall
+		var l1 := world.get_block(o.x + 1, o.y, o.z)
+		res.append("ladder on a wall side: %s" % (Blocks.defs.get(l1, {}).get("shape", "") == "ladder"))
+		_place_on(o + Vector3i(1, 0, 0), Vector3i(0, 1, 0))      # top of that ladder: extend it
+		var l2 := world.get_block(o.x + 1, o.y + 1, o.z)
+		res.append("extends upward, same way: %s" % (l2 == l1))
+		_place_on(o + Vector3i(4, 0, 0), Vector3i(0, 1, 0))      # top of the lone block, no wall
+		res.append("no ladder without a wall: %s" % (world.get_block(o.x + 4, o.y + 1, o.z) == 0))
+		inv.slots[selected] = [510, 4]
+		_place_on(o + Vector3i(4, 0, 0), Vector3i(0, 0, 1))      # side of the lone block: air below
+		res.append("no door in the air: %s" % (world.get_block(o.x + 4, o.y, o.z + 1) == 0))
+		_place_on(o + Vector3i(4, 0, 0), Vector3i(0, 1, 0))      # on top of the block
+		res.append("door on a block: %s" % Blocks.defs.get(world.get_block(o.x + 4, o.y + 1, o.z), {}).has("door"))
+		print("PLACE ", res)
+		get_tree().quit()
+	if "--swimtest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: swim to a shore one block above the water and climb out
+		if _st_frame == 3:
+			var o := Vector3i(floori(player.position.x + 0.5), floori(player.position.y) + 20, floori(player.position.z + 0.5))
+			_st["o"] = o
+			for x in range(-3, 6):
+				for z in range(-2, 3):
+					edit(o + Vector3i(x, -3, z), 3, true, false)            # pool floor
+					for y in range(-2, 2):
+						var shore := x >= 3
+						var id := 0
+						if shore and y <= 0:
+							id = 3                                         # the shore: top 1 above the water
+						elif not shore and y <= -1:
+							id = WorldData.WATER                           # water 2 deep, surface at y-1
+						edit(o + Vector3i(x, y, z), id, true, false)
+			player.position = Vector3(o.x - 1, o.y - 2, o.z)
+			player.velocity = Vector3.ZERO
+			player.yaw = deg_to_rad(-90.0)                # facing +x
+			player.rotation.y = player.yaw
+		if _st_frame > 30 and not _st.has("out"):
+			player.move_input = Vector2(0, 1)
+			player.jump_held = "--swimjump" in OS.get_cmdline_user_args()
+			var o: Vector3i = _st["o"]
+			if player.position.x > o.x + 2.6 and player.position.y > o.y + 0.4:
+				_st["out"] = _st_frame - 30
+		if _st_frame == 330:
+			print("SWIM got out onto the shore: %s (after %s frames, jump held %s)" % [_st.has("out"), _st.get("out", "-"), "--swimjump" in OS.get_cmdline_user_args()])
+			get_tree().quit()
 	if "--torchtest" in OS.get_cmdline_user_args() and spawned:
 		_st_frame += 1                                  # testing: torches on every side of a pillar, at night
 		if _st_frame == 5:

@@ -99,6 +99,10 @@ func _physics_process(delta: float) -> void:
 		velocity.y = maxf(velocity.y - GRAVITY * 0.15 * delta, -2.0)
 		if jump_held:
 			velocity.y = 4.0
+		if wish.length() > 0.1 and _step_ahead(wish):
+			velocity.y = maxf(velocity.y, JUMP_VELOCITY * 0.85)   # climb out onto a shore a block up
+		elif wish.length() > 0.1 and is_on_wall():
+			velocity.y = maxf(velocity.y, 3.0)                    # swimming into a bank: rise along it
 	else:
 		velocity.y -= GRAVITY * delta
 		if jump_held and is_on_floor():
