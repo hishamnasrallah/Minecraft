@@ -5,9 +5,11 @@ extends Control
 ## (your bed, or where you started), stuck to the edge when it is far away.
 ## Only chunks already loaded are drawn, and the work is spread over several frames.
 
-const R := 24                        # blocks from the centre to the edge
-const N := R * 2 + 1
-const ROWS_PER_FRAME := 3
+var R := 24                          # blocks from the centre to the edge (the big map uses more)
+var N := 49
+var rows_per_frame := 3
+var marker := 1.0                    # size of the arrow and the house (bigger on the big map)
+var pixel := Vector2(132, 132)       # size on screen
 
 var world: WorldData
 var center := Vector2i.ZERO          # world x, z of the middle
@@ -25,7 +27,8 @@ var _home_icon: Texture2D
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	custom_minimum_size = Vector2(132, 132)
+	N = R * 2 + 1
+	custom_minimum_size = pixel
 	size = custom_minimum_size
 	_img = Image.create(N, N, false, Image.FORMAT_RGBA8)
 	_img.fill(Color(0, 0, 0, 0.5))
@@ -78,7 +81,7 @@ func update_map(player_pos: Vector3, forward: Vector3, home_pos: Vector3) -> voi
 		if _row == 0:
 			_scan_center = center
 			_rest = 0.0
-		for i in ROWS_PER_FRAME:
+		for i in rows_per_frame:
 			_scan_row(_row)
 			_row = (_row + 1) % N
 			if _row == 0:
@@ -135,16 +138,18 @@ func _draw() -> void:
 		var d := h.normalized() if h.length() > 0 else Vector2.UP
 		var k := minf((size.x / 2 - 10) / maxf(absf(d.x), 0.001), (size.y / 2 - 10) / maxf(absf(d.y), 0.001))
 		hp = size / 2 + d * k
-	draw_texture_rect(_home_icon, Rect2(hp - Vector2(10, 10), Vector2(20, 20)), false, Color(1, 0.85, 0.4))
+	draw_texture_rect(_home_icon, Rect2(hp - Vector2(10, 10) * marker, Vector2(20, 20) * marker), false, Color(1, 0.85, 0.4))
 	for o in others:
 		var op: Vector3 = o
 		var dp := size / 2 + Vector2(op.x - center.x, op.z - center.y) * cell
 		dp = dp.clamp(Vector2(4, 4), size - Vector2(4, 4))
-		draw_circle(dp, 4.0, Color(0.3, 0.7, 1.0))
-		draw_arc(dp, 4.0, 0, TAU, 12, Color.WHITE, 1.0)
+		draw_circle(dp, 4.0 * marker, Color(0.3, 0.7, 1.0))
+		draw_arc(dp, 4.0 * marker, 0, TAU, 12, Color.WHITE, 1.0)
 	# you
 	var c := size / 2
 	var side := Vector2(-facing.y, facing.x)
-	var tip := c + facing * 9
-	draw_colored_polygon(PackedVector2Array([tip, c - facing * 6 + side * 6, c - facing * 3, c - facing * 6 - side * 6]), Color(1, 0.25, 0.2))
-	draw_polyline(PackedVector2Array([tip, c - facing * 6 + side * 6, c - facing * 3, c - facing * 6 - side * 6, tip]), Color.WHITE, 1.5)
+	var m := marker
+	var tip := c + facing * 9 * m
+	var pts := [tip, c - facing * 6 * m + side * 6 * m, c - facing * 3 * m, c - facing * 6 * m - side * 6 * m]
+	draw_colored_polygon(PackedVector2Array(pts), Color(1, 0.25, 0.2))
+	draw_polyline(PackedVector2Array(pts + [tip]), Color.WHITE, 1.5)

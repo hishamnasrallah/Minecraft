@@ -11,6 +11,7 @@ extends Control
 signal place_pressed
 signal world_tapped(position: Vector2)
 signal hotbar_tapped(position: Vector2)
+signal map_tapped
 signal menu_pressed
 signal inventory_pressed
 signal fly_pressed
@@ -30,6 +31,7 @@ var jump_held := false
 var break_held := false
 var up_held := false
 var down_held := false
+var map_rect := Rect2()               # the small map: a tap opens the big one
 var hotbar_rect := Rect2()            # set by the HUD so taps there select a slot
 var aim_point := Vector2.ZERO         # where a held finger points (valid while aiming)
 var aiming := false                   # a finger is held on the world: break there
@@ -230,6 +232,8 @@ func _input(event: InputEvent) -> void:
 				_set_button(b, true)
 			elif hotbar_rect.has_point(pos):
 				hotbar_tapped.emit(pos)
+			elif map_rect.has_point(pos):
+				map_tapped.emit()
 			elif pos.x < get_viewport_rect().size.x * 0.4 and _joy_finger == -1:
 				_joy_finger = event.index
 				_joy_center = pos

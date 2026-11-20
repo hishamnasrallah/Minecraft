@@ -123,6 +123,7 @@ func _ready() -> void:
 	chat_log.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	minimap = Minimap.new()
 	root.add_child(minimap)
+	_make_big_map(root)
 	_make_death_screen()
 	_layout.call_deferred()
 	get_viewport().size_changed.connect(_layout)
@@ -255,6 +256,56 @@ func _layout() -> void:
 	chat_log.size = Vector2(minf(560, s.x * 0.45), 150)
 	var box: Control = death.get_child(0)
 	box.position = s / 2 - box.get_combined_minimum_size() / 2
+
+
+## The big map: tap the small one (or press M). Everything loaded around you, about 110
+## blocks each way; a tap anywhere (or Back) closes it.
+var big_map: Control
+var big_map_view: Minimap
+
+
+func _make_big_map(root: Control) -> void:
+	big_map = Control.new()
+	big_map.visible = false
+	big_map.set_anchors_preset(Control.PRESET_FULL_RECT)
+	big_map.mouse_filter = Control.MOUSE_FILTER_STOP
+	var bg := ColorRect.new()
+	bg.color = Color(0, 0, 0, 0.72)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	big_map.add_child(bg)
+	var hint := _label(18)
+	hint.text = I18n.t("map_close_hint")
+	hint.name = "Hint"
+	root.add_child(big_map)
+	hint.reparent(big_map, false)
+
+
+func open_big_map(world: WorldData) -> void:
+	var s := get_viewport().get_visible_rect().size
+	var side := floorf(minf(s.y * 0.84, s.x * 0.9))
+	if big_map_view == null:
+		big_map_view = Minimap.new()
+		big_map_view.R = 112
+		big_map_view.rows_per_frame = 32
+		big_map_view.marker = 1.8
+		big_map_view.pixel = Vector2(side, side)
+		big_map_view.world = world
+		big_map.add_child(big_map_view)
+	big_map_view.custom_minimum_size = Vector2(side, side)
+	big_map_view.size = Vector2(side, side)
+	big_map_view.position = ((s - Vector2(side, side)) / 2).floor() + Vector2(0, 10)
+	var hint: Label = big_map.get_node("Hint")
+	hint.position = Vector2((s.x - hint.size.x) / 2, big_map_view.position.y - 32)
+	big_map.visible = true
+
+
+func close_big_map() -> void:
+	big_map.visible = false
+
+
+func map_rect() -> Rect2:
+	return Rect2(minimap.position, minimap.size) if minimap.visible else Rect2()
 
 
 func hotbar_rect() -> Rect2:

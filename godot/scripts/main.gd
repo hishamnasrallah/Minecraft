@@ -279,6 +279,10 @@ func _ready() -> void:
 	touch.place_pressed.connect(place_block)
 	touch.world_tapped.connect(tap_world)
 	touch.hotbar_tapped.connect(func(pos): _select(hud.slot_at(pos)))
+	touch.map_tapped.connect(open_map)
+	hud.big_map.gui_input.connect(func(e):
+		if (e is InputEventMouseButton or e is InputEventScreenTouch) and e.pressed:
+			close_map())
 	touch.menu_pressed.connect(func(): save_game(); hud.flash(I18n.t("saved")))
 	touch.inventory_pressed.connect(open_screen)
 	touch.fly_pressed.connect(func(): set_flying(not player.flying))
@@ -434,7 +438,8 @@ static func default_view_distance() -> int:
 	var gb := float(mem.get("physical", 0)) / 1073741824.0
 	if not OS.has_feature("mobile"):
 		return 6
-	return 5 if gb >= 6.0 else (4 if gb >= 4.0 else 3)
+	# phones report a little less than the box says (an "8 GB" tablet shows ~7.3)
+	return 6 if gb >= 7.0 else (5 if gb >= 5.2 else (4 if gb >= 3.4 else 3))
 
 
 func set_mode(to_creative: bool) -> void:
@@ -516,6 +521,30 @@ func open_screen(chest = null, kind := "") -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
+var _tut_was_visible := false
+
+
+func open_map() -> void:
+	if health.dead or screen.visible or settings.visible:
+		return
+	hud.open_big_map(world)
+	touch.visible = false                         # the map covers the screen; no buttons on top
+	_tut_was_visible = tutorial.visible
+	tutorial.visible = false
+	touch.blocked = true
+	if not use_touch:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func close_map() -> void:
+	hud.close_big_map()
+	tutorial.visible = _tut_was_visible
+	touch.visible = use_touch
+	touch.blocked = false
+	if not use_touch:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
 func open_chat() -> void:
 	if not Net.active():
 		return
@@ -553,6 +582,10 @@ func close_screen() -> void:
 
 # ---------------------------------------------------------------- input
 func _unhandled_input(event: InputEvent) -> void:
+	if hud.big_map.visible:
+		if event is InputEventKey and event.pressed and event.physical_keycode in [KEY_M, KEY_ESCAPE]:
+			close_map()
+		return
 	if settings.visible:
 		if event is InputEventKey and event.pressed and event.physical_keycode in [KEY_ESCAPE, KEY_F2]:
 			I18n.save_settings()
@@ -603,6 +636,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				open_chat()
 			KEY_E:
 				open_screen()
+			KEY_M:
+				open_map()
 			KEY_G:
 				set_mode(not creative)
 			KEY_N:
@@ -1988,6 +2023,10 @@ func _process_inner(delta: float) -> void:
 				start_tutorial()
 			player.set_physics_process(not screen.visible and not health.dead)
 	touch.hotbar_rect = hud.hotbar_rect()
+	touch.map_rect = hud.map_rect()
+	if hud.big_map.visible:
+		hud.big_map_view.others = hud.minimap.others
+		hud.big_map_view.update_map(player.position, player.forward(), spawn_point)
 	if not screen.visible and not settings.visible:
 		_read_controls()
 	touch.show_button("up", creative and player.flying)
@@ -2496,6 +2535,20 @@ func _process_inner(delta: float) -> void:
 		_st["health0"] = health.health
 	if _st.has("gloom") and _shot_frames == 1:
 		print("GLOOM distance to player: ", snappedf(Vector2(_st["gloom"].pos.x - player.position.x, _st["gloom"].pos.z - player.position.z).length(), 0.1), ", player health ", _st["health0"], " -> ", health.health)
+	if "--maptest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: tap the small map, then tap to close
+		if _st_frame == 200:
+			_touch(3, hud.minimap.position + hud.minimap.size / 2, true)
+			_touch(3, hud.minimap.position + hud.minimap.size / 2, false)
+		if _st_frame == 205:
+			print("MAP opened by a tap: ", hud.big_map.visible, ", buttons hidden: ", not touch.visible)
+		if _st_frame == 260:
+			get_viewport().get_texture().get_image().save_png("user://map_test.png")
+			_touch(4, get_viewport().get_visible_rect().size / 2, true)
+			_touch(4, get_viewport().get_visible_rect().size / 2, false)
+		if _st_frame == 270:
+			print("MAP closed by a tap: ", not hud.big_map.visible, ", buttons back: ", touch.visible)
+			get_tree().quit()
 	if _shot_path != "" and spawned and _shot_frames == 20:
 		for a in OS.get_cmdline_user_args():        # testing: a screen open in the screenshot
 			if a.begins_with("--open="):
@@ -2505,6 +2558,8 @@ func _process_inner(delta: float) -> void:
 						open_settings()
 					"death":
 						_take_damage(100)
+					"map":
+						open_map()
 					"chest":
 						var cp := Vector3i(player.position) + Vector3i(2, 0, 0)
 						world.containers[cp] = [[3, 12], [106, 5], null, [50, 30]]
@@ -2556,7 +2611,9 @@ func _notification(what: int) -> void:
 ## The phone's Back button closes what is open, one thing at a time; in the game itself it
 ## opens the settings (where "exit to menu" is). It never quits the app by surprise.
 func _back_pressed() -> void:
-	if settings.visible:
+	if hud.big_map.visible:
+		close_map()
+	elif settings.visible:
 		I18n.save_settings()
 		close_settings()
 	elif screen.visible:

@@ -544,6 +544,10 @@
    "en": "Your things are safe in your bag.",
    "ar": "أغراضك محفوظة معك."
   },
+  "map_close_hint": {
+   "en": "Your surroundings. Tap anywhere to close.",
+   "ar": "المنطقة حواليك. اكبس بأي مكان لتسكّر."
+  },
   "cause_void": {
    "en": "You fell off the sky islands.",
    "ar": "وقعت عن جزر السما."
