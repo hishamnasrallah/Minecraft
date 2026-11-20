@@ -88,7 +88,8 @@ var tile_side: PackedInt32Array
 var tile_bottom: PackedInt32Array
 const WALL_TORCH := 1810
 const SWITCH_ON := 1703
-const GATE_ON := 1770                   # gates 1770+ are the same gates while they give power
+const GATE_ON := 1770
+const PUSHER_HEAD := 1760                   # gates 1770+ are the same gates while they give power
 var machine: PackedByteArray
 var facing: PackedByteArray
 var door_axis: PackedByteArray
@@ -398,29 +399,31 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 			# fine dust on the floor: a dot, and a thin trail towards every machine or wire beside
 			# it (also one step up or down), so you see where the power goes
 			var boxes := [[Vector3(-.1, -.5, -.1), Vector3(.1, -.48, .1)]]
+			var arms := []
 			for dd in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-				var linked := false
 				for dy in [0, -1, 1]:
 					var nb := world.get_block(x + dd.x, y + dy, z + dd.y)
 					if nb != 0 and machine[nb] == 1 and (dy == 0 or shapes[nb] == "wire"):
-						linked = true
+						arms.append(dd)
 						break
-				if linked:
-					var a := Vector3(dd.x, 0, dd.y) * .1
-					var b := Vector3(dd.x, 0, dd.y) * .5
-					var w := Vector3(absf(dd.y), 0, absf(dd.x)) * .06
-					boxes.append([Vector3(minf(a.x, b.x), -.5, minf(a.z, b.z)) - w, Vector3(maxf(a.x, b.x), -.48, maxf(a.z, b.z)) + w])
+			if arms.size() == 1:
+				arms.append(-arms[0])                 # one neighbour: a straight line right through
+			for dd in arms:
+				var a := Vector3(dd.x, 0, dd.y) * .1
+				var b := Vector3(dd.x, 0, dd.y) * .5
+				var w := Vector3(absf(dd.y), 0, absf(dd.x)) * .06
+				boxes.append([Vector3(minf(a.x, b.x), -.5, minf(a.z, b.z)) - w, Vector3(maxf(a.x, b.x), -.48, maxf(a.z, b.z)) + w])
 			return boxes
 		"lever":
 			# a wooden stick on a small stone base, leaning back when off and forward when on
 			var lean := 1.0 if id == SWITCH_ON else -1.0
 			var stone: int = tile_side[22]
 			var wood: int = tile_side[7]
-			var parts := [[Vector3(-.2, -.5, -.28), Vector3(.2, -.38, .28), stone]]
-			var steps := [[-.38, -.24, .0], [-.24, -.1, .06], [-.1, .04, .12], [.04, .16, .18]]
-			for st in steps:
-				var zc: float = st[2] * lean
-				parts.append([Vector3(-.05, st[0], zc - .05), Vector3(.05, st[1], zc + .05), wood])
+			var parts := [[Vector3(-.19, -.5, -.25), Vector3(.19, -.37, .25), stone]]
+			for k in 7:                           # a thin stick leaning out of the base
+				var y0 := -.37 + k * .08
+				var zc: float = (.015 + k * .042) * lean
+				parts.append([Vector3(-.035, y0, zc - .035), Vector3(.035, y0 + .08, zc + .035), wood])
 			return parts
 		"button":
 			var stone2: int = tile_side[22]
@@ -430,12 +433,37 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 			# input comes in, and a little light at the front that is lit while it gives power
 			var gd: Vector3 = [Vector3(0, 0, 1), Vector3(1, 0, 0), Vector3(0, 0, -1), Vector3(-1, 0, 0)][facing[id] % 4]
 			var lit: bool = id >= GATE_ON
-			var light_tile: int = tile_side[1709 if lit else 1708]
-			var front := gd * .3
-			var back := -gd * .3
-			return [[Vector3(-.5, -.5, -.5), Vector3(.5, -.38, .5)],
-				[front - Vector3(.08, 0, .08) + Vector3(0, -.38, 0), front + Vector3(.08, 0, .08) + Vector3(0, -.14, 0), light_tile],
-				[back - Vector3(.07, 0, .07) + Vector3(0, -.38, 0), back + Vector3(.07, 0, .07) + Vector3(0, -.26, 0), tile_side[22]]]
+			var cap: int = tile_side[1701 if lit else 1700]     # glowing red tip, or a dark one
+			var stick: int = tile_side[7]
+			var parts := [[Vector3(-.5, -.5, -.5), Vector3(.5, -.375, .5)]]
+			for at in [gd * .25, -gd * .25]:          # two little torches: the output and the input
+				parts.append([at + Vector3(-.04, -.375, -.04), at + Vector3(.04, -.16, .04), stick])
+				parts.append([at + Vector3(-.055, -.16, -.055), at + Vector3(.055, -.07, .055), cap])
+			return parts
+		"pusher":
+			# a stone body with a wooden pushing plate on its front; while the head is out the
+			# plate has moved with it, so only the body shows
+			var pv: Vector3 = [Vector3(0, 0, 1), Vector3(1, 0, 0), Vector3(0, 0, -1), Vector3(-1, 0, 0),
+				Vector3(0, 1, 0), Vector3(0, -1, 0)][mini(facing[id], 5)]
+			var fx: int = x + int(pv.x)
+			var fy: int = y + int(pv.y)
+			var fz: int = z + int(pv.z)
+			var nb := world.get_block(fx, fy, fz)
+			var out := nb >= PUSHER_HEAD and nb <= PUSHER_HEAD + 5
+			var body_lo := Vector3(-.5, -.5, -.5)
+			var body_hi := Vector3(.5, .5, .5)
+			var plate_lo := Vector3(-.5, -.5, -.5)
+			var plate_hi := Vector3(.5, .5, .5)
+			for a in 3:
+				if pv[a] > 0:
+					body_hi[a] = .25
+					plate_lo[a] = .25
+				elif pv[a] < 0:
+					body_lo[a] = -.25
+					plate_hi[a] = -.25
+			if out:
+				return [[Vector3(-.5, -.5, -.5), Vector3(.5, .5, .5), tile_side[22]]]
+			return [[body_lo, body_hi, tile_side[22]], [plate_lo, plate_hi, tile_side[7]]]
 		"pusher_head":
 			# a wooden plate at the far side of the cell, on a rod back to the pusher
 			var dv: Vector3 = [Vector3(0, 0, 1), Vector3(1, 0, 0), Vector3(0, 0, -1), Vector3(-1, 0, 0),
@@ -453,7 +481,7 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 					plate_hi[a] = -.25
 					rod_lo[a] = -.25
 					rod_hi[a] = .5
-			return [[plate_lo, plate_hi, tile_side[7]], [rod_lo, rod_hi, tile_side[30]]]
+			return [[plate_lo, plate_hi, tile_side[7]], [rod_lo, rod_hi, tile_side[7]]]
 		"track":
 			return [[Vector3(-.5, -.5, -.5), Vector3(.5, -.46, .5)]]
 		"ladder":

@@ -385,7 +385,7 @@ for _g, _gate in enumerate(GATES):
 for _f in range(6):
     for _base, _m in ((1730, "pusher"), (1736, "breaker")):
         _logic(_base + _f, _m, (f"{_m}_top_{_f}", f"{_m}_side_{_f}", f"{_m}_bottom_{_f}"), _m, facing=_f,
-               creative=_f == 0, drop=_base, hardness=1.5)
+               creative=_f == 0, drop=_base, hardness=1.5, shape="pusher" if _m == "pusher" else CUBE)
 for _f in range(4):
     _logic(1742 + _f, "conveyor belt", (f"conveyor_{_f}", "machine_side", "machine_bottom"), "conveyor", shape=SLAB,
            facing=_f, creative=_f == 0, drop=1742, hardness=0.8)

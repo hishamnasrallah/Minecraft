@@ -1577,7 +1577,7 @@ def wire(on):
     """Glittering copper dust: dull when no power runs through it, bright with sparks when it does."""
     def gen(rng):
         img = _blank()
-        base = (255, 118, 40) if on else (112, 52, 34)
+        base = (255, 40, 28) if on else (104, 14, 12)
         for x in range(TILE):
             for y in range(TILE):
                 k = 1 + rng.uniform(-0.25, 0.2)
@@ -1585,7 +1585,7 @@ def wire(on):
         sparks = 18 if on else 6
         for _ in range(sparks):
             x, y = rng.randrange(TILE), rng.randrange(TILE)
-            _px(img, x, y, (255, 226, 150) if on else (150, 80, 52))
+            _px(img, x, y, (255, 170, 150) if on else (140, 30, 26))
         return img
     return gen
 
@@ -1616,20 +1616,20 @@ def button_top(rng):
 
 
 def power_cell(rng):
-    img = _plate((60, 64, 74))(rng)
-    for y in range(3, 13):
-        for x in range(5, 11):
-            img.putpixel((x, y), _shade((90, 230, 120) if y > 5 else (60, 60, 64), 1 + rng.uniform(-0.1, 0.1)) + (255,))
-    for x in (6, 7, 8, 9):
-        img.putpixel((x, 2), (200, 200, 200, 255))
+    """A block of packed red power crystal: always gives power, glowing seams."""
+    img = _blank()
+    for x in range(TILE):
+        for y in range(TILE):
+            seam = x in (0, 15) or y in (0, 15) or (x + 2 * y) % 7 == 0
+            c = (230, 60, 40) if seam else (150, 24, 20)
+            _px(img, x, y, _shade(c, 1 + rng.uniform(-0.15, 0.15)))
+    for _ in range(10):
+        _px(img, rng.randrange(1, 15), rng.randrange(1, 15), (255, 150, 120))
     return img
 
 
 def power_cell_top(rng):
-    img = _plate((60, 64, 74))(rng)
-    for x, y in ((7, 4), (8, 4), (7, 5), (8, 5), (5, 10), (6, 10), (7, 10), (8, 10), (9, 10), (10, 10)):
-        img.putpixel((x, y), (90, 230, 120, 255))
-    return img
+    return power_cell(rng)
 
 
 def pressure_plate(rng):
@@ -1672,10 +1672,19 @@ GATE_COLORS = {"not": (230, 80, 80), "and": (90, 200, 255), "or": (120, 230, 120
                "delay": (210, 140, 255)}
 
 
+def smooth_stone(rng):
+    """Light smooth stone with a thin darker rim: the chip gates sit on."""
+    img = _noise(rng, (164, 164, 168), 0.04).convert("RGBA")
+    for i in range(TILE):
+        for x, y in ((i, 0), (i, 15), (0, i), (15, i)):
+            img.putpixel((x, y), (126, 126, 130, 255))
+    return img
+
+
 def gate(kind, facing):
     def gen(rng):
-        img = _plate((84, 88, 98))(rng)
-        _arrow_on(img, (230, 230, 236), {0: 2, 1: 1, 2: 0, 3: 3}[facing])
+        img = smooth_stone(rng)
+        _arrow_on(img, (150, 40, 34), {0: 2, 1: 1, 2: 0, 3: 3}[facing])
         for r, row in enumerate(GATE_SYMBOLS[kind]):
             for c, ch in enumerate(row):
                 if ch == "1":
@@ -1799,7 +1808,7 @@ EXTRA_GENERATORS.update({
     "power_cell": power_cell, "power_cell_top": power_cell_top, "pressure_plate": pressure_plate,
     "light_sensor": light_sensor, "machine_side": _plate(), "machine_bottom": _plate((80, 82, 90), rivets=False),
     "powered_lamp_off": powered_lamp(False), "powered_lamp_on": powered_lamp(True),
-    "gate_side": _plate((84, 88, 98)), "collector_top": collector_top, "collector_side": _plate((96, 100, 110)),
+    "gate_side": smooth_stone, "collector_top": collector_top, "collector_side": _plate((96, 100, 110)),
     "smelter_top": _plate(COPPER), "smelter_front": smelter_front,
 })
 for _kind in GATE_SYMBOLS:
