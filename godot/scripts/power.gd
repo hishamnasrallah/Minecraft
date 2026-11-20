@@ -287,10 +287,22 @@ func _tick(comp: Dictionary) -> bool:
 				"xor":
 					out = l != r
 				"delay":
-					var line: Array = delay_line.get(p, [false, false, false])
+					# a queue as long as the delay chosen in the gate's panel (3 ticks unless set)
+					var ticks: int = clampi(int(world.settings.get(p, {}).get("delay", 3)), 1, 20)
+					var line: Array = delay_line.get(p, [])
+					while line.size() < ticks:
+						line.push_front(line[0] if not line.is_empty() else false)
+					while line.size() > ticks:
+						line.pop_front()
 					out = line[0]
-					delay_line[p] = [line[1], line[2], b]
-					if line[0] != line[1] or line[1] != line[2] or line[2] != b:
+					var moving := false
+					for v in line:
+						if v != b:
+							moving = true
+					line.pop_front()
+					line.push_back(b)
+					delay_line[p] = line
+					if moving:
 						changed = true           # a signal is still on its way through
 			next_gate[p] = out
 			if out != gate_on.get(p, false):

@@ -628,6 +628,42 @@
    "en": "Smelts what comes from above, sends it down",
    "ar": "بيصهر يلي بينزله من فوق وبينزّله لتحت"
   },
+  "gate_short_not": {
+   "en": "NOT",
+   "ar": "عكس"
+  },
+  "gate_short_and": {
+   "en": "AND",
+   "ar": "و"
+  },
+  "gate_short_or": {
+   "en": "OR",
+   "ar": "أو"
+  },
+  "gate_short_xor": {
+   "en": "XOR",
+   "ar": "وحدة بس"
+  },
+  "gate_short_delay": {
+   "en": "WAIT",
+   "ar": "انتظار"
+  },
+  "panel_kind": {
+   "en": "Kind",
+   "ar": "النوع"
+  },
+  "panel_wait": {
+   "en": "How long it waits",
+   "ar": "قديش بيستنى"
+  },
+  "panel_turn": {
+   "en": "Turn",
+   "ar": "لفّ"
+  },
+  "seconds": {
+   "en": "%s s",
+   "ar": "%s ث"
+  },
   "cause_void": {
    "en": "You fell off the sky islands.",
    "ar": "وقعت عن جزر السما."

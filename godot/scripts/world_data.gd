@@ -27,6 +27,7 @@ var seed: int
 var chunks := {}            # Vector2i -> Chunk
 var changes := {}           # Vector2i -> {Vector3i: id} player edits, re-applied when a chunk regenerates
 var containers := {}        # Vector3i -> Array of slots (chests)
+var settings := {}          # Vector3i -> {"delay": ticks}: what you chose in a machine's panel
 var emitters := {}          # Vector2i -> {Vector3i: true} light-emitting blocks per chunk
 var time_of_day := 0.2
 var player_data := {}
@@ -905,7 +906,8 @@ func save(path: String, player := {}) -> void:
 	for p in containers:
 		boxes.append([[p.x, p.y, p.z], containers[p]])
 	var data := {"player": player, "version": SAVE_VERSION, "seed": seed, "time_of_day": time_of_day,
-		"containers": boxes, "changes": edits, "dimension": dimension}
+		"containers": boxes, "changes": edits, "dimension": dimension,
+		"settings": settings.keys().map(func(p): return [p.x, p.y, p.z, settings[p]])}
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	f.store_string(JSON.stringify(data))
 
@@ -920,6 +922,9 @@ static func load_from(path: String) -> WorldData:
 	w.player_data = data.get("player", {})
 	for c in data.get("containers", []):
 		w.containers[Vector3i(int(c[0][0]), int(c[0][1]), int(c[0][2]))] = c[1]
+	for st in data.get("settings", []):
+		if st is Array and st.size() == 4 and st[3] is Dictionary:
+			w.settings[Vector3i(int(st[0]), int(st[1]), int(st[2]))] = st[3]
 	for e in data["changes"]:
 		var p := Vector3i(int(e[0]), int(e[1]), int(e[2]))
 		var key := chunk_key(p.x, p.z)

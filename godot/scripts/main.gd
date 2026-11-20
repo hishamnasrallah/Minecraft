@@ -284,6 +284,10 @@ func _ready() -> void:
 	touch.world_tapped.connect(tap_world)
 	touch.hotbar_tapped.connect(func(pos): _select(hud.slot_at(pos)))
 	touch.map_tapped.connect(open_map)
+	machine_panel = MachinePanel.new()
+	hud.add_child(machine_panel)
+	machine_panel.chosen.connect(_machine_choice)
+	machine_panel.closed.connect(func(): touch.blocked = false)
 	touch.mine_toggled.connect(func(on): hud.flash(I18n.t("mode_break" if on else "mode_build")))
 	hud.big_map.gui_input.connect(func(e):
 		if (e is InputEventMouseButton or e is InputEventScreenTouch) and e.pressed:
@@ -990,13 +994,20 @@ func _overlaps_player(p: Vector3i, id: int) -> bool:
 
 func _usable(id: int) -> bool:
 	var d: Dictionary = Blocks.defs.get(id, {})
-	return d.has("door") or d.get("container", false) or id == 62 or id == 47 or power.kind_of(id) in ["switch", "button"]
+	return d.has("door") or d.get("container", false) or id == 62 or id == 47 \
+		or power.kind_of(id) in ["switch", "button", "not", "and", "or", "xor", "delay"]
 
 
 ## Doors open and close, chests open, beds set your spawn point (and skip the night).
 func use_block(pos: Vector3i) -> bool:
 	var id := world.get_block(pos.x, pos.y, pos.z)
 	var d: Dictionary = Blocks.defs.get(id, {})
+	var mk := power.kind_of(id)
+	if mk in MachinePanel.GATES or (mk in ["pusher", "breaker", "conveyor"] and inv.item_at(selected) == 0):
+		_panel_pos = pos
+		machine_panel.open(mk, id, int(world.settings.get(pos, {}).get("delay", 3)))
+		touch.blocked = true
+		return true
 	if d.has("door"):
 		var other_y: int = pos.y - 1 if d["door"]["top"] else pos.y + 1
 		for p in [pos, Vector3i(pos.x, other_y, pos.z)]:
@@ -1643,6 +1654,32 @@ func place_block(allow_use := true) -> void:
 
 
 const FACE_VECS := [Vector2i(0, 1), Vector2i(1, 0), Vector2i(0, -1), Vector2i(-1, 0)]
+
+
+var machine_panel: MachinePanel
+var _panel_pos := Vector3i.ZERO
+
+
+## A choice in a machine's panel: another gate kind, a wait length, or a turn.
+func _machine_choice(action: String, value: int) -> void:
+	var p := _panel_pos
+	var id := world.get_block(p.x, p.y, p.z)
+	var kind := power.kind_of(id)
+	var f := power.facing_of(id)
+	var base := id - f
+	match action:
+		"kind":
+			id = 1710 + value * 4 + f
+		"delay":
+			world.settings[p] = {"delay": value}
+			power.note(p, id)
+		"turn":
+			var n := 6 if kind in ["pusher", "breaker"] else 4
+			id = base + (f + 1) % n
+	if id != world.get_block(p.x, p.y, p.z):
+		edit(p, id, true, false)
+	Sfx.play("click", -2.0, 1.1)
+	machine_panel.open(power.kind_of(id), id, int(world.settings.get(p, {}).get("delay", 3)))
 
 
 ## Which way a ladder placed at `at` hangs (the wall it leans on), or -1 if there is no wall.
@@ -3026,6 +3063,40 @@ func _process_inner(delta: float) -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--factorytest=") and spawned:
 			_factory_test(a.substr(14))
+	if "--paneltest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: tap a gate, its panel opens, choices apply
+		if _st_frame == 3:
+			set_mode(true)
+			player.set_physics_process(false)
+			var f := Vector3i(floori(player.position.x + 0.5), floori(player.position.y), floori(player.position.z + 0.5))
+			var g := f + Vector3i(0, 0, -2)
+			edit(g + Vector3i(0, -1, 0), 3, true, false)
+			edit(g, 1726, true, false)                    # a wait gate facing +z
+			_st["g"] = g
+			player.yaw = 0.0
+			player.rotation.y = 0.0
+			player.pitch = -0.6
+			player.camera.rotation.x = player.pitch
+		if _st_frame == 6:
+			var mid := get_viewport().get_visible_rect().size / 2
+			_touch(3, mid, true)
+			_touch(3, mid, false)
+		if _st_frame == 9:
+			var g: Vector3i = _st["g"]
+			print("PANEL opens on a tap: ", machine_panel.visible, " (aim ", target().get("pos"), " gate ", g, ")")
+			_machine_choice("delay", 10)
+			print("PANEL wait set to 1 s: ", world.settings.get(g, {}).get("delay", -1) == 10)
+			_machine_choice("turn", 0)
+			print("PANEL turned: facing ", power.facing_of(world.get_block(g.x, g.y, g.z)))
+		if _st_frame == 30 and _shot_path:
+			get_viewport().get_texture().get_image().save_png(_shot_path)
+		if _st_frame == 32:
+			var g: Vector3i = _st["g"]
+			_machine_choice("kind", 1)
+			print("PANEL kind changed to: ", power.kind_of(world.get_block(g.x, g.y, g.z)), ", facing kept ", power.facing_of(world.get_block(g.x, g.y, g.z)))
+			machine_panel.close()
+			print("PANEL closed, touch free again: ", not touch.blocked)
+			get_tree().quit()
 	if "--pettest" in OS.get_cmdline_user_args() and spawned and not _st.has("pet"):
 		_st["pet"] = true                               # testing: a tamed animal survives save and load
 		var a := Wildlife.Animal.new("woolly", player.position + Vector3(3, 0, 0))
@@ -3193,7 +3264,9 @@ func _notification(what: int) -> void:
 ## The phone's Back button closes what is open, one thing at a time; in the game itself it
 ## opens the settings (where "exit to menu" is). It never quits the app by surprise.
 func _back_pressed() -> void:
-	if hud.big_map.visible:
+	if machine_panel.visible:
+		machine_panel.close()
+	elif hud.big_map.visible:
 		close_map()
 	elif settings.visible:
 		I18n.save_settings()
