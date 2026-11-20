@@ -2572,6 +2572,21 @@ func _process_inner(delta: float) -> void:
 			if _shot_path:
 				get_viewport().get_texture().get_image().save_png(_shot_path)
 			get_tree().quit()
+	if "--petfollow" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: walk away from a pet, it follows
+		if _st_frame == 2:
+			var a := Wildlife.Animal.new("woolly", player.position + Vector3(2, 0, 0))
+			a.tame = true
+			wildlife.animals.append(a)
+			_st["pet"] = a
+			set_mode(true)
+			set_flying(true)
+		if _st_frame > 2 and _st_frame < 600:
+			player.position += Vector3(0, 0, 0.05)       # ~3 blocks a second
+		if _st_frame == 900:
+			var a = _st["pet"]
+			print("PETFOLLOW pet is %.1f blocks from you after you walked %.0f blocks" % [Vector2(a.pos.x - player.position.x, a.pos.z - player.position.z).length(), 0.05 * 597])
+			get_tree().quit()
 	if "--pettest" in OS.get_cmdline_user_args() and spawned and not _st.has("pet"):
 		_st["pet"] = true                               # testing: a tamed animal survives save and load
 		var a := Wildlife.Animal.new("woolly", player.position + Vector3(3, 0, 0))

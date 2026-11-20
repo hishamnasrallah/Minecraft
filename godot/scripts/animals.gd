@@ -257,6 +257,10 @@ class Animal:
 			state = "follow"
 			yaw = rad_to_deg(atan2(px, pz))
 			return
+		elif tame and not spec["swims"] and dist < 48.0 and (dist > 7.0 or (state == "follow" and dist > 3.0)):
+			state = "follow"                       # a pet tags along when you walk off
+			yaw = rad_to_deg(atan2(px, pz))
+			return
 		elif state == "follow":
 			state = "idle"
 			timer = 1.0
@@ -312,7 +316,7 @@ class Animal:
 		elif state == "walk":
 			speed = spec["speed"] * 0.45
 		elif state == "follow":
-			speed = spec["speed"] * 0.6 if player_dist > 1.8 else 0.0
+			speed = spec["speed"] * (1.0 if player_dist > 12.0 else 0.6) if player_dist > 1.8 else 0.0
 		if age > 0:
 			speed *= 1.1
 		if in_water and not spec["swims"]:
