@@ -1959,6 +1959,8 @@ func _factory_test(name: String) -> void:
 					var k := power.kind_of(id)
 					if id == 48:
 						k = "chest"
+					elif id == 1708 or id == 1709:
+						k = "lamp"
 					elif id == 971 or id == 974:
 						k = "crop"
 					if k != "":
@@ -1991,6 +1993,8 @@ func _factory_test(name: String) -> void:
 				drops.spawn([22, 20], Vector3(top) + Vector3(0, 1.2, 0))
 			"night_street":
 				world.time_of_day = 0.8
+			"hidden_door", "door_alarm", "fill_meter", "snack_machine":
+				pass
 		return
 	var t: int = _st_frame - int(_st["ft_t"])
 	var found: Dictionary = _st["ft_found"]
@@ -2006,6 +2010,68 @@ func _factory_test(name: String) -> void:
 		get_viewport().get_texture().get_image().save_png(_shot_path)
 		get_tree().quit()
 		return
+	if name == "hidden_door":
+		# the doorway is between the two plates
+		var pl: Array = found["plate"]
+		var gap: Vector3i = (pl[0] + pl[1]) / 2
+		var shut := func() -> bool: return world.get_block(gap.x, gap.y, gap.z) != 0 and world.get_block(gap.x, gap.y + 1, gap.z) != 0
+		if t == 30:
+			_st["ft_closed0"] = shut.call()
+			set_mode(false)
+			set_flying(false)
+			player.position = Vector3(pl[0].x, pl[0].y - 0.5 + 0.01, pl[0].z)
+			player.velocity = Vector3.ZERO
+		if t == 70:
+			_st["ft_open"] = not shut.call()
+			player.position = Vector3(pl[0].x, pl[0].y + 0.5, pl[0].z - 3)
+		if t == 120:
+			print("FACTORY hidden_door: closed at first %s, opens on the plate %s, closes again %s" % [_st["ft_closed0"], _st["ft_open"], shut.call()])
+			get_tree().quit()
+			return
+	if name == "door_alarm":
+		var lamp: Vector3i = found["lamp"][0]
+		if t == 20:
+			for x in range(-3, 0):
+				var dq: Vector3i = lamp + Vector3i(x, 0, 0)
+				if Blocks.defs.get(world.get_block(dq.x, dq.y, dq.z), {}).has("door"):
+					use_block(dq)                          # someone opens the door
+					break
+		if t > 20 and t < 40 and world.get_block(lamp.x, lamp.y, lamp.z) == 1709:
+			_st["ft_flash"] = true
+		if t == 60:
+			print("FACTORY door_alarm: lamp flashed when the door opened %s, off again %s" % [_st.get("ft_flash", false), world.get_block(lamp.x, lamp.y, lamp.z) == 1708])
+			get_tree().quit()
+			return
+	if name == "fill_meter":
+		var chest: Vector3i = found["chest"][0]
+		if t == 20:
+			var half := []
+			for i in 9:
+				half.append([22, 64])               # a third full
+			world.containers[chest] = half
+		if t == 60:
+			var lit_n: int = found.get("lamp", []).filter(func(q): return world.get_block(q.x, q.y, q.z) == 1709).size()
+			_st["ft_third"] = lit_n
+			var full := []
+			for i in 27:
+				full.append([22, 64])
+			world.containers[chest] = full
+		if t == 100:
+			var lit_f: int = found.get("lamp", []).filter(func(q): return world.get_block(q.x, q.y, q.z) == 1709).size()
+			print("FACTORY fill_meter: lamps lit with the chest a third full %d, full %d (of %d)" % [_st["ft_third"], lit_f, found.get("lamp", []).size()])
+			get_tree().quit()
+			return
+	if name == "snack_machine":
+		var th: Vector3i = found["thrower"][0]
+		if t == 20:
+			world.containers[th] = [[105, 5]]
+			_st["ft_drops"] = drops.drops.size()
+			power.press_button(found["button"][0])
+		if t == 50:
+			var left := Inventory.from_data(world.containers.get(th), 27).count(105)
+			print("FACTORY snack_machine: apples left inside %d of 5, apples thrown out %d" % [left, drops.drops.filter(func(d): return d["stack"][0] == 105).size()])
+			get_tree().quit()
+			return
 	if name == "lamp_clock":
 		var l: Vector3i = found.get("lamp", [Vector3i.ZERO])[0]
 		var now := world.get_block(l.x, l.y, l.z)

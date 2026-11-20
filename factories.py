@@ -18,6 +18,7 @@ FARMLAND, WHEAT = 970, 971
 WIRE, SWITCH, BUTTON, CELL, PLATE, SENSOR, PLAMP = 1700, 1702, 1704, 1705, 1706, 1707, 1708
 NOT, AND, OR, XOR, DELAY = 1710, 1714, 1718, 1722, 1726
 PUSHER, BREAKER, CONVEYOR, COLLECTOR, SMELTER = 1730, 1736, 1742, 1746, 1747
+STICKY, OBSERVER, THROWER, COMPARATOR = 1792, 1820, 1832, 1838     # + facing
 DOOR_BOTTOM, DOOR_TOP = 510, 511
 WHITE, LIGHT_GRAY, GRAY, BLACK, YELLOW, ORANGE, RED, BLUE = (CONCRETE[i] for i in (0, 1, 2, 3, 7, 6, 5, 12))
 
@@ -192,6 +193,72 @@ def night_street():
     return c
 
 
+def hidden_door():
+    """A stone doorway that slides open: stand on a plate on either side and two sticky pushers
+    pull the two stone blocks into the wall; step off and they push them back. The pushers are
+    held out by NOT gates, which the plates switch off."""
+    c = Clip()
+    c.box(0, 0, 0, 9, 0, 6, STONE_BRICKS)
+    c.box(0, 1, 3, 9, 3, 3, STONE_BRICKS)       # the wall
+    for y in (1, 2):
+        c.put(4, y, 3, STONE_BRICKS)            # the door: two stone blocks in the doorway
+        c.put(5, y, 3, AIR)                     # the pocket they slide into
+        c.put(6, y, 3, STICKY + 3)              # sticky pushers facing -x
+        c.put(7, y, 3, NOT + 3)                 # NOT gates facing -x: on unless a plate is pressed
+        c.put(8, y, 3, WIRE)
+    c.put(4, 1, 2, PLATE)
+    c.put(4, 1, 4, PLATE)
+    for x in range(4, 9):                       # wires from both plates round to the gates
+        c.put(x, 1, 1, WIRE)
+        c.put(x, 1, 5, WIRE)
+    c.put(8, 1, 2, WIRE)
+    c.put(8, 1, 4, WIRE)
+    c.text(2, 5, 3, "DOOR", "blue")
+    return c
+
+
+def fill_meter():
+    """How full is the chest? A comparator measures it and sends that strength down a wire:
+    one lamp lights for every step of signal, so the row of lamps is a gauge."""
+    c = Clip()
+    c.box(0, 0, 0, 17, 0, 2, POLISHED)
+    c.put(0, 1, 0, CHEST)
+    c.put(0, 2, 0, COLLECTOR)                   # drop things on top: they go into the chest
+    c.put(1, 1, 0, COMPARATOR + 1)              # facing +x: the chest is behind it
+    for x in range(2, 17):
+        c.put(x, 1, 0, WIRE)
+        c.put(x, 1, 1, PLAMP)
+    c.text(2, 3, 1, "METER", "pink")
+    return c
+
+
+def snack_machine():
+    """Fill the thrower with apples (tap it), then press the button: one apple flies out."""
+    c = Clip()
+    c.box(0, 0, 0, 4, 0, 3, POLISHED)
+    c.box(1, 1, 0, 3, 4, 1, RED)                # the machine's body
+    c.put(2, 2, 1, THROWER + 0)                 # facing +z, towards you: the apple comes out here
+    c.put(3, 2, 1, WIRE)                        # inside the body, from the button to the thrower
+    c.put(3, 1, 2, STONE_BRICKS)                # a ledge beside the mouth...
+    c.put(3, 2, 2, BUTTON)                      # ...with the button on it
+    c.put(2, 3, 1, LAMP)
+    c.text(0, 5, 1, "SNACK", "pink")
+    return c
+
+
+def door_alarm():
+    """An observer watches the door: whenever it opens or closes, the lamp flashes."""
+    c = Clip()
+    c.box(0, 0, 0, 6, 0, 4, STONE_BRICKS)
+    c.box(0, 1, 2, 6, 3, 2, STONE_BRICKS)
+    c.put(2, 1, 2, DOOR_BOTTOM)
+    c.put(2, 2, 2, DOOR_TOP)
+    c.put(3, 1, 2, OBSERVER + 1)                # its eye looks at the door (-x), the pulse goes +x
+    c.put(4, 1, 2, PLAMP)
+    c.text(1, 5, 2, "ALARM", "blue")
+    return c
+
+
 SMALL = [
     ("auto_smelter", "Auto smelting line", "خط صهر أوتوماتيكي", auto_smelter),
     ("lamp_clock", "Blinking lamp clock", "ساعة ضو بتغمّز", lamp_clock),
@@ -200,6 +267,10 @@ SMALL = [
     ("wheat_harvester", "Wheat harvester", "حاصدة قمح بكبسة زر", wheat_harvester),
     ("storage_tower", "Storage tower", "برج تخزين", storage_tower),
     ("night_street", "Street with night lights", "شارع بإنارة ليلية", night_street),
+    ("hidden_door", "Sliding stone door", "باب حجر بينزلق", hidden_door),
+    ("fill_meter", "Chest fill meter", "عدّاد امتلاء الصندوق", fill_meter),
+    ("snack_machine", "Snack machine", "ماكينة سناك", snack_machine),
+    ("door_alarm", "Door alarm", "إنذار الباب", door_alarm),
 ]
 
 

@@ -60,6 +60,30 @@
   "blocks": 48
  },
  {
+  "file": "snack_machine.json",
+  "name": "Snack machine",
+  "name_ar": "ماكينة سناك",
+  "category": "small_factories",
+  "size": [
+   5,
+   6,
+   4
+  ],
+  "blocks": 51
+ },
+ {
+  "file": "door_alarm.json",
+  "name": "Door alarm",
+  "name_ar": "إنذار الباب",
+  "category": "small_factories",
+  "size": [
+   7,
+   6,
+   5
+  ],
+  "blocks": 61
+ },
+ {
   "file": "auto_door.json",
   "name": "Automatic door",
   "name_ar": "باب أوتوماتيكي",
@@ -96,6 +120,18 @@
   "blocks": 77
  },
  {
+  "file": "fill_meter.json",
+  "name": "Chest fill meter",
+  "name_ar": "عدّاد امتلاء الصندوق",
+  "category": "small_factories",
+  "size": [
+   18,
+   4,
+   3
+  ],
+  "blocks": 92
+ },
+ {
   "file": "storage_tower.json",
   "name": "Storage tower",
   "name_ar": "برج تخزين",
@@ -106,6 +142,18 @@
    5
   ],
   "blocks": 108
+ },
+ {
+  "file": "hidden_door.json",
+  "name": "Sliding stone door",
+  "name_ar": "باب حجر بينزلق",
+  "category": "small_factories",
+  "size": [
+   10,
+   6,
+   7
+  ],
+  "blocks": 116
  },
  {
   "file": "night_street.json",
