@@ -135,6 +135,7 @@ func _pixel(x: int, z: int):
 ## so the big map still shows where you have been after you walk away.
 static var memory := {}              # Vector2i chunk -> PackedByteArray (RGB)
 var _record_t := 0.0
+var _all_seen := []                  # [centre chunk, loaded count] when everything around was noted
 
 
 func _remembered(x: int, z: int) -> Color:
@@ -168,6 +169,9 @@ func record_some(delta: float, player_pos: Vector3, radius: int) -> void:
 		_record_t = 0.0
 		record_chunk(here)
 		return
+	var stamp := [here, world.chunks.size()]
+	if stamp == _all_seen:
+		return                                     # nothing new around you since the last look
 	for r in radius + 1:
 		for dx in range(-r, r + 1):
 			for dz in [-r, r] if absi(dx) != r else range(-r, r + 1):
@@ -175,6 +179,7 @@ func record_some(delta: float, player_pos: Vector3, radius: int) -> void:
 				if not memory.has(k) and world.chunks.has(k) and world.chunks.has(k + Vector2i(0, -1)):
 					record_chunk(k)
 					return
+	_all_seen = stamp
 
 
 static func save_memory(path: String) -> void:
