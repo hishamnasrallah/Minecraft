@@ -22,6 +22,7 @@ var emit := PackedByteArray()
 var hardness := PackedFloat32Array()
 var shapes := PackedStringArray()   # the same as `shape`, packed: safe to copy for worker threads
 var facing := PackedByteArray()      # stairs / ladders
+var machine := PackedByteArray()     # 1: a powered part (wires connect to it) or a door
 var door_axis := PackedByteArray()
 var door_open := PackedByteArray()
 var plants_need_soil := {}
@@ -46,7 +47,7 @@ func _init() -> void:
 		arr.resize(MAX_ID)
 	hardness.resize(MAX_ID)
 	shapes.resize(MAX_ID)
-	for arr in [facing, door_axis, door_open]:
+	for arr in [facing, door_axis, door_open, machine]:
 		arr.resize(MAX_ID)
 	solid[0] = 0
 	for key in data["blocks"]:
@@ -65,6 +66,7 @@ func _init() -> void:
 		hardness[id] = float(d["hardness"])
 		shapes[id] = d["shape"]
 		facing[id] = int(d.get("facing", 0))
+		machine[id] = 1 if (d.get("logic") is Dictionary or d.has("door")) else 0
 		if d.get("door") is Dictionary:
 			door_axis[id] = int(d["door"]["axis"])
 			door_open[id] = int(d["door"]["open"])

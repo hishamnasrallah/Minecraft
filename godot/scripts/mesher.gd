@@ -87,6 +87,8 @@ var tile_top: PackedInt32Array
 var tile_side: PackedInt32Array
 var tile_bottom: PackedInt32Array
 const WALL_TORCH := 1810
+const SWITCH_ON := 1703
+var machine: PackedByteArray
 var facing: PackedByteArray
 var door_axis: PackedByteArray
 var door_open: PackedByteArray
@@ -111,6 +113,7 @@ func _init(w: WorldData) -> void:
 	tile_side = Blocks.tile_side.duplicate()
 	tile_bottom = Blocks.tile_bottom.duplicate()
 	facing = Blocks.facing.duplicate()
+	machine = Blocks.machine.duplicate()
 	door_axis = Blocks.door_axis.duplicate()
 	door_open = Blocks.door_open.duplicate()
 	atlas_cols = Blocks.atlas_cols
@@ -390,6 +393,32 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 			var b := Vector3(d.x, 0, d.y) * .44
 			return [[c + Vector3(-.0625, -.28, -.0625), c + Vector3(.0625, .46, .0625)],
 				[b + Vector3(-.06, -.14, -.06), b + Vector3(.06, -.02, .06)]]
+		"wire":
+			# a thin line on the floor: a dot, and an arm towards every machine or wire beside it
+			# (also one step up or down), so you can see where the power goes
+			var boxes := [[Vector3(-.12, -.5, -.12), Vector3(.12, -.45, .12)]]
+			for dd in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				var linked := false
+				for dy in [0, -1, 1]:
+					var nb := world.get_block(x + dd.x, y + dy, z + dd.y)
+					if nb != 0 and machine[nb] == 1 and (dy == 0 or shapes[nb] == "wire"):
+						linked = true
+						break
+				if linked:
+					var a := Vector3(dd.x, 0, dd.y) * .12
+					var b := Vector3(dd.x, 0, dd.y) * .5
+					var w := Vector3(absf(dd.y), 0, absf(dd.x)) * .08
+					boxes.append([Vector3(minf(a.x, b.x), -.5, minf(a.z, b.z)) - w, Vector3(maxf(a.x, b.x), -.45, maxf(a.z, b.z)) + w])
+			return boxes
+		"lever":
+			# a small base and a handle leaning one way when off and the other way when on
+			var on := id == SWITCH_ON
+			var hz := .05 if on else -.15
+			return [[Vector3(-.28, -.5, -.34), Vector3(.28, -.34, .34)],
+				[Vector3(-.08, -.34, hz), Vector3(.08, .16, hz + .12)],
+				[Vector3(-.13, .16, hz - .03), Vector3(.13, .3, hz + .15)]]
+		"button":
+			return [[Vector3(-.3, -.5, -.3), Vector3(.3, -.42, .3)], [Vector3(-.15, -.42, -.15), Vector3(.15, -.28, .15)]]
 		"ladder":
 			var sides := [[Vector3(-.5, -.5, .42), Vector3(.5, .5, .5)], [Vector3(.42, -.5, -.5), Vector3(.5, .5, .5)],
 				[Vector3(-.5, -.5, -.5), Vector3(.5, .5, -.42)], [Vector3(-.5, -.5, -.5), Vector3(-.42, .5, .5)]]
@@ -436,7 +465,7 @@ func _shape(out: Dictionary, id: int, x: int, y: int, z: int) -> void:
 					g.colors.append(col)
 					g.uvs.append(_uv(tile, quv[i].x, quv[i].y))
 		return
-	var g: Group = out["plants"] if shape in ["ladder", "torch", "carpet"] else out["solid"]   # plants: no collision
+	var g: Group = out["plants"] if shape in ["ladder", "torch", "carpet", "wire", "lever", "button"] else out["solid"]   # plants: no collision
 	for box in shape_boxes(id, x, y, z):
 		var lo: Vector3 = box[0]
 		var hi: Vector3 = box[1]

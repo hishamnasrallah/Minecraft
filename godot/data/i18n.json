@@ -560,6 +560,74 @@
    "en": "Build mode",
    "ar": "وضع البناء"
   },
+  "hint_wire": {
+   "en": "Carries power from a source to machines next to it",
+   "ar": "بيوصّل الكهربا من المصدر للمكنات يلي جنبه"
+  },
+  "hint_switch": {
+   "en": "Tap: power on / off",
+   "ar": "اكبس: بتشغّل أو بتطفي الكهربا"
+  },
+  "hint_button": {
+   "en": "Tap: power for a moment",
+   "ar": "اكبس: بيعطي كهربا لثانية"
+  },
+  "hint_cell": {
+   "en": "Always gives power",
+   "ar": "بيعطي كهربا دايماً"
+  },
+  "hint_plate": {
+   "en": "Gives power while someone stands on it",
+   "ar": "بيعطي كهربا لما حدا يوقف عليه"
+  },
+  "hint_sensor": {
+   "en": "Gives power in daylight",
+   "ar": "بيعطي كهربا بالنهار"
+  },
+  "hint_lamp": {
+   "en": "Lights up when powered",
+   "ar": "بيضوي لما توصله كهربا"
+  },
+  "hint_not": {
+   "en": "NOT: power out when no power comes in",
+   "ar": "عكس: بيطلّع كهربا إذا ما وصله شي"
+  },
+  "hint_and": {
+   "en": "AND: power out when both sides are powered",
+   "ar": "و: بيطلّع كهربا إذا الجهتين فيهم كهربا"
+  },
+  "hint_or": {
+   "en": "OR: power out when either side is powered",
+   "ar": "أو: بيطلّع كهربا إذا وحدة من الجهتين فيها"
+  },
+  "hint_xor": {
+   "en": "XOR: power out when exactly one side is powered",
+   "ar": "يا هيك يا هيك: بيطلّع كهربا إذا جهة وحدة بس فيها"
+  },
+  "hint_delay": {
+   "en": "Passes power on a little later",
+   "ar": "بيمرّر الكهربا بعد شوي"
+  },
+  "hint_pusher": {
+   "en": "Pushes the blocks in front of it when powered",
+   "ar": "بيدفش البلوكات يلي قدامه لما توصله كهربا"
+  },
+  "hint_breaker": {
+   "en": "Breaks the block in front of it when powered",
+   "ar": "بيكسر البلوك يلي قدامه لما توصله كهربا"
+  },
+  "hint_conveyor": {
+   "en": "Moves items and players along the arrow",
+   "ar": "بيمشّي الأغراض واللاعبين مع السهم"
+  },
+  "hint_collector": {
+   "en": "Picks up items and puts them in the chest below",
+   "ar": "بيلم الأغراض وبيحطها بالصندوق يلي تحته"
+  },
+  "hint_smelter": {
+   "en": "Smelts what comes from above, sends it down",
+   "ar": "بيصهر يلي بينزله من فوق وبينزّله لتحت"
+  },
   "cause_void": {
    "en": "You fell off the sky islands.",
    "ar": "وقعت عن جزر السما."

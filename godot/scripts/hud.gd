@@ -241,8 +241,9 @@ func _layout() -> void:
 	item_label.size = Vector2(400, 30)
 	item_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	clock.position = Vector2(s.x / 2 - 40, 8)
-	target_label.position = Vector2(s.x / 2 - 200, s.y / 2 + 22)
-	target_label.size = Vector2(400, 26)
+	target_label.position = Vector2(s.x / 2 - 360, s.y / 2 + 22)
+	target_label.size = Vector2(720, 26)
+	target_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var y0 := 0.0
 	if minimap.visible:
 		minimap.position = Vector2(14, 14)
@@ -374,9 +375,11 @@ func icon_for(item: int) -> AtlasTexture:
 	return t
 
 
-func show_target(text: String) -> void:
-	if target_label.text != text:
-		target_label.text = text
+## The name of what you aim at; machines also say in a few words what they do.
+func show_target(text: String, hint := "") -> void:
+	var t := text if hint == "" else "%s\n%s" % [text, hint]
+	if target_label.text != t:
+		target_label.text = t
 
 
 func show_boss(name: String, fraction: float, crystals: int) -> void:

@@ -1290,6 +1290,9 @@ func _clip_front() -> int:
 	var mid := Vector2(size.x - 1, size.z - 1) / 2.0
 	var pull := Vector2.ZERO
 	for p in builder.clipboard:
+		if Blocks.defs.get(builder.clipboard[p], {}).has("letter"):
+			return 0                                # a name or label: it reads from the +z side
+	for p in builder.clipboard:
 		var id: int = builder.clipboard[p]
 		var kind := power.kind_of(id)
 		if kind in ["button", "switch", "plate"] or Blocks.defs.get(id, {}).has("door") or id == 48:
@@ -1598,7 +1601,7 @@ func place_block(allow_use := true) -> void:
 		# tapped the side of a block: the torch hangs on that wall
 		var by_n := {Vector2i(0, -1): 0, Vector2i(-1, 0): 1, Vector2i(0, 1): 2, Vector2i(1, 0): 3}
 		id = WALL_TORCH + int(by_n[Vector2i(n0.x, n0.z)])
-	elif d["shape"] in ["cross", "torch"] and (below == 0 or not Blocks.solid[below]):
+	elif d["shape"] in ["cross", "torch", "lever", "button", "wire"] and (below == 0 or not Blocks.solid[below]):
 		return                                 # plants and torches need ground
 	if d.get("logic") is Dictionary and d["logic"].has("facing"):
 		# machines face away from you; pushers and breakers can also face up or down
@@ -1672,8 +1675,12 @@ func _outline_box(id: int) -> Array:
 			return [Vector3(0.8, 0.85, 0.8), Vector3(0, -0.075, 0)]
 		"slab":
 			return [Vector3(1, 0.5, 1), Vector3(0, -0.25, 0)]
-		"carpet":
+		"carpet", "wire":
 			return [Vector3(1, 0.08, 1), Vector3(0, -0.46, 0)]
+		"lever":
+			return [Vector3(0.5, 0.75, 0.62), Vector3(0, -0.13, 0)]
+		"button":
+			return [Vector3(0.62, 0.24, 0.62), Vector3(0, -0.38, 0)]
 	return [Vector3.ONE, Vector3.ZERO]
 
 
@@ -1691,8 +1698,10 @@ func _ghost_box(item: int, at: Vector3i, n: Vector3i) -> Array:
 			return [Vector3(0.7, 0.8, 0.7), Vector3(0, -0.1, 0)] if ground else []
 		"slab":
 			return [Vector3(1, 0.5, 1), Vector3(0, -0.25, 0)]
-		"carpet":
+		"carpet", "wire":
 			return [Vector3(1, 0.07, 1), Vector3(0, -0.46, 0)]
+		"lever", "button":
+			return [Vector3(0.6, 0.5, 0.6), Vector3(0, -0.25, 0)] if ground else []
 		"door":
 			return [Vector3(1, 2, 1), Vector3(0, 0.5, 0)] if _solid_at(at - Vector3i(0, 1, 0)) else []
 		"ladder":
@@ -1780,6 +1789,18 @@ func _factory_test(name: String) -> void:
 		return
 	var t: int = _st_frame - int(_st["ft_t"])
 	var found: Dictionary = _st["ft_found"]
+	if t == 40 and _shot_path:                  # a picture from in front, a little above
+		var box := _paste_box
+		var c := box.get_center()
+		player.position = Vector3(c.x, box.end.y + 1.5, box.end.z + maxf(box.size.x, box.size.z) * 0.55)
+		player.yaw = 0.0
+		player.rotation.y = 0.0
+		player.pitch = -0.55
+		player.camera.rotation.x = player.pitch
+	if t == 70 and _shot_path:
+		get_viewport().get_texture().get_image().save_png(_shot_path)
+		get_tree().quit()
+		return
 	if name == "lamp_clock":
 		var l: Vector3i = found.get("lamp", [Vector3i.ZERO])[0]
 		var now := world.get_block(l.x, l.y, l.z)
@@ -1939,7 +1960,8 @@ func _update_mining(delta: float) -> void:
 	var hb := _outline_box(id)
 	highlight.position = Vector3(pos) + hb[1]
 	highlight.scale = hb[0] * 1.004
-	hud.show_target(Items.name_of(id))
+	var kind := power.kind_of(id)
+	hud.show_target(Items.name_of(id), I18n.t("hint_" + kind) if kind != "" else "")
 	# ghost of the held block (with a crosshair; on touch the finger shows where it goes)
 	var held_item := inv.item_at(selected)
 	var ghost_pos: Vector3i = pos + hit["normal"]
@@ -3067,6 +3089,8 @@ func _process_inner(delta: float) -> void:
 			edit(o + Vector3i(x, 0, 0), 1700)
 		edit(o + Vector3i(0, 0, 0), 1708)                     # lamp
 		edit(o + Vector3i(2, 0, 0), 1714)                     # and gate
+		if "--aimgate" in OS.get_cmdline_user_args():
+			_forced_hit = {"pos": o + Vector3i(2, 0, 0), "normal": Vector3i(0, 1, 0), "distance": 3.0}
 		edit(o + Vector3i(4, 0, 0), 1705)                     # power cell
 		edit(o + Vector3i(-4, 0, 2), 1731)                    # pusher
 		edit(o + Vector3i(-2, 0, 2), 1736)                    # breaker

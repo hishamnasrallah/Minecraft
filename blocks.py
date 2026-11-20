@@ -360,23 +360,25 @@ def _logic(id_, name, tiles, kind, shape=CUBE, creative=True, drop="self", **ext
     return id_
 
 
-_logic(1700, "copper wire", "wire_off", "wire", shape=CARPET, solid=False, hardness=0.0, tool=None, on=False)
-_logic(1701, "copper wire", "wire_on", "wire", shape=CARPET, solid=False, hardness=0.0, tool=None, on=True,
+_logic(1700, "copper wire", "wire_off", "wire", shape="wire", solid=False, hardness=0.0, tool=None, on=False)
+_logic(1701, "copper wire", "wire_on", "wire", shape="wire", solid=False, hardness=0.0, tool=None, on=True,
        creative=False, drop=1700, emit=3)
-_logic(1702, "switch", ("switch_off", "switch_side", "switch_side"), "switch", on=False, hardness=0.6)
-_logic(1703, "switch", ("switch_on", "switch_side", "switch_side"), "switch", on=True, creative=False, drop=1702,
+_logic(1702, "switch", ("switch_off", "switch_side", "switch_side"), "switch", shape="lever", solid=False, on=False,
        hardness=0.6)
-_logic(1704, "push button", ("button_top", "button_side", "button_side"), "button", hardness=0.6)
+_logic(1703, "switch", ("switch_on", "switch_side", "switch_side"), "switch", shape="lever", solid=False, on=True,
+       creative=False, drop=1702, hardness=0.6)
+_logic(1704, "push button", ("button_top", "button_side", "button_side"), "button", shape="button", solid=False,
+       hardness=0.6)
 _logic(1705, "power cell", ("power_cell_top", "power_cell", "power_cell_top"), "cell", hardness=1.5, emit=6)
 _logic(1706, "pressure plate", "pressure_plate", "plate", shape=CARPET, solid=False, hardness=0.5)
-_logic(1707, "light sensor", ("light_sensor", "machine_side", "machine_side"), "sensor", hardness=0.8)
+_logic(1707, "light sensor", ("light_sensor", "machine_side", "machine_side"), "sensor", shape=SLAB, hardness=0.8)
 _logic(1708, "powered lamp", "powered_lamp_off", "lamp", on=False, hardness=0.4)
 _logic(1709, "powered lamp", "powered_lamp_on", "lamp", on=True, creative=False, drop=1708, emit=15, hardness=0.4)
 GATES = ["not", "and", "or", "xor", "delay"]
 for _g, _gate in enumerate(GATES):
     for _f in range(4):
         _logic(1710 + _g * 4 + _f, f"{_gate} gate", (f"gate_{_gate}_{_f}", "gate_side", "gate_side"), _gate,
-               facing=_f, creative=_f == 0, drop=1710 + _g * 4, hardness=0.6)
+               shape=SLAB, facing=_f, creative=_f == 0, drop=1710 + _g * 4, hardness=0.6)   # a flat chip
 for _f in range(6):
     for _base, _m in ((1730, "pusher"), (1736, "breaker")):
         _logic(_base + _f, _m, (f"{_m}_top_{_f}", f"{_m}_side_{_f}", f"{_m}_bottom_{_f}"), _m, facing=_f,
@@ -419,7 +421,7 @@ NON_SOLID = {0} | {i for i, d in BLOCK_DEFS.items() if not d["solid"]}
 LIGHT_EMIT = {i: d["emit"] for i, d in BLOCK_DEFS.items() if d["emit"]}
 UNBREAKABLE = {i for i, d in BLOCK_DEFS.items() if d["hardness"] < 0}
 LEAVES = {i for i, d in BLOCK_DEFS.items() if d.get("leaves")}
-PLANTS_NEED_SOIL = {i for i, d in BLOCK_DEFS.items() if d["shape"] in (CROSS, CARPET)}   # fall without ground
+PLANTS_NEED_SOIL = {i for i, d in BLOCK_DEFS.items() if d["shape"] in (CROSS, CARPET, "wire", "lever", "button")}   # fall without ground
 SHAPED = {i for i, d in BLOCK_DEFS.items() if d["shape"] != CUBE}
 
 
