@@ -2394,6 +2394,35 @@ func _process_inner(delta: float) -> void:
 			print("LADDER climbed to y %.1f (pillar top %d), crystal within reach: %s" % [player.position.y,
 				WorldData.SKY_BASE + 6 + WorldData.PILLAR_HEIGHT, player.eye().distance_to(Vector3(c)) < reach()])
 			get_tree().quit()
+	if "--keeptest" in OS.get_cmdline_user_args() and spawned and not _st.has("keep"):
+		_st["keep"] = true                              # testing: heavy things stay when the block under them breaks
+		var o := Vector3i(floori(player.position.x + 0.5) + 3, floori(player.position.y) + 6, floori(player.position.z + 0.5))
+		var tops := {"stone": 3, "planks": 7, "glass": 20, "slab": 300, "stairs": 320, "fence": 61, "chest": 48, "bed": 62, "furnace": 47}
+		var i := 0
+		for name in tops:
+			var base := o + Vector3i(i * 2, 0, 0)
+			edit(base, 3, true, false)
+			edit(base + Vector3i(0, 1, 0), tops[name], true, false)
+			i += 1
+		var door := o + Vector3i(i * 2, 0, 0)               # a door on a block, and a block hanging nowhere
+		edit(door, 3, true, false)
+		edit(door + Vector3i(0, 1, 0), 510, true, false)
+		edit(door + Vector3i(0, 2, 0), 511, true, false)
+		inv.slots[selected] = null
+		var before := drops.drops.size()
+		i = 0
+		var kept := []
+		for name in tops:
+			var base := o + Vector3i(i * 2, 0, 0)
+			break_at(base)
+			var now := world.get_block(base.x, base.y + 1, base.z)
+			kept.append("%s %s" % [name, "stayed" if now == tops[name] else "FELL (now %d)" % now])
+			i += 1
+		break_at(door)
+		var dk := world.get_block(door.x, door.y + 1, door.z)
+		kept.append("door %s" % ("stayed" if dk == 510 else "FELL (now %d)" % dk))
+		print("KEEP ", kept, ", extra drops ", drops.drops.size() - before)
+		get_tree().quit()
 	if "--torchtest" in OS.get_cmdline_user_args() and spawned:
 		_st_frame += 1                                  # testing: torches on every side of a pillar, at night
 		if _st_frame == 5:
