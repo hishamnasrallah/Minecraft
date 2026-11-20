@@ -1875,6 +1875,8 @@ func _outline_box(id: int) -> Array:
 			return [Vector3(1, 0.5, 1), Vector3(0, -0.25, 0)]
 		"carpet", "wire", "track":
 			return [Vector3(1, 0.08, 1), Vector3(0, -0.46, 0)]
+		"gate":
+			return [Vector3(1, 0.36, 1), Vector3(0, -0.32, 0)]
 		"lever":
 			return [Vector3(0.5, 0.75, 0.62), Vector3(0, -0.13, 0)]
 		"button":
@@ -2072,6 +2074,8 @@ func pick_block() -> void:
 		item = 50
 	elif carts.is_track(id):
 		item = 1756 if id >= 1756 else 1750
+	elif not Items.placeable.has(item) and (d.get("drop") is int or d.get("drop") is float):
+		item = int(d["drop"])                        # a lit gate, a switch that is on...: its item
 	elif d.get("shape") == "stair":
 		item = id - int(d["facing"])
 	if not Items.placeable.has(item):
@@ -3393,6 +3397,8 @@ func _process_inner(delta: float) -> void:
 			_forced_hit = {"pos": o + Vector3i(2, 0, 0), "normal": Vector3i(0, 1, 0), "distance": 3.0}
 		edit(o + Vector3i(4, 0, 0), 1705)                     # power cell
 		edit(o + Vector3i(-4, 0, 2), 1731)                    # pusher
+		edit(o + Vector3i(-4, 0, 3), 1705)                    # a power cell beside it: its head comes out
+		edit(o + Vector3i(3, 0, 1), 1710)                     # a NOT gate with nothing in: its light is lit
 		edit(o + Vector3i(-2, 0, 2), 1736)                    # breaker
 		for x in range(0, 4):
 			edit(o + Vector3i(x, -1, 2), 1743)                # conveyor

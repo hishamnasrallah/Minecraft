@@ -20,7 +20,7 @@ NAMES_AR = {
     "pressure plate": "لوح ضغط", "light sensor": "حسّاس ضوء", "powered lamp": "مصباح كهربائي",
     "not gate": "بوابة عكس (NOT)", "and gate": "بوابة و (AND)", "or gate": "بوابة أو (OR)",
     "xor gate": "بوابة إما (XOR)", "delay gate": "مؤخّر", "pusher": "دافع", "breaker": "كاسر",
-    "track": "سكة", "boost track": "سكة دفع", "cart": "عربة",
+    "pusher head": "رأس الدافع", "track": "سكة", "boost track": "سكة دفع", "cart": "عربة",
     "conveyor belt": "سير ناقل", "collector": "جامع", "auto-smelter": "فرن أوتوماتيكي",
     "sky stone": "حجر سماوي", "sky soil": "تربة سماوية", "sky grass": "عشب سماوي", "cloud": "غيمة",
     "star ore": "خام النجوم", "star block": "بلوك نجوم", "portal": "بوابة", "storm crystal": "بلّورة العاصفة",

@@ -339,13 +339,26 @@ func _tick(comp: Dictionary) -> bool:
 				if bool(d["open"]) != on and on != before:
 					_toggle_door(p, id)
 			"pusher":
+				var pd: Vector3i = DIRS[_info[id][1]]
+				var head_at: Vector3i = p + pd
 				if on and not before:
-					_push(p, DIRS[_info[id][1]])
+					_push(p, pd)
+					var there := world.get_block(head_at.x, head_at.y, head_at.z)
+					if there == 0 or there == WorldData.WATER or Blocks.plants_need_soil.has(there):
+						set_block.call(head_at, PUSHER_HEAD + _info[id][1])   # the head sticks out
+				elif not on and before:
+					var hid := world.get_block(head_at.x, head_at.y, head_at.z)
+					if hid >= PUSHER_HEAD and hid <= PUSHER_HEAD + 5:
+						set_block.call(head_at, 0)                         # and comes back
 			"breaker":
 				if on and not before:
 					_break(p + DIRS[_info[id][1]])
 	for p in next_gate:
 		gate_on[p] = next_gate[p]
+		# show it: a gate giving power swaps to its lit twin (1770+), and back
+		var gid := world.get_block(p.x, p.y, p.z)
+		if _info.has(gid) and bool(_info[gid][2]) != bool(next_gate[p]):
+			set_block.call(p, gid + GATE_LIT if next_gate[p] else gid - GATE_LIT)
 	return changed
 
 
@@ -372,8 +385,13 @@ func _toggle_door(p: Vector3i, id: int) -> void:
 			set_block.call(q, b - 2 if Blocks.defs[b]["door"]["open"] else b + 2)
 
 
+const PUSHER_HEAD := 1760
+const GATE_LIT := 60                 # a gate's lit twin is 60 ids further (1710 -> 1770)
+
+
 static func _movable(id: int) -> bool:
 	return id != 0 and id != WorldData.WATER and Blocks.hardness[id] >= 0 \
+		and (id < PUSHER_HEAD or id > PUSHER_HEAD + 5) \
 		and not Blocks.defs.get(id, {}).get("container", false) and not Blocks.defs.get(id, {}).has("door")
 
 

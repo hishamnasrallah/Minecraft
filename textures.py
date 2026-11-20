@@ -1574,16 +1574,18 @@ def _arrow_on(img, color, rotate=0):
 
 
 def wire(on):
+    """Glittering copper dust: dull when no power runs through it, bright with sparks when it does."""
     def gen(rng):
         img = _blank()
-        c = (255, 140, 40) if on else (130, 70, 40)
-        for i in range(TILE):
-            for d in (-1, 0):
-                _px(img, i, 7 + d, _shade(c, 1 + rng.uniform(-0.1, 0.1)))
-                _px(img, 7 + d, i, _shade(c, 1 + rng.uniform(-0.1, 0.1)))
-        if on:
-            for x, y in ((7, 7), (8, 8), (7, 8), (8, 7)):
-                _px(img, x, y, (255, 230, 160))
+        base = (255, 118, 40) if on else (112, 52, 34)
+        for x in range(TILE):
+            for y in range(TILE):
+                k = 1 + rng.uniform(-0.25, 0.2)
+                _px(img, x, y, _shade(base, k))
+        sparks = 18 if on else 6
+        for _ in range(sparks):
+            x, y = rng.randrange(TILE), rng.randrange(TILE)
+            _px(img, x, y, (255, 226, 150) if on else (150, 80, 52))
         return img
     return gen
 

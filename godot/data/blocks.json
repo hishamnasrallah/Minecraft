@@ -13308,7 +13308,7 @@
    "tool": "pickaxe",
    "level": 0,
    "drop": 1710,
-   "shape": "slab",
+   "shape": "gate",
    "transparent": true,
    "translucent": false,
    "solid": true,
@@ -13325,6 +13325,30 @@
     335
    ]
   },
+  "1770": {
+   "name": "not gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1710,
+   "shape": "gate",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 4,
+   "creative": false,
+   "logic": {
+    "kind": "not",
+    "facing": 0,
+    "on": true
+   },
+   "tiles": [
+    334,
+    335,
+    335
+   ]
+  },
   "1711": {
    "name": "not gate",
    "tab": "machines",
@@ -13332,7 +13356,7 @@
    "tool": "pickaxe",
    "level": 0,
    "drop": 1710,
-   "shape": "slab",
+   "shape": "gate",
    "transparent": true,
    "translucent": false,
    "solid": true,
@@ -13348,6 +13372,30 @@
     335
    ]
   },
+  "1771": {
+   "name": "not gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1710,
+   "shape": "gate",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 4,
+   "creative": false,
+   "logic": {
+    "kind": "not",
+    "facing": 1,
+    "on": true
+   },
+   "tiles": [
+    336,
+    335,
+    335
+   ]
+  },
   "1712": {
    "name": "not gate",
    "tab": "machines",
@@ -13355,7 +13403,7 @@
    "tool": "pickaxe",
    "level": 0,
    "drop": 1710,
-   "shape": "slab",
+   "shape": "gate",
    "transparent": true,
    "translucent": false,
    "solid": true,
@@ -13371,6 +13419,30 @@
     335
    ]
   },
+  "1772": {
+   "name": "not gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1710,
+   "shape": "gate",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 4,
+   "creative": false,
+   "logic": {
+    "kind": "not",
+    "facing": 2,
+    "on": true
+   },
+   "tiles": [
+    337,
+    335,
+    335
+   ]
+  },
   "1713": {
    "name": "not gate",
    "tab": "machines",
@@ -13378,7 +13450,7 @@
    "tool": "pickaxe",
    "level": 0,
    "drop": 1710,
-   "shape": "slab",
+   "shape": "gate",
    "transparent": true,
    "translucent": false,
    "solid": true,
@@ -13394,6 +13466,30 @@
     335
    ]
   },
+  "1773": {
+   "name": "not gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1710,
+   "shape": "gate",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 4,
+   "creative": false,
+   "logic": {
+    "kind": "not",
+    "facing": 3,
+    "on": true
+   },
+   "tiles": [
+    338,
+    335,
+    335
+   ]
+  },
   "1714": {
    "name": "and gate",
    "tab": "machines",
@@ -13401,7 +13497,7 @@
    "tool": "pickaxe",
    "level": 0,
    "drop": 1714,
-   "shape": "slab",
+   "shape": "gate",
    "transparent": true,
    "translucent": false,
    "solid": true,
@@ -13418,6 +13514,30 @@
     335
    ]
   },
+  "1774": {
+   "name": "and gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1714,
+   "shape": "gate",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 4,
+   "creative": false,
+   "logic": {
+    "kind": "and",
+    "facing": 0,
+    "on": true
+   },
+   "tiles": [
+    339,
+    335,
+    335
+   ]
+  },
   "1715": {
    "name": "and gate",
    "tab": "machines",
@@ -13425,7 +13545,7 @@
    "tool": "pickaxe",
    "level": 0,
    "drop": 1714,
-   "shape": "slab",
+   "shape": "gate",
    "transparent": true,
    "translucent": false,
    "solid": true,
@@ -13441,6 +13561,30 @@
     335
    ]
   },
+  "1775": {
+   "name": "and gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1714,
+   "shape": "gate",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 4,
+   "creative": false,
+   "logic": {
+    "kind": "and",
+    "facing": 1,
+    "on": true
+   },
+   "tiles": [
+    340,
+    335,
+    335
+   ]
+  },
   "1716": {
    "name": "and gate",
    "tab": "machines",
@@ -13448,7 +13592,7 @@
    "tool": "pickaxe",
    "level": 0,
    "drop": 1714,
-   "shape": "slab",
+   "shape": "gate",
    "transparent": true,
    "translucent": false,
    "solid": true,
@@ -13464,6 +13608,30 @@
     335
    ]
   },
+  "1776": {
+   "name": "and gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1714,
+   "shape": "gate",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 4,
+   "creative": false,
+   "logic": {
+    "kind": "and",
+    "facing": 2,
+    "on": true
+   },
+   "tiles": [
+    341,
+    335,
+    335
+   ]
+  },
   "1717": {
    "name": "and gate",
    "tab": "machines",
@@ -13471,7 +13639,7 @@
    "tool": "pickaxe",
    "level": 0,
    "drop": 1714,
-   "shape": "slab",
+   "shape": "gate",
    "transparent": true,
    "translucent": false,
    "solid": true,
@@ -13487,6 +13655,30 @@
     335
    ]
   },
+  "1777": {
+   "name": "and gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1714,
+   "shape": "gate",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 4,
+   "creative": false,
+   "logic": {
+    "kind": "and",
+    "facing": 3,
+    "on": true
+   },
+   "tiles": [
+    342,
+    335,
+    335
+   ]
+  },
   "1718": {
    "name": "or gate",
    "tab": "machines",
@@ -13494,7 +13686,7 @@
    "tool": "pickaxe",
    "level": 0,
    "drop": 1718,
-   "shape": "slab",
+   "shape": "gate",
    "transparent": true,
    "translucent": false,
    "solid": true,
@@ -13511,6 +13703,30 @@
     335
    ]
   },
+  "1778": {
+   "name": "or gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1718,
+   "shape": "gate",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 4,
+   "creative": false,
+   "logic": {
+    "kind": "or",
+    "facing": 0,
+    "on": true
+   },
+   "tiles": [
+    343,
+    335,
+    335
+   ]
+  },
   "1719": {
    "name": "or gate",
    "tab": "machines",
@@ -13518,7 +13734,7 @@
    "tool": "pickaxe",
    "level": 0,
    "drop": 1718,
-   "shape": "slab",
+   "shape": "gate",
    "transparent": true,
    "translucent": false,
    "solid": true,
@@ -13534,6 +13750,30 @@
     335
    ]
   },
+  "1779": {
+   "name": "or gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1718,
+   "shape": "gate",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 4,
+   "creative": false,
+   "logic": {
+    "kind": "or",
+    "facing": 1,
+    "on": true
+   },
+   "tiles": [
+    344,
+    335,
+    335
+   ]
+  },
   "1720": {
    "name": "or gate",
    "tab": "machines",
@@ -13541,7 +13781,7 @@
    "tool": "pickaxe",
    "level": 0,
    "drop": 1718,
-   "shape": "slab",
+   "shape": "gate",
    "transparent": true,
    "translucent": false,
    "solid": true,
@@ -13557,6 +13797,30 @@
     335
    ]
   },
+  "1780": {
+   "name": "or gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1718,
+   "shape": "gate",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 4,
+   "creative": false,
+   "logic": {
+    "kind": "or",
+    "facing": 2,
+    "on": true
+   },
+   "tiles": [
+    345,
+    335,
+    335
+   ]
+  },
   "1721": {
    "name": "or gate",
    "tab": "machines",
@@ -13564,7 +13828,7 @@
    "tool": "pickaxe",
    "level": 0,
    "drop": 1718,
-   "shape": "slab",
+   "shape": "gate",
    "transparent": true,
    "translucent": false,
    "solid": true,
@@ -13580,6 +13844,30 @@
     335
    ]
   },
+  "1781": {
+   "name": "or gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1718,
+   "shape": "gate",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 4,
+   "creative": false,
+   "logic": {
+    "kind": "or",
+    "facing": 3,
+    "on": true
+   },
+   "tiles": [
+    346,
+    335,
+    335
+   ]
+  },
   "1722": {
    "name": "xor gate",
    "tab": "machines",
@@ -13587,7 +13875,7 @@
    "tool": "pickaxe",
    "level": 0,
    "drop": 1722,
-   "shape": "slab",
+   "shape": "gate",
    "transparent": true,
    "translucent": false,
    "solid": true,
@@ -13604,6 +13892,30 @@
     335
    ]
   },
+  "1782": {
+   "name": "xor gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1722,
+   "shape": "gate",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 4,
+   "creative": false,
+   "logic": {
+    "kind": "xor",
+    "facing": 0,
+    "on": true
+   },
+   "tiles": [
+    347,
+    335,
+    335
+   ]
+  },
   "1723": {
    "name": "xor gate",
    "tab": "machines",
@@ -13611,7 +13923,7 @@
    "tool": "pickaxe",
    "level": 0,
    "drop": 1722,
-   "shape": "slab",
+   "shape": "gate",
    "transparent": true,
    "translucent": false,
    "solid": true,
@@ -13627,6 +13939,30 @@
     335
    ]
   },
+  "1783": {
+   "name": "xor gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1722,
+   "shape": "gate",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 4,
+   "creative": false,
+   "logic": {
+    "kind": "xor",
+    "facing": 1,
+    "on": true
+   },
+   "tiles": [
+    348,
+    335,
+    335
+   ]
+  },
   "1724": {
    "name": "xor gate",
    "tab": "machines",
@@ -13634,7 +13970,7 @@
    "tool": "pickaxe",
    "level": 0,
    "drop": 1722,
-   "shape": "slab",
+   "shape": "gate",
    "transparent": true,
    "translucent": false,
    "solid": true,
@@ -13650,6 +13986,30 @@
     335
    ]
   },
+  "1784": {
+   "name": "xor gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1722,
+   "shape": "gate",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 4,
+   "creative": false,
+   "logic": {
+    "kind": "xor",
+    "facing": 2,
+    "on": true
+   },
+   "tiles": [
+    349,
+    335,
+    335
+   ]
+  },
   "1725": {
    "name": "xor gate",
    "tab": "machines",
@@ -13657,7 +14017,7 @@
    "tool": "pickaxe",
    "level": 0,
    "drop": 1722,
-   "shape": "slab",
+   "shape": "gate",
    "transparent": true,
    "translucent": false,
    "solid": true,
@@ -13673,6 +14033,30 @@
     335
    ]
   },
+  "1785": {
+   "name": "xor gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1722,
+   "shape": "gate",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 4,
+   "creative": false,
+   "logic": {
+    "kind": "xor",
+    "facing": 3,
+    "on": true
+   },
+   "tiles": [
+    350,
+    335,
+    335
+   ]
+  },
   "1726": {
    "name": "delay gate",
    "tab": "machines",
@@ -13680,7 +14064,7 @@
    "tool": "pickaxe",
    "level": 0,
    "drop": 1726,
-   "shape": "slab",
+   "shape": "gate",
    "transparent": true,
    "translucent": false,
    "solid": true,
@@ -13697,6 +14081,30 @@
     335
    ]
   },
+  "1786": {
+   "name": "delay gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1726,
+   "shape": "gate",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 4,
+   "creative": false,
+   "logic": {
+    "kind": "delay",
+    "facing": 0,
+    "on": true
+   },
+   "tiles": [
+    351,
+    335,
+    335
+   ]
+  },
   "1727": {
    "name": "delay gate",
    "tab": "machines",
@@ -13704,7 +14112,7 @@
    "tool": "pickaxe",
    "level": 0,
    "drop": 1726,
-   "shape": "slab",
+   "shape": "gate",
    "transparent": true,
    "translucent": false,
    "solid": true,
@@ -13720,6 +14128,30 @@
     335
    ]
   },
+  "1787": {
+   "name": "delay gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1726,
+   "shape": "gate",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 4,
+   "creative": false,
+   "logic": {
+    "kind": "delay",
+    "facing": 1,
+    "on": true
+   },
+   "tiles": [
+    352,
+    335,
+    335
+   ]
+  },
   "1728": {
    "name": "delay gate",
    "tab": "machines",
@@ -13727,7 +14159,7 @@
    "tool": "pickaxe",
    "level": 0,
    "drop": 1726,
-   "shape": "slab",
+   "shape": "gate",
    "transparent": true,
    "translucent": false,
    "solid": true,
@@ -13743,6 +14175,30 @@
     335
    ]
   },
+  "1788": {
+   "name": "delay gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1726,
+   "shape": "gate",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 4,
+   "creative": false,
+   "logic": {
+    "kind": "delay",
+    "facing": 2,
+    "on": true
+   },
+   "tiles": [
+    353,
+    335,
+    335
+   ]
+  },
   "1729": {
    "name": "delay gate",
    "tab": "machines",
@@ -13750,7 +14206,7 @@
    "tool": "pickaxe",
    "level": 0,
    "drop": 1726,
-   "shape": "slab",
+   "shape": "gate",
    "transparent": true,
    "translucent": false,
    "solid": true,
@@ -13759,6 +14215,30 @@
    "logic": {
     "kind": "delay",
     "facing": 3
+   },
+   "tiles": [
+    354,
+    335,
+    335
+   ]
+  },
+  "1789": {
+   "name": "delay gate",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1726,
+   "shape": "gate",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 4,
+   "creative": false,
+   "logic": {
+    "kind": "delay",
+    "facing": 3,
+    "on": true
    },
    "tiles": [
     354,
@@ -14178,6 +14658,126 @@
     398,
     399,
     392
+   ]
+  },
+  "1760": {
+   "name": "pusher head",
+   "tab": "machines",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": null,
+   "shape": "pusher_head",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "facing": 0,
+   "tiles": [
+    355,
+    356,
+    357
+   ]
+  },
+  "1761": {
+   "name": "pusher head",
+   "tab": "machines",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": null,
+   "shape": "pusher_head",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "facing": 1,
+   "tiles": [
+    355,
+    356,
+    357
+   ]
+  },
+  "1762": {
+   "name": "pusher head",
+   "tab": "machines",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": null,
+   "shape": "pusher_head",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "facing": 2,
+   "tiles": [
+    355,
+    356,
+    357
+   ]
+  },
+  "1763": {
+   "name": "pusher head",
+   "tab": "machines",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": null,
+   "shape": "pusher_head",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "facing": 3,
+   "tiles": [
+    355,
+    356,
+    357
+   ]
+  },
+  "1764": {
+   "name": "pusher head",
+   "tab": "machines",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": null,
+   "shape": "pusher_head",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "facing": 4,
+   "tiles": [
+    355,
+    356,
+    357
+   ]
+  },
+  "1765": {
+   "name": "pusher head",
+   "tab": "machines",
+   "hardness": 1.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": null,
+   "shape": "pusher_head",
+   "transparent": true,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": false,
+   "facing": 5,
+   "tiles": [
+    355,
+    356,
+    357
    ]
   },
   "1750": {

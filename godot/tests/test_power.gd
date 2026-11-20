@@ -118,8 +118,13 @@ func test_pusher_and_breaker() -> String:
 	_run(p)
 	w.set_block(0, 41, 1, 1703, true, false)      # power arrives: push once
 	_run(p)
-	if _id(w, 1, 41, 0) != 0 or _id(w, 2, 41, 0) != 7 or _id(w, 3, 41, 0) != 8:
+	# the row moved one on, and the pusher's head (1760 + facing) sticks out where it was
+	if _id(w, 1, 41, 0) != 1761 or _id(w, 2, 41, 0) != 7 or _id(w, 3, 41, 0) != 8:
 		return "push: %d %d %d" % [_id(w, 1, 41, 0), _id(w, 2, 41, 0), _id(w, 3, 41, 0)]
+	w.set_block(0, 41, 1, 1702, true, false)      # power off: the head comes back
+	_run(p)
+	if _id(w, 1, 41, 0) != 0:
+		return "the head should go back when the power stops: %d" % _id(w, 1, 41, 0)
 	w.set_block(0, 43, 3, 1737, true, false)      # breaker facing +x
 	w.set_block(1, 43, 3, 22, true, false)
 	w.set_block(0, 43, 4, 1704, true, false)      # a push button

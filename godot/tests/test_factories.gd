@@ -123,7 +123,7 @@ func test_logic_board() -> String:
 	w.set_block(right.x, right.y, right.z, 1703, true, false)
 	_run(p, 6)
 	var both := w.get_block(lamp.x, lamp.y, lamp.z) == 1709
-	var not_lamp: Vector3i = _find(w, 1710)[0] + Vector3i(0, 0, 1)
+	var not_lamp: Vector3i = (_find(w, 1710) + _find(w, 1770))[0] + Vector3i(0, 0, 1)   # off or lit
 	var not_lit := w.get_block(not_lamp.x, not_lamp.y, not_lamp.z) == 1709
 	return "" if off and one and both and not_lit else "AND board: %s %s %s, NOT lamp lit %s" % [off, one, both, not_lit]
 

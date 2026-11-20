@@ -378,7 +378,10 @@ GATES = ["not", "and", "or", "xor", "delay"]
 for _g, _gate in enumerate(GATES):
     for _f in range(4):
         _logic(1710 + _g * 4 + _f, f"{_gate} gate", (f"gate_{_gate}_{_f}", "gate_side", "gate_side"), _gate,
-               shape=SLAB, facing=_f, creative=_f == 0, drop=1710 + _g * 4, hardness=0.6)   # a flat chip
+               shape="gate", facing=_f, creative=_f == 0, drop=1710 + _g * 4, hardness=0.6)   # a thin chip
+        # the same gate while it gives power: its little front light is lit
+        _logic(1770 + _g * 4 + _f, f"{_gate} gate", (f"gate_{_gate}_{_f}", "gate_side", "gate_side"), _gate,
+               shape="gate", facing=_f, on=True, creative=False, drop=1710 + _g * 4, hardness=0.6, emit=4)
 for _f in range(6):
     for _base, _m in ((1730, "pusher"), (1736, "breaker")):
         _logic(_base + _f, _m, (f"{_m}_top_{_f}", f"{_m}_side_{_f}", f"{_m}_bottom_{_f}"), _m, facing=_f,
@@ -390,6 +393,13 @@ _logic(1746, "collector", ("collector_top", "collector_side", "machine_bottom"),
        hardness=1.5)
 _logic(1747, "auto-smelter", ("smelter_top", "smelter_front", "machine_bottom"), "smelter", container=True,
        hardness=2.0)
+# the head a pusher sticks out while it is powered (one per facing, like the pusher's 0-5):
+# a wooden plate on a rod. It is part of the pusher: it drops nothing and is not pushed.
+PUSHER_HEAD = 1760
+for _f in range(6):
+    block(PUSHER_HEAD + _f, "pusher head", ("pusher_top_0", "pusher_side_0", "pusher_bottom_0"), MACHINES, 1.5,
+          "pickaxe", shape="pusher_head", facing=_f, creative=False, drop=None)
+
 # tracks for carts: laid flat, they join up by themselves (straight along x / z, four turns);
 # a boost track pushes carts along while it gets power (off / on, along x / z)
 TRACK, BOOST_TRACK = 1750, 1756
