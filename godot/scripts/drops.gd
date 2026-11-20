@@ -24,6 +24,12 @@ func spawn(stack: Array, pos: Vector3, vel := Vector3.ZERO, delay := PICK_DELAY)
 			d["stack"][1] += stack[1]
 			return
 	if drops.size() >= MAX_DROPS:
+		# too many lying around: join a pile of the same thing nearby before anything is lost
+		for d in drops:
+			if d["stack"][0] == stack[0] and stack.size() < 3 and d["stack"].size() < 3 \
+					and d["pos"].distance_to(pos) < 8.0 and d["stack"][1] + stack[1] <= Items.max_stack(stack[0]):
+				d["stack"][1] += stack[1]
+				return
 		var old: Dictionary = drops.pop_front()
 		old["node"].queue_free()
 	var s := Sprite3D.new()

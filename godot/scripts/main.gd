@@ -269,7 +269,7 @@ func _ready() -> void:
 		if Blocks.defs.get(id, {}).has("crop") or Items.sapling_trees.has(id):
 			growing[p] = true                      # also crops and saplings from pasted buildings
 	power.set_block = func(p: Vector3i, id: int) -> void: edit(p, id, true, false)
-	power.spawn_drop = func(st: Array, p: Vector3) -> void: drops.spawn(st, p)
+	power.spawn_drop = func(st: Array, p: Vector3) -> void: _drop_from_machine(st, p)
 	power.break_drops = func(id: int) -> Array:
 		var d := Items.drop_for(id)
 		return [[d, 1]] if d != 0 else []
@@ -1410,11 +1410,16 @@ func _update_machines(delta: float) -> void:
 	if power.parts.is_empty():
 		return
 	var t0 := Time.get_ticks_usec()
-	var feet := Vector3i(floori(player.position.x + 0.5), floori(player.position.y - 0.4), floori(player.position.z + 0.5))
+	# the cell the feet are in (blocks are centred on whole numbers, feet stand at y + 0.5):
+	# a plate has no collision, so you stand inside its cell, not on top of it
+	var feet := Vector3i(floori(player.position.x + 0.5), floori(player.position.y + 0.6), floori(player.position.z + 0.5))
 	var pressed := {}
 	pressed[feet] = true
 	for a in wildlife.animals:
-		pressed[Vector3i(floori(a.pos.x + 0.5), floori(a.pos.y + 0.1), floori(a.pos.z + 0.5))] = true
+		pressed[Vector3i(floori(a.pos.x + 0.5), floori(a.pos.y + 0.6), floori(a.pos.z + 0.5))] = true
+	for o in remote_players.positions():
+		var op: Vector3 = o
+		pressed[Vector3i(floori(op.x + 0.5), floori(op.y + 0.6), floori(op.z + 0.5))] = true   # friends too
 	power.set_inputs(pressed, world.time_of_day < 0.5)
 	if not _remote_world:
 		power.update(delta)                         # with friends, the host runs the machines
@@ -1698,6 +1703,112 @@ func _ghost_box(item: int, at: Vector3i, n: Vector3i) -> Array:
 			var v: Vector2i = FACE_VECS[f]
 			return [Vector3(1 - absf(v.x) * 0.88, 1, 1 - absf(v.y) * 0.88), Vector3(v.x, 0, v.y) * 0.44]
 	return [Vector3.ONE, Vector3.ZERO]
+
+
+## What a breaker cuts lands on the conveyor belt right next to it (a harvest between two
+## belts goes onto the belt and on to the collector), instead of lying in the field.
+func _drop_from_machine(st: Array, p: Vector3) -> void:
+	var c := Vector3i(floori(p.x + 0.5), floori(p.y + 0.5), floori(p.z + 0.5))
+	if power.parts.get(c + Vector3i(0, -1, 0), "") == "conveyor":
+		drops.spawn(st, Vector3(c), Vector3(0, 0.5, 0))
+		return
+	for d in [Vector3i(0, 0, -1), Vector3i(0, 0, 1), Vector3i(-1, 0, 0), Vector3i(1, 0, 0)]:
+		var belt: Vector3i = c + d + Vector3i(0, -1, 0)
+		if power.parts.get(belt, "") == "conveyor" and world.get_block(belt.x, belt.y + 1, belt.z) == 0:
+			drops.spawn(st, Vector3(belt) + Vector3(0, 0.9, 0), Vector3(0, 0.5, 0))
+			return
+	drops.spawn(st, p)
+
+
+## Testing: a library machine pasted in the real game and used like a player would.
+func _factory_test(name: String) -> void:
+	_st_frame += 1
+	if _st_frame == 3:
+		set_mode(true)
+		set_flying(true)
+		player.position.y += 3
+		builder.clipboard = Schematics.load_file("res://data/schematics/%s.json" % name)
+		_clip_from_library = true
+		_face_clip_to_player()
+		var f := Vector3i(floori(player.position.x + 0.5), floori(player.position.y) - 4, floori(player.position.z + 0.5))
+		_start_paste(_paste_origin({"pos": f + Vector3i(0, 0, -3), "normal": Vector3i(0, 1, 0)}), true)
+		return
+	if _st_frame < 10 or not _paste_batches.is_empty():
+		return
+	if not _st.has("ft_found"):
+		var found := {}
+		var box := _paste_box
+		for x in range(int(box.position.x), int(box.end.x) + 1):
+			for y in range(int(box.position.y), int(box.end.y) + 1):
+				for z in range(int(box.position.z), int(box.end.z) + 1):
+					var id := world.get_block(x, y, z)
+					var k := power.kind_of(id)
+					if id == 48:
+						k = "chest"
+					elif id == 971 or id == 974:
+						k = "crop"
+					if k != "":
+						if not found.has(k):
+							found[k] = []
+						found[k].append(Vector3i(x, y, z))
+		_st["ft_found"] = found
+		_st["ft_t"] = _st_frame
+		var counts := {}
+		for k in found:
+			counts[k] = found[k].size()
+		print("FACTORY %s pasted: %s; machines registered %d" % [name, counts, power.parts.size()])
+		match name:
+			"wheat_harvester", "giant_farm":
+				_st["ft_crops"] = found.get("crop", []).size()
+				use_block(found["button"][0])
+			"auto_smelter", "smelter_hall":
+				for sm in found.get("smelter", []):
+					world.containers[sm + Vector3i(0, 2, 0)] = [[25, 2], [102, 2]]
+			"lamp_clock":
+				_st["ft_lamp"] = 0
+			"logic_board":
+				for sw in found.get("switch", []):
+					use_block(sw)
+		return
+	var t: int = _st_frame - int(_st["ft_t"])
+	var found: Dictionary = _st["ft_found"]
+	if name == "lamp_clock":
+		var l: Vector3i = found.get("lamp", [Vector3i.ZERO])[0]
+		var now := world.get_block(l.x, l.y, l.z)
+		if now != int(_st.get("ft_last", -1)):
+			_st["ft_lamp"] += 1
+			_st["ft_last"] = now
+	if t == int(_st.get("ft_wait", 600)):
+		var out := ""
+		match name:
+			"wheat_harvester", "giant_farm":
+				var left := 0
+				for c in found.get("crop", []):
+					left += int(world.get_block(c.x, c.y, c.z) in [971, 974])
+				var stored := 0
+				for ch in found.get("chest", []):
+					for st in Inventory.from_data(world.containers.get(ch), 27).slots:
+						if st != null:
+							stored += int(st[1])
+				var held := 0
+				for co in found.get("collector", []):
+					for st in Inventory.from_data(world.containers.get(co), 27).slots:
+						if st != null:
+							held += int(st[1])
+				out = "harvested %d of %d crops, items in chests %d, in collectors %d, still on the ground %d" % [int(_st["ft_crops"]) - left, _st["ft_crops"], stored, held, drops.drops.size()]
+			"auto_smelter", "smelter_hall":
+				var ingots := 0
+				for sm in found.get("smelter", []):
+					for st in Inventory.from_data(world.containers.get(sm + Vector3i(0, -2, 0)), 27).slots:
+						if st != null and int(st[0]) == 106:
+							ingots += int(st[1])
+				out = "iron ingots made %d of %d" % [ingots, 2 * found.get("smelter", []).size()]
+			"lamp_clock":
+				out = "lamp changed %d times in 10 s" % _st["ft_lamp"]
+			"logic_board":
+				out = "lamps lit %d of %d" % [found.get("lamp", []).filter(func(p): return world.get_block(p.x, p.y, p.z) == 1709).size(), found.get("lamp", []).size()]
+		print("FACTORY %s after 10 s: %s" % [name, out])
+		get_tree().quit()
 
 
 ## Testing: place what is in hand as if tapping face `n` of block `on`.
@@ -2827,6 +2938,52 @@ func _process_inner(delta: float) -> void:
 		_face_clip_to_player()
 		var aim := Vector3i(floori(player.position.x + 0.5), floori(player.position.y) - 1, floori(player.position.z + 0.5) + 6)
 		_start_paste(_paste_origin({"pos": aim, "normal": Vector3i(0, 1, 0)}), true)
+	if "--autodoortest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: the library's automatic door, walked on for real
+		if _st_frame == 3:
+			set_mode(true)
+			player.yaw = 0.0
+			player.rotation.y = 0.0
+			builder.clipboard = Schematics.load_file("res://data/schematics/auto_door.json")
+			_clip_from_library = true
+			_face_clip_to_player()
+			var f := Vector3i(floori(player.position.x + 0.5), floori(player.position.y), floori(player.position.z + 0.5))
+			var aim := f + Vector3i(0, -1, -4)
+			_start_paste(_paste_origin({"pos": aim, "normal": Vector3i(0, 1, 0)}), true)
+		if _st_frame == 60:
+			var plates := []
+			var doors := []
+			for p in _paste_prev.keys() if not _paste_prev.is_empty() else []:
+				pass
+			var box := _paste_box
+			for x in range(int(box.position.x), int(box.end.x) + 1):
+				for y in range(int(box.position.y), int(box.end.y) + 1):
+					for z in range(int(box.position.z), int(box.end.z) + 1):
+						var id := world.get_block(x, y, z)
+						if power.kind_of(id) == "plate":
+							plates.append(Vector3i(x, y, z))
+						elif Blocks.defs.get(id, {}).has("door") and not Blocks.defs[id]["door"]["top"]:
+							doors.append(Vector3i(x, y, z))
+			_st["plates"] = plates
+			_st["doors"] = doors
+			print("AUTODOOR found plates ", plates, " doors ", doors, " machines registered ", power.parts.size())
+			set_mode(false)
+			var pl: Vector3i = plates[0]
+			player.position = Vector3(pl.x, pl.y + 0.6, pl.z)
+			player.velocity = Vector3.ZERO
+		if _st_frame == 120:
+			var d: Vector3i = _st["doors"][0]
+			var feet := Vector3i(floori(player.position.x + 0.5), floori(player.position.y + 0.6), floori(player.position.z + 0.5))
+			print("AUTODOOR standing on the plate: door open %s (player %s, feet cell %s, plate %s)" % [
+				Blocks.defs[world.get_block(d.x, d.y, d.z)]["door"]["open"], player.position, feet, _st["plates"][0]])
+			player.position += Vector3(0, 0, 3)
+		if _st_frame == 180:
+			var d: Vector3i = _st["doors"][0]
+			print("AUTODOOR stepped off: door open %s" % Blocks.defs[world.get_block(d.x, d.y, d.z)]["door"]["open"])
+			get_tree().quit()
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--factorytest=") and spawned:
+			_factory_test(a.substr(14))
 	if "--pettest" in OS.get_cmdline_user_args() and spawned and not _st.has("pet"):
 		_st["pet"] = true                               # testing: a tamed animal survives save and load
 		var a := Wildlife.Animal.new("woolly", player.position + Vector3(3, 0, 0))
