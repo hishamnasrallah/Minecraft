@@ -708,6 +708,29 @@ func _open_sky(p: Vector3) -> bool:
 	return col != null and cell(p.y + 0.3) > col[0]
 
 
+## Tamed animals are kept with the world (wild ones come and go): kind, place, colour, age.
+func save_pets() -> Array:
+	var out := []
+	for a in animals:
+		if a.tame and not a.dead and not a.hostile:
+			out.append([a.kind, a.pos.x, a.pos.y, a.pos.z, a.variant, a.age, a.health])
+	return out
+
+
+func load_pets(list) -> void:
+	if not list is Array:
+		return
+	for p in list:
+		if not (p is Array and p.size() >= 7 and SPECIES.has(str(p[0]))):
+			continue
+		var a := Animal.new(str(p[0]), Vector3(float(p[1]), float(p[2]), float(p[3])))
+		a.variant = int(p[4])
+		a.age = float(p[5])
+		a.health = int(p[6])
+		a.tame = true
+		animals.append(a)
+
+
 func hostile_count() -> int:
 	return _count()["hostile"]
 

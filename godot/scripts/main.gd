@@ -165,6 +165,7 @@ func _ready() -> void:
 	chunks.setup(world, materials, 2 if Boot.safe_mode else (distance if distance > 0 else default_view_distance()))
 	add_child(chunks)
 	wildlife = Wildlife.new(world)
+	wildlife.load_pets(world.player_data.get("pets", []))
 
 	Boot.stage("player")
 	player = Player.new()
@@ -2571,6 +2572,20 @@ func _process_inner(delta: float) -> void:
 			if _shot_path:
 				get_viewport().get_texture().get_image().save_png(_shot_path)
 			get_tree().quit()
+	if "--pettest" in OS.get_cmdline_user_args() and spawned and not _st.has("pet"):
+		_st["pet"] = true                               # testing: a tamed animal survives save and load
+		var a := Wildlife.Animal.new("woolly", player.position + Vector3(3, 0, 0))
+		a.tame = true
+		a.variant = 5
+		wildlife.animals.append(a)
+		var wild := Wildlife.Animal.new("deer", player.position + Vector3(-3, 0, 0))
+		wildlife.animals.append(wild)
+		save_game()
+		var again := WorldData.load_from(SAVE_PATH)
+		var w2 := Wildlife.new(again)
+		w2.load_pets(again.player_data.get("pets", []))
+		print("PET after loading: ", w2.animals.map(func(x): return "%s colour %d tame %s" % [x.kind, x.variant, x.tame]))
+		get_tree().quit()
 	if "--torchtest" in OS.get_cmdline_user_args() and spawned:
 		_st_frame += 1                                  # testing: torches on every side of a pillar, at night
 		if _st_frame == 5:
@@ -2696,6 +2711,7 @@ func save_game() -> void:
 	if chest_pos != null and chest_inv != null:
 		world.containers[chest_pos] = chest_inv.to_data()
 	var data: Dictionary = world.player_data.duplicate()
+	data["pets"] = wildlife.save_pets()
 	data["position"] = [player.position.x, player.position.y + 0.1, player.position.z]
 	data["inventory"] = inv.to_data()
 	data["survival"] = health.to_data()
