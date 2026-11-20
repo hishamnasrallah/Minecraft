@@ -670,6 +670,16 @@
   "collector_side",
   "smelter_top",
   "smelter_front",
+  "track_x",
+  "track_z",
+  "track_c0",
+  "track_c1",
+  "track_c2",
+  "track_c3",
+  "boost_x_off",
+  "boost_z_off",
+  "boost_x_on",
+  "boost_z_on",
   "sky_stone",
   "sky_soil",
   "sky_grass_top",
@@ -719,7 +729,8 @@
   "egg",
   "feather",
   "raw_fish",
-  "cooked_fish"
+  "cooked_fish",
+  "cart"
  ],
  "plants_need_soil": [
   51,
@@ -778,7 +789,17 @@
   1702,
   1703,
   1704,
-  1706
+  1706,
+  1750,
+  1751,
+  1752,
+  1753,
+  1754,
+  1755,
+  1756,
+  1757,
+  1758,
+  1759
  ],
  "dyes": [
   [
@@ -14159,6 +14180,316 @@
     392
    ]
   },
+  "1750": {
+   "name": "track",
+   "tab": "machines",
+   "hardness": 0.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1750,
+   "shape": "track",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": true,
+   "links": [
+    [
+     1,
+     0
+    ],
+    [
+     -1,
+     0
+    ]
+   ],
+   "tiles": [
+    400,
+    400,
+    400
+   ]
+  },
+  "1751": {
+   "name": "track",
+   "tab": "machines",
+   "hardness": 0.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1750,
+   "shape": "track",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "links": [
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     -1
+    ]
+   ],
+   "tiles": [
+    401,
+    401,
+    401
+   ]
+  },
+  "1752": {
+   "name": "track",
+   "tab": "machines",
+   "hardness": 0.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1750,
+   "shape": "track",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "links": [
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     1
+    ]
+   ],
+   "tiles": [
+    402,
+    402,
+    402
+   ]
+  },
+  "1753": {
+   "name": "track",
+   "tab": "machines",
+   "hardness": 0.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1750,
+   "shape": "track",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "links": [
+    [
+     -1,
+     0
+    ],
+    [
+     0,
+     1
+    ]
+   ],
+   "tiles": [
+    403,
+    403,
+    403
+   ]
+  },
+  "1754": {
+   "name": "track",
+   "tab": "machines",
+   "hardness": 0.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1750,
+   "shape": "track",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "links": [
+    [
+     -1,
+     0
+    ],
+    [
+     0,
+     -1
+    ]
+   ],
+   "tiles": [
+    404,
+    404,
+    404
+   ]
+  },
+  "1755": {
+   "name": "track",
+   "tab": "machines",
+   "hardness": 0.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1750,
+   "shape": "track",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "links": [
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     -1
+    ]
+   ],
+   "tiles": [
+    405,
+    405,
+    405
+   ]
+  },
+  "1756": {
+   "name": "boost track",
+   "tab": "machines",
+   "hardness": 0.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1756,
+   "shape": "track",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": true,
+   "logic": {
+    "kind": "booster",
+    "facing": 0,
+    "on": false
+   },
+   "links": [
+    [
+     1,
+     0
+    ],
+    [
+     -1,
+     0
+    ]
+   ],
+   "tiles": [
+    406,
+    406,
+    406
+   ]
+  },
+  "1757": {
+   "name": "boost track",
+   "tab": "machines",
+   "hardness": 0.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1756,
+   "shape": "track",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "booster",
+    "facing": 1,
+    "on": false
+   },
+   "links": [
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     -1
+    ]
+   ],
+   "tiles": [
+    407,
+    407,
+    407
+   ]
+  },
+  "1758": {
+   "name": "boost track",
+   "tab": "machines",
+   "hardness": 0.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1756,
+   "shape": "track",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 7,
+   "creative": false,
+   "logic": {
+    "kind": "booster",
+    "facing": 0,
+    "on": true
+   },
+   "links": [
+    [
+     1,
+     0
+    ],
+    [
+     -1,
+     0
+    ]
+   ],
+   "tiles": [
+    408,
+    408,
+    408
+   ]
+  },
+  "1759": {
+   "name": "boost track",
+   "tab": "machines",
+   "hardness": 0.5,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1756,
+   "shape": "track",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 7,
+   "creative": false,
+   "logic": {
+    "kind": "booster",
+    "facing": 1,
+    "on": true
+   },
+   "links": [
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     -1
+    ]
+   ],
+   "tiles": [
+    409,
+    409,
+    409
+   ]
+  },
   "1800": {
    "name": "sky stone",
    "tab": "natural",
@@ -14173,9 +14504,9 @@
    "emit": 0,
    "creative": true,
    "tiles": [
-    400,
-    400,
-    400
+    410,
+    410,
+    410
    ]
   },
   "1809": {
@@ -14192,9 +14523,9 @@
    "emit": 0,
    "creative": true,
    "tiles": [
-    401,
-    401,
-    401
+    411,
+    411,
+    411
    ]
   },
   "1801": {
@@ -14211,9 +14542,9 @@
    "emit": 0,
    "creative": true,
    "tiles": [
-    402,
-    403,
-    401
+    412,
+    413,
+    411
    ]
   },
   "1802": {
@@ -14230,9 +14561,9 @@
    "emit": 0,
    "creative": true,
    "tiles": [
-    404,
-    404,
-    404
+    414,
+    414,
+    414
    ]
   },
   "1803": {
@@ -14249,9 +14580,9 @@
    "emit": 0,
    "creative": true,
    "tiles": [
-    405,
-    405,
-    405
+    415,
+    415,
+    415
    ]
   },
   "1804": {
@@ -14268,9 +14599,9 @@
    "emit": 10,
    "creative": true,
    "tiles": [
-    406,
-    406,
-    406
+    416,
+    416,
+    416
    ]
   },
   "1805": {
@@ -14287,9 +14618,9 @@
    "emit": 11,
    "creative": false,
    "tiles": [
-    407,
-    407,
-    407
+    417,
+    417,
+    417
    ]
   },
   "1806": {
@@ -14306,9 +14637,9 @@
    "emit": 15,
    "creative": true,
    "tiles": [
-    408,
-    408,
-    408
+    418,
+    418,
+    418
    ]
   },
   "1807": {
@@ -14325,9 +14656,9 @@
    "emit": 0,
    "creative": true,
    "tiles": [
-    409,
-    409,
-    409
+    419,
+    419,
+    419
    ]
   },
   "1808": {
@@ -14344,9 +14675,9 @@
    "emit": 13,
    "creative": true,
    "tiles": [
-    410,
-    410,
-    410
+    420,
+    420,
+    420
    ]
   }
  }

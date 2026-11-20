@@ -390,6 +390,19 @@ _logic(1746, "collector", ("collector_top", "collector_side", "machine_bottom"),
        hardness=1.5)
 _logic(1747, "auto-smelter", ("smelter_top", "smelter_front", "machine_bottom"), "smelter", container=True,
        hardness=2.0)
+# tracks for carts: laid flat, they join up by themselves (straight along x / z, four turns);
+# a boost track pushes carts along while it gets power (off / on, along x / z)
+TRACK, BOOST_TRACK = 1750, 1756
+TRACK_LINKS = {1750: ((1, 0), (-1, 0)), 1751: ((0, 1), (0, -1)), 1752: ((1, 0), (0, 1)),
+               1753: ((-1, 0), (0, 1)), 1754: ((-1, 0), (0, -1)), 1755: ((1, 0), (0, -1)),
+               1756: ((1, 0), (-1, 0)), 1757: ((0, 1), (0, -1)), 1758: ((1, 0), (-1, 0)), 1759: ((0, 1), (0, -1))}
+for _i, _t in enumerate(("track_x", "track_z", "track_c0", "track_c1", "track_c2", "track_c3")):
+    block(1750 + _i, "track", _t, MACHINES, 0.5, "pickaxe", shape="track", solid=False,
+          creative=_i == 0, drop=1750, links=TRACK_LINKS[1750 + _i])
+for _i in range(4):
+    _logic(1756 + _i, "boost track", f"boost_{'xz'[_i % 2]}_{'on' if _i >= 2 else 'off'}", "booster", shape="track",
+           solid=False, facing=_i % 2, on=_i >= 2, creative=_i == 0, drop=1756, hardness=0.5,
+           links=TRACK_LINKS[1756 + _i], emit=7 if _i >= 2 else 0)
 for _kind, _ids in (("gates", [1710 + g * 4 for g in range(len(GATES))]), ("power_sources", [1702, 1704, 1705, 1706, 1707])):
     family(_kind, _ids)
 
@@ -421,7 +434,7 @@ NON_SOLID = {0} | {i for i, d in BLOCK_DEFS.items() if not d["solid"]}
 LIGHT_EMIT = {i: d["emit"] for i, d in BLOCK_DEFS.items() if d["emit"]}
 UNBREAKABLE = {i for i, d in BLOCK_DEFS.items() if d["hardness"] < 0}
 LEAVES = {i for i, d in BLOCK_DEFS.items() if d.get("leaves")}
-PLANTS_NEED_SOIL = {i for i, d in BLOCK_DEFS.items() if d["shape"] in (CROSS, CARPET, "wire", "lever", "button")}   # fall without ground
+PLANTS_NEED_SOIL = {i for i, d in BLOCK_DEFS.items() if d["shape"] in (CROSS, CARPET, "wire", "lever", "button", "track")}   # fall without ground
 SHAPED = {i for i, d in BLOCK_DEFS.items() if d["shape"] != CUBE}
 
 

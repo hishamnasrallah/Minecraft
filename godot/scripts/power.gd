@@ -309,7 +309,7 @@ func _tick(comp: Dictionary) -> bool:
 				changed = true
 	# 4. users: lamps, pushers, breakers and the doors next to this circuit
 	var users := {}
-	for k in ["lamp", "pusher", "breaker"]:
+	for k in ["lamp", "pusher", "breaker", "booster"]:
 		for p in _list(k):
 			users[p] = k
 	for p in comp["doors"]:
@@ -331,6 +331,9 @@ func _tick(comp: Dictionary) -> bool:
 			"lamp":
 				if on != _info[id][2]:
 					set_block.call(p, 1709 if on else 1708)
+			"booster":                               # a boost track glows and pushes while powered
+				if on != _info[id][2]:
+					set_block.call(p, 1756 + _info[id][1] + (2 if on else 0))
 			"door":
 				var d: Dictionary = Blocks.defs[id]["door"]
 				if bool(d["open"]) != on and on != before:

@@ -1730,6 +1730,67 @@ def smelter_front(rng):
     return img
 
 
+def _track(links, boost=None):
+    """Rails on wooden sleepers. links: the two sides they lead to ((dx, dz), ...); a turn bends
+    round the corner between them. boost: None, False (off) or True (on, glowing)."""
+    def gen(rng):
+        img = _blank()
+        rail = (196, 198, 206)
+        wood = (120, 84, 50)
+        (ax, az), (bx, bz) = links
+        straight = ax == -bx and az == -bz
+        for x in range(TILE):
+            for y in range(TILE):
+                if straight:
+                    along, across = (x, y) if ax != 0 else (y, x)   # x-links: rails run left-right
+                    if along % 4 in (1, 2) and 1 <= across <= 14:   # sleepers lie across the rails
+                        _px(img, x, y, _shade(wood, 1 + rng.uniform(-0.1, 0.1)))
+                    if across in (3, 4, 11, 12):
+                        _px(img, x, y, _shade(rail, 1 + rng.uniform(-0.05, 0.05)))
+                else:
+                    cx = 15.5 if (ax == 1 or bx == 1) else -0.5     # the corner the turn wraps round
+                    cy = 15.5 if (az == 1 or bz == 1) else -0.5
+                    d = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5
+                    import math
+                    ang = math.degrees(math.atan2(abs(y - cy), abs(x - cx)))
+                    if 2.5 < d < 13.5 and int(ang) % 18 < 7:     # sleepers along the radius
+                        _px(img, x, y, _shade(wood, 1 + rng.uniform(-0.1, 0.1)))
+                    if 3.5 <= d <= 5.0 or 11.0 <= d <= 12.5:
+                        _px(img, x, y, _shade(rail, 1 + rng.uniform(-0.05, 0.05)))
+        if boost is not None:                     # a gold strip down the middle, bright when on
+            glow = (255, 214, 60) if boost else (150, 120, 50)
+            for i in range(TILE):
+                for d in (7, 8):
+                    if (ax != 0 and i % 3 != 2) or (ax == 0 and i % 3 != 2):
+                        _px(img, i if ax != 0 else d, d if ax != 0 else i, glow)
+        return img
+    return gen
+
+
+def cart_icon(rng):
+    """A little wooden cart on two wheels, for the item."""
+    img = _blank()
+    for x in range(2, 14):
+        for y in range(5, 11):
+            edge = x in (2, 13) or y in (5, 10)
+            _px(img, x, y, (96, 66, 40) if edge else _shade((150, 108, 66), 1 + rng.uniform(-0.1, 0.1)))
+    for x in range(2, 14):
+        _px(img, x, 7, (170, 172, 180))                 # a metal band
+    for wx in (4, 11):
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                _px(img, wx + dx, 12 + dy, (60, 60, 66) if dx or dy else (150, 150, 156))
+    return img
+
+
+EXTRA_GENERATORS.update({
+    "track_x": _track(((1, 0), (-1, 0))), "track_z": _track(((0, 1), (0, -1))),
+    "track_c0": _track(((1, 0), (0, 1))), "track_c1": _track(((-1, 0), (0, 1))),
+    "track_c2": _track(((-1, 0), (0, -1))), "track_c3": _track(((1, 0), (0, -1))),
+    "boost_x_off": _track(((1, 0), (-1, 0)), False), "boost_z_off": _track(((0, 1), (0, -1)), False),
+    "boost_x_on": _track(((1, 0), (-1, 0)), True), "boost_z_on": _track(((0, 1), (0, -1)), True),
+    "cart": cart_icon,
+})
 EXTRA_GENERATORS.update({
     "wire_off": wire(False), "wire_on": wire(True), "switch_off": switch(False), "switch_on": switch(True),
     "switch_side": _plate((110, 110, 116)), "button_top": button_top, "button_side": _plate((126, 126, 130)),

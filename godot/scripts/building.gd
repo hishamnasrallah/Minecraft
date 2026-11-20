@@ -16,7 +16,14 @@ var _clip_size = null
 var undo_stack := []
 
 
+const TRACK_TURN := {1750: 1751, 1751: 1750, 1752: 1755, 1753: 1752, 1754: 1753, 1755: 1754,
+	1756: 1757, 1757: 1756, 1758: 1759, 1759: 1758}
+const TRACK_MIRROR := {1752: 1753, 1753: 1752, 1754: 1755, 1755: 1754}
+
+
 static func rotate_block(id: int) -> int:
+	if TRACK_TURN.has(id):
+		return TRACK_TURN[id]                     # tracks: a quarter turn of their links
 	var d: Dictionary = Blocks.defs.get(id, {})
 	if d.get("logic") is Dictionary and d["logic"].has("facing"):
 		var lf := int(d["logic"]["facing"])           # machines: 4 sides (+ up / down)
@@ -35,6 +42,10 @@ static func rotate_block(id: int) -> int:
 
 
 static func mirror_block(id: int) -> int:
+	if TRACK_MIRROR.has(id):
+		return TRACK_MIRROR[id]
+	if TRACK_TURN.has(id):
+		return id
 	var d: Dictionary = Blocks.defs.get(id, {})
 	var shape: String = d.get("shape", "")
 	if d.get("logic") is Dictionary and d["logic"].has("facing"):

@@ -417,6 +417,8 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 			return [[Vector3(-.28, -.5, -.34), Vector3(.28, -.34, .34)],
 				[Vector3(-.08, -.34, hz), Vector3(.08, .16, hz + .12)],
 				[Vector3(-.13, .16, hz - .03), Vector3(.13, .3, hz + .15)]]
+		"track":
+			return [[Vector3(-.5, -.5, -.5), Vector3(.5, -.46, .5)]]
 		"button":
 			return [[Vector3(-.3, -.5, -.3), Vector3(.3, -.42, .3)], [Vector3(-.15, -.42, -.15), Vector3(.15, -.28, .15)]]
 		"ladder":
@@ -465,7 +467,7 @@ func _shape(out: Dictionary, id: int, x: int, y: int, z: int) -> void:
 					g.colors.append(col)
 					g.uvs.append(_uv(tile, quv[i].x, quv[i].y))
 		return
-	var g: Group = out["plants"] if shape in ["ladder", "torch", "carpet", "wire", "lever", "button"] else out["solid"]   # plants: no collision
+	var g: Group = out["plants"] if shape in ["ladder", "torch", "carpet", "wire", "lever", "button", "track"] else out["solid"]   # plants: no collision
 	for box in shape_boxes(id, x, y, z):
 		var lo: Vector3 = box[0]
 		var hi: Vector3 = box[1]

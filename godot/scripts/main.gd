@@ -166,6 +166,10 @@ func _ready() -> void:
 	add_child(chunks)
 	wildlife = Wildlife.new(world)
 	wildlife.load_pets(world.player_data.get("pets", []))
+	carts = Carts.new()
+	carts.world = world
+	add_child(carts)
+	carts.load_data(world.player_data.get("carts", []))
 
 	Boot.stage("player")
 	player = Player.new()
@@ -782,6 +786,8 @@ func tap_world(pos: Vector2) -> void:
 	if _boss_in_sight():
 		_hit_boss()
 		return
+	if _cart_action():
+		return
 	var animal = looked_at_animal()        # the crosshair decides, not where the finger tapped
 	var item := inv.item_at(selected)
 	var hit := target()
@@ -797,7 +803,7 @@ func tap_world(pos: Vector2) -> void:
 	elif not hit.is_empty() and use_block(hit["pos"]):
 		pass
 	elif Items.placeable.has(item) or Items.food.has(item) or Items.plant.has(item) or _is_hoe(item) \
-			or item in [int(Items.S["BUCKET"]), int(Items.S["WATER_BUCKET"])]:
+			or item in [int(Items.S["BUCKET"]), int(Items.S["WATER_BUCKET"]), CART]:
 		place_block()
 	elif not hit.is_empty():
 		var id := world.get_block(hit["pos"].x, hit["pos"].y, hit["pos"].z)
@@ -1597,6 +1603,22 @@ func place_block(allow_use := true) -> void:
 	if hit.is_empty():
 		return
 	var pos: Vector3i = hit["pos"] + hit["normal"]
+	if item == CART:
+		var on: Vector3i = hit["pos"]
+		if not carts.is_track(world.get_block(on.x, on.y, on.z)):
+			on = pos
+		if carts.is_track(world.get_block(on.x, on.y, on.z)):
+			var f := player.forward()
+			var head := Vector2i(signi(f.x), 0) if absf(f.x) > absf(f.z) else Vector2i(0, signi(f.z))
+			carts.add(on, head)
+			Sfx.play("place")
+			hud.flash(I18n.t("cart_hint"))
+			if not creative:
+				inv.use_one(selected)
+				_refresh_mode()
+		else:
+			hud.flash(I18n.t("cart_needs_track"))
+		return
 	if item == int(Items.S["WATER_BUCKET"]):
 		if _replaceable(pos) and edit(pos, WorldData.WATER) and not creative:
 			inv.slots[selected] = [int(Items.S["BUCKET"]), 1]
@@ -1607,12 +1629,14 @@ func place_block(allow_use := true) -> void:
 	var d: Dictionary = Blocks.defs[item]
 	var below := world.get_block(pos.x, pos.y - 1, pos.z)
 	var id := item
+	if item == 1750 or item == 1756:
+		id = _track_piece(pos, item == 1756)          # tracks join the ones around them
 	var n0: Vector3i = hit["normal"]
 	if d["shape"] == "torch" and n0.y == 0 and _solid_at(pos - n0):
 		# tapped the side of a block: the torch hangs on that wall
 		var by_n := {Vector2i(0, -1): 0, Vector2i(-1, 0): 1, Vector2i(0, 1): 2, Vector2i(1, 0): 3}
 		id = WALL_TORCH + int(by_n[Vector2i(n0.x, n0.z)])
-	elif d["shape"] in ["cross", "torch", "lever", "button", "wire"] and (below == 0 or not Blocks.solid[below]):
+	elif d["shape"] in ["cross", "torch", "lever", "button", "wire", "track"] and (below == 0 or not Blocks.solid[below]):
 		return                                 # plants and torches need ground
 	if d.get("logic") is Dictionary and d["logic"].has("facing"):
 		# machines face away from you; pushers and breakers can also face up or down
@@ -1647,6 +1671,8 @@ func place_block(allow_use := true) -> void:
 		buzz(15)
 		if Items.sapling_trees.has(id):
 			growing[pos] = true                   # saplings grow into trees
+		if carts.is_track(id):
+			_relink_tracks(pos)
 		tutorial.report("place")
 		if not creative:
 			inv.use_one(selected)
@@ -1682,6 +1708,141 @@ func _machine_choice(action: String, value: int) -> void:
 	machine_panel.open(power.kind_of(id), id, int(world.settings.get(p, {}).get("delay", 3)))
 
 
+# ---------------------------------------------------------------- carts and tracks
+const CART := 140
+var carts: Carts
+var _riding = null                   # the cart you sit in
+
+
+## A tap on a cart: get in (or out); in break mode, pick it up. True if a cart took the tap.
+func _cart_action() -> bool:
+	var ch: Array = carts.ray_cart(player.eye(), aim_dir(), reach())
+	if ch.is_empty():
+		return false
+	var hit := target()
+	if not hit.is_empty() and hit["distance"] < ch[1] - 0.3:
+		return false                              # a block is in front of it
+	var c = ch[0]
+	if use_touch and touch.mine_mode:
+		if c == _riding:
+			_get_out()
+		carts.remove(c)
+		Sfx.play("dig_wood")
+		if not creative:
+			drops.spawn([CART, 1], c.pos + Vector3(0, 0.3, 0))
+		return true
+	if c == _riding:
+		_get_out()
+	else:
+		_get_in(c)
+	return true
+
+
+func _get_in(c) -> void:
+	if _riding != null:
+		_get_out()
+	_riding = c
+	c.rider = true
+	player.riding = true
+	player.flying = false
+	hud.flash(I18n.t("cart_hint"))
+
+
+func _get_out() -> void:
+	if _riding == null:
+		return
+	var c = _riding
+	c.rider = false
+	_riding = null
+	player.riding = false
+	# step off to the side of the track (or onto it if the sides are blocked)
+	var cell := Vector3i(roundi(c.pos.x), roundi(c.pos.y), roundi(c.pos.z))
+	var side := Vector2i(c.dir.y, -c.dir.x)
+	for s2 in [side, -side, Vector2i.ZERO]:
+		var t: Vector3i = cell + Vector3i(s2.x, 0, s2.y)
+		var here := world.get_block(t.x, t.y, t.z)
+		if world.get_block(t.x, t.y + 1, t.z) == 0 and (here == 0 or carts.is_track(here)):
+			player.position = Vector3(t.x, t.y - 0.5 + 0.02, t.z)
+			break
+	player.velocity = Vector3.ZERO
+
+
+func _update_carts(delta: float) -> void:
+	if carts.carts.is_empty():
+		return
+	var drive := 0.0
+	if _riding != null:
+		drive = player.move_input.y
+		if player.jump_held:
+			player.jump_held = false
+			_get_out()
+	carts.update(delta, player.forward(), drive)
+	if _riding != null:
+		player.position = _riding.pos + Vector3(0, -0.35, 0)
+	else:
+		# walking into a cart pushes it along its track
+		var hv := Vector2(player.velocity.x, player.velocity.z)
+		if hv.length() > 1.0:
+			for c in carts.carts:
+				var d := Vector2(c.pos.x - player.position.x, c.pos.z - player.position.z)
+				if d.length() < 0.9 and absf(c.pos.y - (player.position.y + 0.5)) < 1.0 and hv.normalized().dot(d.normalized()) > 0.5:
+					carts.push(c, hv.normalized())
+	if Engine.get_process_frames() % 10 == 0:
+		carts.set_light(shown_light)
+
+
+const CURVE_PIECES := [[Vector2i(1, 0), Vector2i(0, 1), 1752], [Vector2i(-1, 0), Vector2i(0, 1), 1753],
+	[Vector2i(-1, 0), Vector2i(0, -1), 1754], [Vector2i(1, 0), Vector2i(0, -1), 1755]]
+
+
+## Which track piece fits at `at`: straight towards the tracks around it, a turn where two meet
+## at a corner. Boost tracks are always straight.
+func _track_piece(at: Vector3i, boost: bool) -> int:
+	var near := []
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		if carts.is_track(world.get_block(at.x + d.x, at.y, at.z + d.y)):
+			near.append(d)
+	var x_axis := false
+	if near.has(Vector2i(1, 0)) and near.has(Vector2i(-1, 0)):
+		x_axis = true
+	elif near.has(Vector2i(0, 1)) and near.has(Vector2i(0, -1)):
+		x_axis = false
+	elif near.size() >= 2 and not boost:
+		for cp in CURVE_PIECES:
+			if near.has(cp[0]) and near.has(cp[1]):
+				return cp[2]
+		x_axis = near[0].x != 0
+	elif near.size() >= 1:
+		x_axis = near[0].x != 0
+	else:
+		var f := player.forward()
+		x_axis = absf(f.x) > absf(f.z)
+	if boost:
+		return 1756 if x_axis else 1757
+	return 1750 if x_axis else 1751
+
+
+## A new track: a neighbour that was a loose end turns to join it.
+func _relink_tracks(at: Vector3i) -> void:
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var n: Vector3i = at + Vector3i(d.x, 0, d.y)
+		var nid := world.get_block(n.x, n.y, n.z)
+		if not carts.is_track(nid) or -d in carts.links_of(nid):
+			continue                                  # not a track, or already joined to us
+		var used := 0
+		for l in carts.links_of(nid):
+			if carts.is_track(world.get_block(n.x + l.x, n.y, n.z + l.y)):
+				used += 1
+		if used >= 2:
+			continue                                  # both its ends are taken
+		var boost := nid >= 1756
+		var piece := _track_piece(n, boost)
+		if boost and nid >= 1758:
+			piece += 2                                # keep a powered boost track powered
+		if piece != nid:
+			edit(n, piece, true, false)
+
+
 ## Which way a ladder placed at `at` hangs (the wall it leans on), or -1 if there is no wall.
 ## Tapping the side of a block hangs it there; tapping the top or bottom of a ladder extends
 ## it; otherwise it goes on the wall in front of you.
@@ -1712,7 +1873,7 @@ func _outline_box(id: int) -> Array:
 			return [Vector3(0.8, 0.85, 0.8), Vector3(0, -0.075, 0)]
 		"slab":
 			return [Vector3(1, 0.5, 1), Vector3(0, -0.25, 0)]
-		"carpet", "wire":
+		"carpet", "wire", "track":
 			return [Vector3(1, 0.08, 1), Vector3(0, -0.46, 0)]
 		"lever":
 			return [Vector3(0.5, 0.75, 0.62), Vector3(0, -0.13, 0)]
@@ -1735,8 +1896,8 @@ func _ghost_box(item: int, at: Vector3i, n: Vector3i) -> Array:
 			return [Vector3(0.7, 0.8, 0.7), Vector3(0, -0.1, 0)] if ground else []
 		"slab":
 			return [Vector3(1, 0.5, 1), Vector3(0, -0.25, 0)]
-		"carpet", "wire":
-			return [Vector3(1, 0.07, 1), Vector3(0, -0.46, 0)]
+		"carpet", "wire", "track":
+			return [Vector3(1, 0.07, 1), Vector3(0, -0.46, 0)] if ground else []
 		"lever", "button":
 			return [Vector3(0.6, 0.5, 0.6), Vector3(0, -0.25, 0)] if ground else []
 		"door":
@@ -1909,6 +2070,8 @@ func pick_block() -> void:
 		item = 500
 	elif id >= WALL_TORCH and id < WALL_TORCH + 4:
 		item = 50
+	elif carts.is_track(id):
+		item = 1756 if id >= 1756 else 1750
 	elif d.get("shape") == "stair":
 		item = id - int(d["facing"])
 	if not Items.placeable.has(item):
@@ -1998,6 +2161,8 @@ func _update_mining(delta: float) -> void:
 	highlight.position = Vector3(pos) + hb[1]
 	highlight.scale = hb[0] * 1.004
 	var kind := power.kind_of(id)
+	if kind == "" and carts.is_track(id):
+		kind = "track"
 	hud.show_target(Items.name_of(id), I18n.t("hint_" + kind) if kind != "" else "")
 	# ghost of the held block (with a crosshair; on touch the finger shows where it goes)
 	var held_item := inv.item_at(selected)
@@ -2357,6 +2522,7 @@ func _process_inner(delta: float) -> void:
 	var t2 := Time.get_ticks_usec()
 	Wildlife.held_item = inv.item_at(selected)
 	_update_animals(delta)
+	_update_carts(delta)
 	var t3 := Time.get_ticks_usec()
 	_update_health(delta)
 	_perf("play", t1 - t0)
@@ -3097,6 +3263,69 @@ func _process_inner(delta: float) -> void:
 			machine_panel.close()
 			print("PANEL closed, touch free again: ", not touch.blocked)
 			get_tree().quit()
+	if "--carttest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: lay a loop of track, ride a cart round it
+		if _st_frame == 3:
+			set_mode(true)
+			set_flying(false)
+			var o := Vector3i(floori(player.position.x + 0.5) + 2, floori(player.position.y) + 6, floori(player.position.z + 0.5) - 3)
+			for x in range(-2, 12):
+				for z in range(-2, 9):
+					edit(o + Vector3i(x, -1, z), 3, true, false)
+					for y in range(0, 4):
+						edit(o + Vector3i(x, y, z), 0, true, false)
+			var loop := []
+			for x in range(0, 9):
+				loop.append(o + Vector3i(x, 0, 0))
+			for z in range(1, 6):
+				loop.append(o + Vector3i(8, 0, z))
+			for x in range(7, -1, -1):
+				loop.append(o + Vector3i(x, 0, 5))
+			for z in range(4, 0, -1):
+				loop.append(o + Vector3i(0, 0, z))
+			for i in loop.size():
+				inv.slots[selected] = [1756 if i == 3 else 1750, 64]
+				_place_on(loop[i] + Vector3i(0, -1, 0), Vector3i(0, 1, 0))
+			edit(loop[3] + Vector3i(0, 0, -1), 1705, true, false)     # a power cell beside the boost track
+			_st["loop"] = loop
+			var corners := 0
+			var straight := 0
+			for c in loop:
+				var id := world.get_block(c.x, c.y, c.z)
+				if id >= 1752 and id <= 1755:
+					corners += 1
+				elif carts.is_track(id):
+					straight += 1
+			print("CART laid %d pieces: %d turns, %d straight or boost, pieces %s" % [loop.size(), corners, straight, loop.map(func(c): return world.get_block(c.x, c.y, c.z))])
+			inv.slots[selected] = [CART, 1]
+			_place_on(loop[3], Vector3i(0, 1, 0))       # on the boost track: it sets off by itself
+			print("CART placed: ", carts.carts.size())
+			if "--cartlook" in OS.get_cmdline_user_args():
+				var cc = carts.carts[0]
+				player.position = cc.pos + Vector3(-2.5, 0.6, 3.5)
+				player.yaw = deg_to_rad(-35.0)
+				player.rotation.y = player.yaw
+				player.set_physics_process(false)
+			else:
+				_get_in(carts.carts[0])
+			_st["seen"] = {}
+		if _st_frame > 3 and _st.has("seen") and _riding != null:
+			_st["seen"][Vector3i(roundi(_riding.pos.x), roundi(_riding.pos.y), roundi(_riding.pos.z))] = true
+		if _st_frame == 25:
+			player.pitch = -0.5 if "--cartlook" in OS.get_cmdline_user_args() else -0.32
+			player.camera.rotation.x = player.pitch
+		if _st_frame == 40 and _shot_path:
+			get_viewport().get_texture().get_image().save_png(_shot_path)
+		if _st_frame == 900:
+			var c = carts.carts[0]
+			print("CART after 15 s: track cells visited %d of %d, speed %.1f, still riding %s, booster lit %s" % [_st["seen"].size(), _st["loop"].size(), c.speed, _riding != null, world.get_block(_st["loop"][3].x, _st["loop"][3].y, _st["loop"][3].z) >= 1758])
+			_get_out()
+		if _st_frame == 905:
+			print("CART got out: %s, player beside the track at %s" % [_riding == null, player.position])
+			save_game()
+			var again := WorldData.load_from(SAVE_PATH)
+			print("CART saved: ", again.player_data.get("carts", []).size())
+			get_tree().quit()
 	if "--pettest" in OS.get_cmdline_user_args() and spawned and not _st.has("pet"):
 		_st["pet"] = true                               # testing: a tamed animal survives save and load
 		var a := Wildlife.Animal.new("woolly", player.position + Vector3(3, 0, 0))
@@ -3239,6 +3468,7 @@ func save_game() -> void:
 		world.containers[chest_pos] = chest_inv.to_data()
 	var data: Dictionary = world.player_data.duplicate()
 	data["pets"] = wildlife.save_pets()
+	data["carts"] = carts.save_data()
 	data["position"] = [player.position.x, player.position.y + 0.1, player.position.z]
 	data["inventory"] = inv.to_data()
 	data["survival"] = health.to_data()

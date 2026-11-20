@@ -68,8 +68,14 @@ func head_under_water() -> bool:
 	return _water_at(eye())
 
 
+var riding := false                  # in a cart: the cart moves us, no walking or falling
+
+
 func _physics_process(delta: float) -> void:
 	if world == null:
+		return
+	if riding:
+		velocity = Vector3.ZERO
 		return
 	# safety net: if a lag spike (or a collision shape that wasn't ready yet) let us sink
 	# into a solid block, climb back out on top of it
