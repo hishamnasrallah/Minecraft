@@ -122,6 +122,13 @@ func test_sky_realm_islands_pillars_and_portal_home() -> String:
 		var cy := WorldData.SKY_BASE + 6 + WorldData.PILLAR_HEIGHT + 1
 		if w.get_block(pc.x, cy, pc.y) != 1806 or w.get_block(pc.x, cy - 1, pc.y) != 1807:
 			return "pillar with a storm crystal missing at %s" % pc
+		var o := Vector2i(signi(pc.x), signi(pc.y))
+		var lad := w.get_block(pc.x + o.x * 2, WorldData.SKY_BASE + 10, pc.y + o.y * 2)
+		var wall := Vector2i(pc.x + o.x, pc.y + o.y)
+		var f: int = Blocks.defs.get(lad, {}).get("facing", -1)
+		var fv: Vector2i = [Vector2i(0, 1), Vector2i(1, 0), Vector2i(0, -1), Vector2i(-1, 0)][maxi(f, 0)]
+		if Blocks.defs.get(lad, {}).get("shape", "") != "ladder" or Vector2i(pc.x + o.x * 2, pc.y + o.y * 2) + fv != wall:
+			return "pillar at %s needs a ladder hanging on its outer side (got %d facing %d)" % [pc, lad, f]
 	if w.get_block(-1, WorldData.SKY_BASE + 8, -12) != 1805 or w.get_block(-2, WorldData.SKY_BASE + 8, -12) != 906:
 		return "the portal home is missing"
 	var sp := w.spawn_point()

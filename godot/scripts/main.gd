@@ -411,7 +411,7 @@ func _refresh_mode() -> void:
 
 
 const CREATIVE_HOTBAR := [1, 22, 4, 7, 41, 12, 50, 48, 510]
-const STARTER_KIT := [[201, 1], [203, 1], [209, 1], [105, 6], [50, 8], [7, 16], [46, 1], [48, 1]]
+const STARTER_KIT := [[201, 1], [203, 1], [209, 1], [105, 6], [50, 8], [7, 16], [46, 1], [48, 1], [213, 1]]   # ends with a wooden sword for the first night
 
 
 ## A new world's first items: building blocks in creative, a small kit in survival.
@@ -710,6 +710,7 @@ func aim_dir() -> Vector3:
 	return player.forward()
 
 
+var _load_t0 := Time.get_ticks_msec()     # when this world started loading (for the log)
 var _forced_hit := {}                # testing: pretend the crosshair is on this face
 
 
@@ -1980,6 +1981,7 @@ func _process_inner(delta: float) -> void:
 		if _ready_frames >= 3:                     # give the physics engine the new ground first
 			spawned = true
 			Boot.stage("playing")
+			print("World ready in %.1f s (%d chunks, view distance %d)" % [(Time.get_ticks_msec() - _load_t0) / 1000.0, world.chunks.size(), chunks.render_distance])
 			var args := Array(OS.get_cmdline_user_args())
 			var testing := args.any(func(a): return a.begins_with("--shot") or a in ["--selftest", "--gloomtest", "--menutest", "--machines", "--bosstest", "--portaltest", "--walkplace", "--playtest", "--survivaltest"])
 			if "--tutorial" in args or (not testing and not I18n.settings.get("tutorial_done", false)):

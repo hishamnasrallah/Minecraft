@@ -789,6 +789,16 @@ func _ensure_sky(key: Vector2i) -> bool:
 					var cy := top + PILLAR_HEIGHT + 1
 					blk[((x - x0) * H + cy) * CS + (z - z0)] = SKY["CRYSTAL"]
 					e[Vector3i(x, cy, z)] = true
+	# a ladder up the outer side of every pillar, so the crystals can be reached without towering
+	for pc in PILLARS:
+		var o := Vector2i(signi(pc.x), signi(pc.y))
+		var lx: int = pc.x + o.x * 2
+		var lz: int = pc.y + o.y * 2
+		if (lx >> 4) != key.x or (lz >> 4) != key.y:
+			continue
+		var facing: int = [Vector2i(0, 1), Vector2i(1, 0), Vector2i(0, -1), Vector2i(-1, 0)].find(-o)
+		for y in range(SKY_BASE + 7, SKY_BASE + 6 + PILLAR_HEIGHT + 1):
+			blk[((lx - x0) * H + y) * CS + (lz - z0)] = 500 + facing
 	for i in 4:                               # portal home: a 4 x 5 frame across x at z = -12
 		for j in 5:
 			var x := -2 + i
