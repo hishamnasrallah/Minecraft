@@ -2373,6 +2373,19 @@ func _process_inner(delta: float) -> void:
 			print("NIGHT frame %d time %.2f: monsters %d (near %d), health %d, hits so far %d" % [_st_frame, world.time_of_day, host.size(), near.size(), health.health, _st["hits"]])
 		if _st_frame == 4800:
 			get_tree().quit()
+	if "--laddertest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: climb a storm pillar's ladder
+		if _st_frame == 5:
+			player.position = Vector3(26, WorldData.SKY_BASE + 7, 0)
+			player.yaw = deg_to_rad(90.0)                # facing -x, at the pillar
+			player.rotation.y = player.yaw
+		if _st_frame > 5 and player.position.y < WorldData.SKY_BASE + 6 + WorldData.PILLAR_HEIGHT:
+			player.move_input = Vector2(0, 1)         # climb until level with the top, then stop
+		if _st_frame == 400:
+			var c := Vector3i(24, WorldData.SKY_BASE + 6 + WorldData.PILLAR_HEIGHT + 1, 0)
+			print("LADDER climbed to y %.1f (pillar top %d), crystal within reach: %s" % [player.position.y,
+				WorldData.SKY_BASE + 6 + WorldData.PILLAR_HEIGHT, player.eye().distance_to(Vector3(c)) < reach()])
+			get_tree().quit()
 	if "--torchtest" in OS.get_cmdline_user_args() and spawned:
 		_st_frame += 1                                  # testing: torches on every side of a pillar, at night
 		if _st_frame == 5:
