@@ -183,13 +183,15 @@ def export_name_signs():
     black = blocks.CONCRETE[3]
     for word, colour in (("TALIA", "pink"), ("HISHAM", "blue"), ("LAYAN", "pink"), ("ZAINA", "blue")):
         clip = {}
+        # the front is the +z side (the library turns that side to the player): seen from
+        # there +x is to the right, so the word runs along +x on the z = 1 layer
         for i, letter in enumerate(word):
-            clip[(i + 1, 1, 0)] = blocks.NEON[(colour, letter)]
+            clip[(i + 1, 1, 1)] = blocks.NEON[(colour, letter)]
         for x in range(len(word) + 2):           # a black frame behind and around the letters
             for y in range(3):
-                clip[(x, y, 1)] = black
+                clip[(x, y, 0)] = black
                 if y != 1 or x in (0, len(word) + 1):
-                    clip.setdefault((x, y, 0), black)
+                    clip.setdefault((x, y, 1), black)
         data = schematics.to_data(clip, word.lower())
         for folder in (ROOT / "schematics", OUT / "schematics"):
             folder.mkdir(exist_ok=True)

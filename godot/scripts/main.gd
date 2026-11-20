@@ -1269,6 +1269,56 @@ const PASTE_PER_FRAME := 3000
 
 ## Big buildings go in a few thousand blocks per frame (no freeze), chunk by chunk; parts
 ## that fall in chunks not loaded yet are generated first, one chunk per frame.
+## A library building turns to face you (its front, the +z side, towards the player): words
+## read left to right and machines' fronts point at you, whichever way you look.
+func _face_clip_to_player() -> void:
+	var f := player.forward()
+	var want := 0                                   # the side that should face you: 0 +z, 1 +x, 2 -z, 3 -x
+	if absf(f.x) > absf(f.z):
+		want = 1 if f.x < 0 else 3
+	else:
+		want = 0 if f.z < 0 else 2
+	var turns := posmod(want - _clip_front(), 4)    # each builder.rotate() turns +z into +x
+	for i in turns:
+		builder.rotate()
+
+
+## Which side of a library building is its front: where its controls are (buttons, switches,
+## plates, doors, chests you fill), seen from the middle. Words and plain buildings: +z.
+func _clip_front() -> int:
+	var size := Vector3(builder.clipboard_size())
+	var mid := Vector2(size.x - 1, size.z - 1) / 2.0
+	var pull := Vector2.ZERO
+	for p in builder.clipboard:
+		var id: int = builder.clipboard[p]
+		var kind := power.kind_of(id)
+		if kind in ["button", "switch", "plate"] or Blocks.defs.get(id, {}).has("door") or id == 48:
+			pull += Vector2(p.x, p.z) - mid
+	if pull.length() < 0.5:
+		return 0
+	if absf(pull.x) > absf(pull.y):
+		return 1 if pull.x > 0 else 3
+	return 0 if pull.y > 0 else 2
+
+
+## Where a paste starts: right where you aim, centred across your view and reaching away from
+## you (not over your head).
+func _paste_origin(hit: Dictionary) -> Vector3i:
+	var at: Vector3i = hit["pos"] + hit["normal"]
+	if not _clip_from_library:
+		return at                                   # your own copies go exactly where you aim
+	var size: Vector3i = builder.clipboard_size()
+	var f := player.forward()
+	var o := at
+	if absf(f.x) > absf(f.z):
+		o.z = at.z - size.z / 2
+		o.x = at.x if f.x > 0 else at.x - (size.x - 1)
+	else:
+		o.x = at.x - size.x / 2
+		o.z = at.z if f.z > 0 else at.z - (size.z - 1)
+	return o
+
+
 func _start_paste(origin: Vector3i, include_air: bool) -> void:
 	var by_chunk := {}
 	for p in builder.clipboard:
@@ -1843,7 +1893,7 @@ func build_action(name: String) -> void:
 			_previewing_paste = false
 			_paste_armed = false
 			if not hit.is_empty():
-				_start_paste(hit["pos"] + hit["normal"], _clip_from_library or Input.is_physical_key_pressed(KEY_SHIFT))
+				_start_paste(_paste_origin(hit), _clip_from_library or Input.is_physical_key_pressed(KEY_SHIFT))
 				return
 		"rotate":
 			msg = builder.rotate()
@@ -1862,6 +1912,7 @@ func build_action(name: String) -> void:
 		_:
 			if name.begins_with("loaded:"):
 				_clip_from_library = true
+				_face_clip_to_player()
 				msg = I18n.f("loaded_building" if use_touch else "loaded_building_desktop", name.substr(7))
 	if not result.is_empty():
 		_rebuild(result[0])
@@ -1929,7 +1980,7 @@ func _update_building() -> void:
 	paste_preview.visible = not hit.is_empty()
 	if paste_preview.visible:
 		var size: Vector3i = builder.clipboard_size()
-		var origin: Vector3i = hit["pos"] + hit["normal"]
+		var origin: Vector3i = _paste_origin(hit)
 		paste_preview.position = Vector3(origin) + (Vector3(size) - Vector3.ONE) / 2.0
 		paste_preview.scale = Vector3(size) + Vector3.ONE * 0.02
 
@@ -2737,6 +2788,45 @@ func _process_inner(delta: float) -> void:
 					edit(d + Vector3i(0, 1, 0), 511, true, false)
 				_st["i"] = i + 1
 				_st["t"] = _st_frame + 4
+	if "--wordtest" in OS.get_cmdline_user_args() and spawned and not _st.has("word"):
+		_st["word"] = true                              # testing: a library word reads left to right from every side
+		set_mode(true)
+		var res := []
+		for yaw_deg in [0.0, 90.0, 180.0, 270.0]:
+			player.yaw = deg_to_rad(yaw_deg)
+			player.rotation.y = player.yaw
+			builder.clipboard = Schematics.load_file("res://data/schematics/hisham.json")
+			_clip_from_library = true
+			_face_clip_to_player()
+			var f := player.forward()
+			var right := Vector2(-f.z, f.x)          # the viewer's right on the ground
+			var first := Vector2.ZERO
+			var last := Vector2.ZERO
+			for p in builder.clipboard:
+				var d: Dictionary = Blocks.defs.get(builder.clipboard[p], {})
+				if d.get("letter", "") == "H":
+					first = Vector2(p.x, p.z)
+				elif d.get("letter", "") == "M":
+					last = Vector2(p.x, p.z)
+			res.append("facing %d: %s" % [yaw_deg, "reads H..M left to right" if right.dot(last - first) > 0 else "BACKWARDS"])
+		print("WORD ", res)
+		var fronts := []
+		for n in ["auto_door", "auto_smelter", "wheat_harvester", "giant_farm", "lamp_clock", "logic_board", "night_street", "storage_tower", "smelter_hall", "mega_complex", "small_house", "talia"]:
+			builder.clipboard = Schematics.load_file("res://data/schematics/%s.json" % n)
+			fronts.append("%s:%s" % [n, ["+z", "+x", "-z", "-x"][_clip_front()]])
+		print("WORD fronts ", fronts)
+		if not _shot_path:
+			get_tree().quit()
+			return
+		player.yaw = deg_to_rad(180.0)                 # facing +z: the side that used to read backwards
+		player.rotation.y = player.yaw
+		player.pitch = 0.1
+		player.camera.rotation.x = player.pitch
+		set_flying(true)
+		builder.clipboard = Schematics.load_file("res://data/schematics/%s.json" % ("talia" if "--talia" in OS.get_cmdline_user_args() else "hisham"))
+		_face_clip_to_player()
+		var aim := Vector3i(floori(player.position.x + 0.5), floori(player.position.y) - 1, floori(player.position.z + 0.5) + 6)
+		_start_paste(_paste_origin({"pos": aim, "normal": Vector3i(0, 1, 0)}), true)
 	if "--pettest" in OS.get_cmdline_user_args() and spawned and not _st.has("pet"):
 		_st["pet"] = true                               # testing: a tamed animal survives save and load
 		var a := Wildlife.Animal.new("woolly", player.position + Vector3(3, 0, 0))

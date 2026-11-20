@@ -27,6 +27,8 @@ static func rotate_block(id: int) -> int:
 			return id - f + (f + 1) % 4
 		"ladder":
 			return 500 + (id - 500 + 1) % 4
+		"torch":
+			return id if id < 1810 else 1810 + (id - 1810 + 1) % 4
 		"door":
 			return id + 4 if int(d["door"]["axis"]) == 0 else id - 4
 	return id
