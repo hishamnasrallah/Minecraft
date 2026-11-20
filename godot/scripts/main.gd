@@ -1697,9 +1697,23 @@ const PLACE_EVERY := 0.2             # holding with a block in hand: one block e
 
 ## Holding the finger (or the right mouse button) with a block in hand keeps placing where
 ## the crosshair points, so you can walk and build a line, a bridge or a wall in one go.
+var _held_use_done := false         # this held finger already used a door / chest / switch
+
+
 func _update_placing(delta: float) -> bool:
 	var item := inv.item_at(selected)
 	var hold_touch: bool = use_touch and not touch.classic and touch.aiming
+	# a finger held on a door, chest, switch...: use it once, whatever is in your hand (a slow
+	# tap is still a tap); breaking such things takes break mode
+	if not hold_touch:
+		_held_use_done = false
+	elif not touch.mine_mode and not screen.visible and not health.dead:
+		var uh := target()
+		if _held_use_done or (not uh.is_empty() and _usable(world.get_block(uh["pos"].x, uh["pos"].y, uh["pos"].z))):
+			if not _held_use_done:
+				_held_use_done = true
+				use_block(uh["pos"])
+			return true
 	var hold_mouse: bool = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
 	var placing: bool = (hold_touch or hold_mouse) and Items.placeable.has(item) and not screen.visible and not health.dead \
 		and not (use_touch and touch.mine_mode)
@@ -2658,6 +2672,71 @@ func _process_inner(delta: float) -> void:
 		if _st_frame == 83:
 			print("MINE picking a hotbar slot goes back to building: %s" % (not touch.mine_mode))
 			get_tree().quit()
+	if "--doortest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: open a door by tapping it, many ways
+		var mid := get_viewport().get_visible_rect().size / 2
+		if _st_frame == 3:
+			set_mode("--creative" in OS.get_cmdline_user_args())
+			player.set_physics_process(false)
+			var f := Vector3i(floori(player.position.x + 0.5), floori(player.position.y), floori(player.position.z + 0.5))
+			var d := f + Vector3i(0, 0, -3)                        # three blocks ahead (-z)
+			for x in range(-2, 3):
+				for y in range(-1, 4):
+					for z in range(-5, 1):
+						edit(f + Vector3i(x, y, z), 3 if y == -1 else 0, true, false)
+			edit(d, 510, true, false)
+			edit(d + Vector3i(0, 1, 0), 511, true, false)
+			_st["door"] = d
+			player.yaw = 0.0                                       # facing -z
+			player.rotation.y = 0.0
+			player.pitch = -0.4
+			player.camera.rotation.x = player.pitch
+			_st["cases"] = [["planks in hand, quick tap", [7, 16], 4], ["empty hand, quick tap", null, 4],
+				["planks in hand, slow tap (0.4 s)", [7, 16], 24], ["empty hand, slow tap (0.4 s)", null, 24],
+				["sword in hand, quick tap", [213, 1], 4]]
+			_st["i"] = 0
+			_st["t"] = 10
+			_st["res"] = []
+		if _st_frame >= 10 and _st.has("cases"):
+			var cases: Array = _st["cases"]
+			var i: int = _st["i"]
+			if i >= cases.size():
+				if not _st.has("walk"):
+					print("DOOR ", _st["res"])
+					var dd: Vector3i = _st["door"]
+					if not bool(Blocks.defs[world.get_block(dd.x, dd.y, dd.z)]["door"]["open"]):
+						use_block(dd)
+					_st["walk"] = _st_frame
+					player.set_physics_process(true)
+					player.pitch = 0.0
+					player.camera.rotation.x = 0.0
+				var wt: int = _st_frame - int(_st["walk"])
+				if wt == 20 and _shot_path:
+					get_viewport().get_texture().get_image().save_png(_shot_path)
+				if wt > 20:
+					player.move_input = Vector2(0, 1)
+				if wt == 140:
+					print("DOOR walked through the open door: %s (z %.1f, door at z %d)" % [player.position.z < float(_st["door"].z) - 0.5, player.position.z, _st["door"].z])
+					get_tree().quit()
+				return
+			var c: Array = cases[i]
+			var t: int = _st_frame - int(_st["t"])
+			var d: Vector3i = _st["door"]
+			if t == 0:
+				inv.slots[selected] = c[1].duplicate() if c[1] != null else null
+				_st["open0"] = Blocks.defs[world.get_block(d.x, d.y, d.z)].get("door", {}).get("open", null)
+				_touch(2, mid, true)
+			elif t == c[2]:
+				_touch(2, mid, false)
+			elif t == c[2] + 6:
+				var id := world.get_block(d.x, d.y, d.z)
+				var now = Blocks.defs.get(id, {}).get("door", {}).get("open", "GONE")
+				_st["res"].append("%s: %s" % [c[0], "BROKE" if now is String else ("opened/closed" if bool(now) != bool(_st["open0"]) else "nothing")])
+				if now is String:
+					edit(d, 510, true, false)
+					edit(d + Vector3i(0, 1, 0), 511, true, false)
+				_st["i"] = i + 1
+				_st["t"] = _st_frame + 4
 	if "--pettest" in OS.get_cmdline_user_args() and spawned and not _st.has("pet"):
 		_st["pet"] = true                               # testing: a tamed animal survives save and load
 		var a := Wildlife.Animal.new("woolly", player.position + Vector3(3, 0, 0))
@@ -2898,13 +2977,18 @@ func _selftest_step() -> void:
 			var g: Vector3i = _st["ground"]
 			print("SELFTEST dug a block with a held finger: ", world.get_block(g.x, g.y, g.z) != _st["ground_id"], ", drops on the ground / picked up: ", drops.drops.size(), " / ", drops.picked_total)
 			_select(5)                                           # the planks of the starter kit
-			player.look(Vector2(0, -0.35))                       # aim a little ahead, not at our own feet
+			player.pitch = -0.6                                  # aim at the ground a little ahead (absolute,
+			player.camera.rotation.x = player.pitch              # so earlier drags cannot leave it at the sky)
 			_st["planks"] = inv.count(7)
 			_touch(1, s / 2, true)                               # a short tap places the held block
 		402:
 			_touch(1, s / 2, false)
 		404:
 			print("SELFTEST tap placed a block: ", inv.count(7) == _st["planks"] - 1)
+			if inv.count(7) != _st["planks"] - 1:
+				var th := target()
+				print("SELFTEST   aim: ", th.get("pos"), " normal ", th.get("normal"), " block ", world.get_block(th["pos"].x, th["pos"].y, th["pos"].z) if not th.is_empty() else -1,
+					" animal ", looked_at_animal() != null, " held ", inv.item_at(selected), " player ", player.position, " ghost ", ghost.visible)
 			# farming: hoe a dirt block, plant seeds, let it ripen, harvest
 			var f := player.position + player.forward() * 3.0
 			var fp := Vector3i(floori(f.x + 0.5), world.top_y(floori(f.x + 0.5), floori(f.z + 0.5)), floori(f.z + 0.5))
