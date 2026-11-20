@@ -76,7 +76,7 @@ const SPECIES := {
 		"move": "fly", "cap": "ambient", "alt": [0.5, 2.5], "roam": 3.0},
 	# the gloom: comes out in the dark, chases and hits the player, fades in sunlight
 	"gloom": {"speed": 2.4, "height": 1.8, "width": 0.6, "flee_range": 0.0, "swims": false, "group": [1, 2], "health": 10,
-		"hostile": true, "cap": "hostile"},
+		"hostile": true, "cap": "hostile", "damage": 2, "cooldown": 1.4, "sense": 32.0},
 	# the bramble: a low, slow thorn crawler that hits hard; dozes off in daylight
 	"bramble": {"speed": 1.25, "height": 0.7, "width": 0.9, "flee_range": 0.0, "swims": false, "group": [1, 1],
 		"health": 16, "hostile": true, "cap": "hostile", "damage": 5, "cooldown": 1.8, "reach": 1.7, "sun_proof": true},
@@ -243,7 +243,7 @@ class Animal:
 		attack_cooldown -= dt
 		wants_attack = false
 		if hostile:
-			if can_target and not dormant and dist < CHASE_RANGE and absf(player.y - pos.y) < 6:
+			if can_target and not dormant and dist < float(spec.get("sense", CHASE_RANGE)) and absf(player.y - pos.y) < 6:
 				state = "chase"
 				yaw = rad_to_deg(atan2(px, pz))
 				if dist < float(spec.get("reach", ATTACK_RANGE)) and attack_cooldown <= 0:
@@ -592,7 +592,7 @@ func update(dt: float, player: Vector3, daylight := 1.0, hostile := true, can_ta
 		try_spawn(around)
 		if _spawn_turn % 2 == 0:
 			try_spawn_ambient(around, daylight)
-		if hostile:
+		if hostile and _spawn_turn % 3 == 0:          # night creatures come one by one, not in a wave
 			try_spawn_hostile(around, daylight)
 	return damage
 

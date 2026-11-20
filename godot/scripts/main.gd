@@ -2352,6 +2352,25 @@ func _process_inner(delta: float) -> void:
 			print("BACK %d: inventory %s, settings %s, still running %s" % [_st_frame, screen.visible, settings.visible, is_inside_tree()])
 		if _st_frame == 40:
 			get_tree().quit()
+	if "--nighttest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: a whole night out in the open
+		if _st_frame == 1:
+			world.time_of_day = 0.55
+			_st["hits"] = 0
+			_st["h"] = health.health
+		if health.health < _st["h"]:
+			_st["hits"] += 1
+		_st["h"] = health.health
+		if health.dead:
+			print("NIGHT died at frame ", _st_frame)
+			respawn()
+		if _st_frame % 600 == 0:
+			var host := wildlife.animals.filter(func(a): return a.hostile)
+			var near := host.filter(func(a): return a.pos.distance_to(player.position) < 16)
+			print("NIGHT where: ", host.map(func(a): return "%s d%.0f dy%.0f %s" % [a.kind, Vector2(a.pos.x - player.position.x, a.pos.z - player.position.z).length(), a.pos.y - player.position.y, a.state]))
+			print("NIGHT frame %d time %.2f: monsters %d (near %d), health %d, hits so far %d" % [_st_frame, world.time_of_day, host.size(), near.size(), health.health, _st["hits"]])
+		if _st_frame == 4800:
+			get_tree().quit()
 	if "--torchtest" in OS.get_cmdline_user_args() and spawned:
 		_st_frame += 1                                  # testing: torches on every side of a pillar, at night
 		if _st_frame == 5:
