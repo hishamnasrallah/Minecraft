@@ -1769,6 +1769,14 @@ func _factory_test(name: String) -> void:
 			"logic_board":
 				for sw in found.get("switch", []):
 					use_block(sw)
+			"storage_tower":
+				var top: Vector3i = found["collector"][0]
+				for co in found["collector"]:
+					if co.y > top.y:
+						top = co
+				drops.spawn([22, 20], Vector3(top) + Vector3(0, 1.2, 0))
+			"night_street":
+				world.time_of_day = 0.8
 		return
 	var t: int = _st_frame - int(_st["ft_t"])
 	var found: Dictionary = _st["ft_found"]
@@ -1805,6 +1813,18 @@ func _factory_test(name: String) -> void:
 				out = "iron ingots made %d of %d" % [ingots, 2 * found.get("smelter", []).size()]
 			"lamp_clock":
 				out = "lamp changed %d times in 10 s" % _st["ft_lamp"]
+			"storage_tower":
+				var bottom: Vector3i = found["chest"][0]
+				for ch in found["chest"]:
+					if ch.y < bottom.y:
+						bottom = ch
+				var n := 0
+				for st in Inventory.from_data(world.containers.get(bottom), 27).slots:
+					if st != null:
+						n += int(st[1])
+				out = "bottom chest got %d of 20 cobblestone" % n
+			"night_street":
+				out = "lamps lit at night %d of %d" % [found.get("lamp", []).filter(func(p): return world.get_block(p.x, p.y, p.z) == 1709).size(), found.get("lamp", []).size()]
 			"logic_board":
 				out = "lamps lit %d of %d" % [found.get("lamp", []).filter(func(p): return world.get_block(p.x, p.y, p.z) == 1709).size(), found.get("lamp", []).size()]
 		print("FACTORY %s after 10 s: %s" % [name, out])
