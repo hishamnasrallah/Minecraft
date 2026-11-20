@@ -286,8 +286,8 @@ func open_big_map(world: WorldData) -> void:
 	var side := floorf(minf(s.y * 0.84, s.x * 0.9))
 	if big_map_view == null:
 		big_map_view = Minimap.new()
-		big_map_view.R = 112
-		big_map_view.rows_per_frame = 32
+		big_map_view.R = 160
+		big_map_view.rows_per_frame = 24
 		big_map_view.marker = 1.8
 		big_map_view.pixel = Vector2(side, side)
 		big_map_view.world = world

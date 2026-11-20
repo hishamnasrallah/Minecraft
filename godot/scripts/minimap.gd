@@ -112,15 +112,85 @@ func _scan_row(row: int) -> void:
 	var z := _scan_center.y - R + row
 	for col in N:
 		var x := _scan_center.x - R + col
-		var s := _surface(x, z)
-		if s.x == -1:
-			_img.set_pixel(col, row, Color(0.05, 0.05, 0.07, 0.8))
-			continue
-		var c := _color_of(s.x)
-		var north := _surface(x, z - 1)
-		if north.x != -1:
-			c = c.lightened(0.18) if s.y > north.y else (c.darkened(0.22) if s.y < north.y else c)
+		var c = _pixel(x, z)
+		if c == null:
+			c = _remembered(x, z)
 		_img.set_pixel(col, row, c)
+
+
+## The colour of one column of the loaded world (with a little relief), or null if not loaded.
+func _pixel(x: int, z: int):
+	var s := _surface(x, z)
+	if s.x == -1:
+		return null
+	var c := _color_of(s.x)
+	var north := _surface(x, z - 1)
+	if north.x != -1:
+		c = c.lightened(0.18) if s.y > north.y else (c.darkened(0.22) if s.y < north.y else c)
+	return c
+
+
+# ---------------------------------------------------------------- remembered places
+## Every chunk you have seen is kept as 16 x 16 colours (768 bytes), saved with the world,
+## so the big map still shows where you have been after you walk away.
+static var memory := {}              # Vector2i chunk -> PackedByteArray (RGB)
+var _record_t := 0.0
+
+
+func _remembered(x: int, z: int) -> Color:
+	var m = memory.get(Vector2i(x >> 4, z >> 4))
+	if m == null:
+		return Color(0.05, 0.05, 0.07, 0.8)
+	var i := ((x & 15) * 16 + (z & 15)) * 3
+	return Color8(m[i], m[i + 1], m[i + 2]).darkened(0.18)        # a little dimmer: seen before
+
+
+func record_chunk(key: Vector2i) -> void:
+	var out := PackedByteArray()
+	out.resize(768)
+	for lx in 16:
+		for lz in 16:
+			var c = _pixel(key.x * 16 + lx, key.y * 16 + lz)
+			var col: Color = c if c != null else Color(0.05, 0.05, 0.07)
+			var i := (lx * 16 + lz) * 3
+			out[i] = col.r8
+			out[i + 1] = col.g8
+			out[i + 2] = col.b8
+	memory[key] = out
+
+
+## Called every frame: notes one new loaded chunk around you, and every few seconds the one
+## you stand in again (you may have built or dug there).
+func record_some(delta: float, player_pos: Vector3, radius: int) -> void:
+	var here := Vector2i(floori(player_pos.x + 0.5) >> 4, floori(player_pos.z + 0.5) >> 4)
+	_record_t += delta
+	if _record_t > 3.0 and world.chunks.has(here):
+		_record_t = 0.0
+		record_chunk(here)
+		return
+	for r in radius + 1:
+		for dx in range(-r, r + 1):
+			for dz in [-r, r] if absi(dx) != r else range(-r, r + 1):
+				var k := here + Vector2i(dx, dz)
+				if not memory.has(k) and world.chunks.has(k) and world.chunks.has(k + Vector2i(0, -1)):
+					record_chunk(k)
+					return
+
+
+static func save_memory(path: String) -> void:
+	var f := FileAccess.open_compressed(path, FileAccess.WRITE, FileAccess.COMPRESSION_ZSTD)
+	if f:
+		f.store_var(memory)
+
+
+static func load_memory(path: String) -> void:
+	memory = {}
+	if FileAccess.file_exists(path):
+		var f := FileAccess.open_compressed(path, FileAccess.READ, FileAccess.COMPRESSION_ZSTD)
+		if f:
+			var d = f.get_var()
+			if d is Dictionary:
+				memory = d
 
 
 func _draw() -> void:

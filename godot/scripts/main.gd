@@ -87,6 +87,9 @@ func _ready() -> void:
 		_remote_world = true
 	elif FileAccess.file_exists(SAVE_PATH) and fresh.is_empty():
 		world = WorldData.load_from(SAVE_PATH)
+	Minimap.memory = {}
+	if remote.is_empty() and fresh.is_empty():
+		Minimap.load_memory(SAVE_PATH.get_basename() + "_map.bin")   # the places you have seen
 	if world == null and Session.dimension == "sky":
 		# first visit to the sky realm: its own seed, derived from the world's
 		var base := int(Session.carry.get("seed", fresh.get("seed", -1)))
@@ -2093,6 +2096,8 @@ func _process_inner(delta: float) -> void:
 			_update_growing(delta)                  # with friends, the host grows plants
 		_update_machines(delta)
 	var t4 := Time.get_ticks_usec()
+	if spawned:
+		hud.minimap.record_some(delta, player.position, chunks.render_distance)
 	if spawned and hud.minimap.visible:
 		hud.minimap.update_map(player.position, player.forward(), spawn_point)
 	var t5 := Time.get_ticks_usec()
@@ -2542,6 +2547,30 @@ func _process_inner(delta: float) -> void:
 		if _st_frame == 330:
 			print("SWIM got out onto the shore: %s (after %s frames, jump held %s)" % [_st.has("out"), _st.get("out", "-"), "--swimjump" in OS.get_cmdline_user_args()])
 			get_tree().quit()
+	if "--mapmemtest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: fly away, the big map still shows home
+		if _st_frame == 2:
+			set_mode(true)
+			set_flying(true)
+		if _st_frame < 900:
+			player.position += Vector3(0.4, 0, 0)
+			var top := world.top_y(floori(player.position.x + 0.5), floori(player.position.z + 0.5))
+			if top > 0:
+				player.position.y = maxf(player.position.y, top + 10.0)
+		if _st_frame == 900:
+			var t := Time.get_ticks_usec()
+			save_game()
+			print("MAPMEM remembered %d chunks, saved in %.1f ms, file %d KB" % [Minimap.memory.size(), (Time.get_ticks_usec() - t) / 1000.0,
+				FileAccess.get_file_as_bytes(SAVE_PATH.get_basename() + "_map.bin").size() / 1024])
+			Minimap.load_memory(SAVE_PATH.get_basename() + "_map.bin")
+			print("MAPMEM loaded back: %d chunks, home chunk known: %s, home chunk loaded now: %s" % [Minimap.memory.size(),
+				Minimap.memory.has(Vector2i(floori(spawn_point.x) >> 4, floori(spawn_point.z) >> 4)),
+				world.chunks.has(Vector2i(floori(spawn_point.x) >> 4, floori(spawn_point.z) >> 4))])
+			open_map()
+		if _st_frame == 960:
+			if _shot_path:
+				get_viewport().get_texture().get_image().save_png(_shot_path)
+			get_tree().quit()
 	if "--torchtest" in OS.get_cmdline_user_args() and spawned:
 		_st_frame += 1                                  # testing: torches on every side of a pillar, at night
 		if _st_frame == 5:
@@ -2676,6 +2705,7 @@ func save_game() -> void:
 	data["growing"] = growing.keys().map(func(v): return [v.x, v.y, v.z])
 	data["spawn"] = [spawn_point.x, spawn_point.y, spawn_point.z]
 	world.save(SAVE_PATH, data)
+	Minimap.save_memory(SAVE_PATH.get_basename() + "_map.bin")
 	Session.touch(data["mode"])
 
 
