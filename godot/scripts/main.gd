@@ -2379,8 +2379,16 @@ func _process_inner(delta: float) -> void:
 			player.position = Vector3(26, WorldData.SKY_BASE + 7, 0)
 			player.yaw = deg_to_rad(90.0)                # facing -x, at the pillar
 			player.rotation.y = player.yaw
-		if _st_frame > 5 and player.position.y < WorldData.SKY_BASE + 6 + WorldData.PILLAR_HEIGHT:
+		if _st_frame > 5 and _st_frame < 1000 and player.position.y < WorldData.SKY_BASE + 6 + WorldData.PILLAR_HEIGHT:
 			player.move_input = Vector2(0, 1)         # climb until level with the top, then stop
+		if _st_frame == 5 and _shot_path:
+			player.position = Vector3(34, WorldData.SKY_BASE + 9, 6)
+			player.look(Vector2(0, 0))
+			player.yaw = atan2(34 - 24, 6 - 0)
+			player.rotation.y = player.yaw
+			player.pitch = 0.35
+			player.camera.rotation.x = player.pitch
+			_st_frame = 1000
 		if _st_frame == 400:
 			var c := Vector3i(24, WorldData.SKY_BASE + 6 + WorldData.PILLAR_HEIGHT + 1, 0)
 			print("LADDER climbed to y %.1f (pillar top %d), crystal within reach: %s" % [player.position.y,
