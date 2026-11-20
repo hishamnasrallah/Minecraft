@@ -1573,16 +1573,16 @@ def _arrow_on(img, color, rotate=0):
     return img
 
 
-def wire(on):
-    """Glittering copper dust: dull when no power runs through it, bright with sparks when it does."""
+def wire(on, strength=3):
+    """Glittering red dust: dark when no power runs through it, brighter the stronger the signal."""
     def gen(rng):
         img = _blank()
-        base = (255, 40, 28) if on else (104, 14, 12)
+        base = {1: (160, 22, 16), 2: (205, 30, 22), 3: (255, 40, 28)}[strength] if on else (104, 14, 12)
         for x in range(TILE):
             for y in range(TILE):
                 k = 1 + rng.uniform(-0.25, 0.2)
                 _px(img, x, y, _shade(base, k))
-        sparks = 18 if on else 6
+        sparks = (6 + 6 * strength) if on else 6
         for _ in range(sparks):
             x, y = rng.randrange(TILE), rng.randrange(TILE)
             _px(img, x, y, (255, 170, 150) if on else (140, 30, 26))
@@ -1675,9 +1675,10 @@ GATE_SYMBOLS = {   # 5x5 symbols drawn at 1 px
     "or": ["00100", "01010", "10001", "10001", "10001"],
     "xor": ["10001", "01010", "00100", "01010", "10001"],
     "delay": ["11111", "00100", "00100", "00100", "11111"],
+    "comparator": ["11000", "00110", "00001", "00110", "11111"],
 }
 GATE_COLORS = {"not": (230, 80, 80), "and": (90, 200, 255), "or": (120, 230, 120), "xor": (240, 200, 60),
-               "delay": (210, 140, 255)}
+               "delay": (210, 140, 255), "comparator": (255, 150, 60)}
 
 
 def smooth_stone(rng):
@@ -1813,7 +1814,59 @@ def cart_icon(rng):
     return img
 
 
+def sticky_face(rng):
+    """Green glue, shiny in spots."""
+    img = _noise(rng, (96, 170, 72), 0.1).convert("RGBA")
+    for _ in range(14):
+        img.putpixel((rng.randrange(TILE), rng.randrange(TILE)), (170, 230, 140, 255))
+    return img
+
+
+def observer_body(rng):
+    """Grey stone with a darker band round the middle."""
+    img = _noise(rng, (120, 120, 124), 0.08).convert("RGBA")
+    for x in range(TILE):
+        for y in (6, 9):
+            img.putpixel((x, y), (82, 82, 86, 255))
+    return img
+
+
+def observer_face(rng):
+    """The watching face: two dark eye slits on grey stone."""
+    img = _noise(rng, (110, 110, 114), 0.08).convert("RGBA")
+    for x in list(range(2, 7)) + list(range(9, 14)):
+        for y in range(6, 10):
+            img.putpixel((x, y), (28, 28, 32, 255) if y in (7, 8) else (60, 60, 66, 255))
+    for x in (4, 11):
+        img.putpixel((x, 7), (200, 200, 210, 255))
+    return img
+
+
+def observer_out(on):
+    def gen(rng):
+        img = _noise(rng, (100, 100, 104), 0.08).convert("RGBA")
+        for x in range(6, 10):
+            for y in range(6, 10):
+                img.putpixel((x, y), (255, 60, 40, 255) if on else (70, 20, 18, 255))
+        return img
+    return gen
+
+
+def thrower_face(rng):
+    """Stone with a dark square mouth the items come out of."""
+    img = _noise(rng, (124, 124, 128), 0.08).convert("RGBA")
+    for x in range(4, 12):
+        for y in range(4, 12):
+            edge = x in (4, 11) or y in (4, 11)
+            img.putpixel((x, y), (70, 70, 74, 255) if edge else (22, 22, 24, 255))
+    return img
+
+
 EXTRA_GENERATORS.update({
+    "thrower_body": lambda rng: _noise(rng, (124, 124, 128), 0.1).convert("RGBA"), "thrower_face": thrower_face,
+    "observer_body": observer_body, "observer_face": observer_face,
+    "observer_out_off": observer_out(False), "observer_out_on": observer_out(True),
+    "sticky_face": sticky_face,
     "track_x": _track(((1, 0), (-1, 0))), "track_z": _track(((0, 1), (0, -1))),
     "track_c0": _track(((1, 0), (0, 1))), "track_c1": _track(((-1, 0), (0, 1))),
     "track_c2": _track(((-1, 0), (0, -1))), "track_c3": _track(((1, 0), (0, -1))),
@@ -1822,7 +1875,7 @@ EXTRA_GENERATORS.update({
     "cart": cart_icon,
 })
 EXTRA_GENERATORS.update({
-    "wire_off": wire(False), "wire_on": wire(True), "switch_off": switch(False), "switch_on": switch(True),
+    "wire_off": wire(False), "wire_on": wire(True), "wire_dim": wire(True, 1), "wire_mid": wire(True, 2), "switch_off": switch(False), "switch_on": switch(True),
     "switch_side": _plate((110, 110, 116)), "button_top": button_top, "button_side": _plate((126, 126, 130)),
     "power_cell": power_cell, "power_cell_top": power_cell_top, "pressure_plate": pressure_plate,
     "light_sensor": light_sensor, "machine_side": _plate(), "machine_bottom": _plate((80, 82, 90), rivets=False),

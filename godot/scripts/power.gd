@@ -28,6 +28,11 @@ var was_powered := {}              # users: Vector3i -> bool, to act on the mome
 var button_until := {}             # Vector3i -> time the press ends
 var pressed := {}                  # pressure plates with something on them (set by the game)
 var delay_line := {}               # delay gate Vector3i -> [bool, bool, bool]
+var pulse_until := {}              # observer Vector3i -> time its pulse ends
+var comp_out := {}                 # comparator Vector3i -> the strength it gives out (0..15)
+var _comparators := []             # every comparator (they re-read their chests now and then)
+var _cmp_t := 0.0
+var _watch := {}                   # watched cell -> [observers looking at it]
 var is_day := true
 var now := 0.0
 var _acc := 0.0
@@ -71,6 +76,8 @@ func note(pos: Vector3i, id: int) -> void:
 		var kind: String = _info[id][0]
 		if parts.get(pos, "") != kind:
 			_lists_dirty = true                     # a new machine: the circuits are worked out again
+		elif _info.has(_ids.get(pos, -1)) and _info[_ids[pos]][1] != _info[id][1]:
+			_lists_dirty = true                     # turned to face another way (an observer looks elsewhere)
 		parts[pos] = kind
 		_ids[pos] = id
 		_wake(pos)
@@ -79,10 +86,18 @@ func note(pos: Vector3i, id: int) -> void:
 		_ids.erase(pos)
 		level.erase(pos)
 		gate_on.erase(pos)
+		comp_out.erase(pos)
 		was_powered.erase(pos)
 		delay_line.erase(pos)
 		_lists_dirty = true
-	else:
+	if _watch.has(pos):
+		for o in _watch[pos]:                  # an observer saw the block at its eye change
+			if o != pos:
+				pulse_until[o] = now + PULSE
+				_wake(o)
+	if _info.has(id) or parts.has(pos):
+		return
+	if true:
 		# a plain block placed or removed next to a machine (a pusher's row, a door) counts too
 		for d in DIRS:
 			if parts.has(pos + d):
@@ -110,7 +125,16 @@ func _rebuild_lists() -> void:
 	_comps = []
 	_comp_of = {}
 	_item_movers = {"collector": [], "smelter": []}
+	_watch = {}
+	_comparators = []
 	for p in parts:
+		if parts[p] == "comparator":
+			_comparators.append(p)
+		if parts[p] == "observer" and _ids.has(p) and _info.has(_ids[p]):
+			var seen: Vector3i = p - DIRS[_info[_ids[p]][1]]
+			if not _watch.has(seen):
+				_watch[seen] = []
+			_watch[seen].append(p)
 		if _item_movers.has(parts[p]):
 			_item_movers[parts[p]].append(p)
 	for start in parts:
@@ -204,6 +228,11 @@ func update(delta: float) -> void:
 		if _tick(c):
 			c["dirty"] = true                       # still settling (a signal on its way, a clock)
 	_by_kind = {}
+	_cmp_t += TICK
+	if _cmp_t >= 0.5:                          # chests fill and empty without telling anyone
+		_cmp_t = 0.0
+		for c in _comparators:
+			_wake(c)
 	_slow += TICK
 	if _slow >= 0.4:
 		_slow = 0.0
@@ -237,12 +266,14 @@ func _tick(comp: Dictionary) -> bool:
 	var new_level := {}
 	var queue: Array = []
 	for p in wires:
+		var seed := 0
 		for d in DIRS:
 			var n: Vector3i = p + d
 			if _emit.has(n) or (gate_on.get(n, false) and _front(n) == p):
-				new_level[p] = 15
-				queue.append(p)
-				break
+				seed = maxi(seed, int(comp_out[n]) if comp_out.has(n) else 15)   # a comparator gives its own strength
+		if seed > 0:
+			new_level[p] = seed
+			queue.append(p)
 	var head := 0
 	while head < queue.size():
 		var p: Vector3i = queue[head]
@@ -265,11 +296,31 @@ func _tick(comp: Dictionary) -> bool:
 			level[p] = l
 		else:
 			level.erase(p)
-		var info = _info.get(_ids.get(p, 0))
-		if info != null and on != info[2]:
-			set_block.call(p, 1701 if on else 1700)   # wires show whether they carry power
+		# wires show how strong the signal is: dark, dim, medium, bright
+		var shown: int = 1700 if l <= 0 else (1790 if l <= 5 else (1791 if l <= 10 else 1701))
+		var cur: int = _ids.get(p, 0)
+		if _info.has(cur) and cur != shown:
+			set_block.call(p, shown)
 	# 3. gates (their new output shows next tick)
 	var next_gate := {}
+	for p in _list("comparator"):
+		var f: int = _info[_ids[p]][1]
+		var back := _strength(p - DIRS[f], p, true)
+		var side := maxi(_strength(p + DIRS[(f + 1) % 4], p, false), _strength(p + DIRS[(f + 3) % 4], p, false))
+		var out := 0
+		if str(world.settings.get(p, {}).get("mode", "compare")) == "subtract":
+			out = maxi(back - side, 0)
+		else:
+			out = back if back >= side else 0
+		if out != int(comp_out.get(p, 0)):
+			changed = true
+		comp_out[p] = out
+		next_gate[p] = out > 0
+	for p in _list("observer"):
+		var pulsing: bool = pulse_until.get(p, 0.0) > now
+		next_gate[p] = pulsing
+		if pulsing or gate_on.get(p, false):
+			changed = true                       # keep ticking until the pulse is over
 	for k in ["not", "and", "or", "xor", "delay"]:
 		for p in _list(k):
 			var f: int = _info[_ids[p]][1]
@@ -309,7 +360,7 @@ func _tick(comp: Dictionary) -> bool:
 				changed = true
 	# 4. users: lamps, pushers, breakers and the doors next to this circuit
 	var users := {}
-	for k in ["lamp", "pusher", "breaker", "booster"]:
+	for k in ["lamp", "pusher", "sticky", "breaker", "booster", "thrower"]:
 		for p in _list(k):
 			users[p] = k
 	for p in comp["doors"]:
@@ -338,7 +389,7 @@ func _tick(comp: Dictionary) -> bool:
 				var d: Dictionary = Blocks.defs[id]["door"]
 				if bool(d["open"]) != on and on != before:
 					_toggle_door(p, id)
-			"pusher":
+			"pusher", "sticky":
 				var pd: Vector3i = DIRS[_info[id][1]]
 				var head_at: Vector3i = p + pd
 				if on and not before:
@@ -350,15 +401,25 @@ func _tick(comp: Dictionary) -> bool:
 					var hid := world.get_block(head_at.x, head_at.y, head_at.z)
 					if hid >= PUSHER_HEAD and hid <= PUSHER_HEAD + 5:
 						set_block.call(head_at, 0)                         # and comes back
+						if kind == "sticky":
+							var stuck: Vector3i = head_at + pd            # the sticky one brings its block along
+							var b := world.get_block(stuck.x, stuck.y, stuck.z)
+							if _movable(b) and not Blocks.plants_need_soil.has(b):
+								set_block.call(stuck, 0)
+								set_block.call(head_at, b)
 			"breaker":
 				if on and not before:
 					_break(p + DIRS[_info[id][1]])
+			"thrower":
+				if on and not before:
+					_throw(p, DIRS[_info[id][1]])
 	for p in next_gate:
 		gate_on[p] = next_gate[p]
 		# show it: a gate giving power swaps to its lit twin (1770+), and back
 		var gid := world.get_block(p.x, p.y, p.z)
 		if _info.has(gid) and bool(_info[gid][2]) != bool(next_gate[p]):
-			set_block.call(p, gid + GATE_LIT if next_gate[p] else gid - GATE_LIT)
+			var off: int = {"observer": OBSERVER_LIT, "comparator": 4}.get(_info[gid][0], GATE_LIT)
+			set_block.call(p, gid + off if next_gate[p] else gid - off)
 	return changed
 
 
@@ -367,6 +428,25 @@ func _feeds(from: Vector3i, to: Vector3i) -> bool:
 	if _emit.has(from) or level.get(from, 0) > 0:
 		return true
 	return gate_on.get(from, false) and _front(from) == to
+
+
+## How strong the power coming from `from` into `to` is (0..15). A container counts by how
+## full it is when `boxes` is set (the comparator's back).
+func _strength(from: Vector3i, to: Vector3i, boxes: bool) -> int:
+	if boxes and (world.containers.has(from) or Blocks.defs.get(world.get_block(from.x, from.y, from.z), {}).get("container", false)):
+		var inv := _container(from)
+		var fill := 0.0
+		for st in inv.slots:
+			if st != null:
+				fill += float(st[1]) / float(Items.max_stack(int(st[0])))
+		return 0 if fill <= 0.0 else 1 + floori(fill / 27.0 * 14.0)
+	if level.has(from):
+		return int(level[from])
+	if _emit.has(from):
+		return 15
+	if gate_on.get(from, false) and _front(from) == to:
+		return int(comp_out[from]) if comp_out.has(from) else 15
+	return 0
 
 
 func _powered(p: Vector3i) -> bool:
@@ -387,6 +467,8 @@ func _toggle_door(p: Vector3i, id: int) -> void:
 
 const PUSHER_HEAD := 1760
 const GATE_LIT := 60                 # a gate's lit twin is 60 ids further (1710 -> 1770)
+const OBSERVER_LIT := 6              # an observer's pulsing twin (1820 -> 1826)
+const PULSE := 0.25                  # how long an observer's pulse lasts (seconds)
 
 
 static func _movable(id: int) -> bool:
@@ -413,6 +495,37 @@ func _push(p: Vector3i, d: Vector3i) -> void:
 	if not line.is_empty():
 		set_block.call(line[0], 0)
 	Sfx.play("place", -8.0, 0.7)
+
+
+## One item out of the thrower's front: into a container there, or thrown onto the ground.
+func _throw(p: Vector3i, d: Vector3i) -> void:
+	var mine := _container(p)
+	var q := p + d
+	var into_box: bool = world.containers.has(q) or Blocks.defs.get(world.get_block(q.x, q.y, q.z), {}).get("container", false)
+	for i in 27:
+		if mine.slots[i] == null:
+			continue
+		var item := int(mine.slots[i][0])
+		if into_box:
+			var dst := _container(q)
+			var slot := _slot_for(dst, item, 18 if parts.get(q, "") == "smelter" else 27)
+			if slot == -1:
+				return                                 # the box in front is full
+			if dst.slots[slot] == null:
+				dst.slots[slot] = [item, 1]
+			else:
+				dst.slots[slot][1] += 1
+			world.containers[q] = dst.to_data()
+			changed_containers[q] = true
+		elif world.get_block(q.x, q.y, q.z) == 0 or world.get_block(q.x, q.y, q.z) == WorldData.WATER:
+			spawn_drop.call([item, 1], Vector3(q))
+		else:
+			return                                     # a wall in front: nothing comes out
+		mine.use_one(i)
+		world.containers[p] = mine.to_data()
+		changed_containers[p] = true
+		Sfx.play("pop", -6.0, 1.3)
+		return
 
 
 func _break(q: Vector3i) -> void:

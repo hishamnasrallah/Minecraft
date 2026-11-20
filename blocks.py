@@ -363,6 +363,11 @@ def _logic(id_, name, tiles, kind, shape=CUBE, creative=True, drop="self", **ext
 _logic(1700, "copper wire", "wire_off", "wire", shape="wire", solid=False, hardness=0.0, tool=None, on=False)
 _logic(1701, "copper wire", "wire_on", "wire", shape="wire", solid=False, hardness=0.0, tool=None, on=True,
        creative=False, drop=1700, emit=3)
+# the same wire with a weaker signal (dim far from the source, brighter close to it)
+_logic(1790, "copper wire", "wire_dim", "wire", shape="wire", solid=False, hardness=0.0, tool=None, on=True,
+       creative=False, drop=1700, emit=1)
+_logic(1791, "copper wire", "wire_mid", "wire", shape="wire", solid=False, hardness=0.0, tool=None, on=True,
+       creative=False, drop=1700, emit=2)
 _logic(1702, "switch", ("switch_off", "switch_side", "switch_side"), "switch", shape="lever", solid=False, on=False,
        hardness=0.6)
 _logic(1703, "switch", ("switch_on", "switch_side", "switch_side"), "switch", shape="lever", solid=False, on=True,
@@ -386,6 +391,34 @@ for _f in range(6):
     for _base, _m in ((1730, "pusher"), (1736, "breaker")):
         _logic(_base + _f, _m, (f"{_m}_top_{_f}", f"{_m}_side_{_f}", f"{_m}_bottom_{_f}"), _m, facing=_f,
                creative=_f == 0, drop=_base, hardness=1.5, shape="pusher" if _m == "pusher" else CUBE)
+# the comparator: measures how full the container behind it is (or passes on the strength of
+# the signal behind), and compares with, or subtracts, the strongest signal at its sides.
+# 1838-1841 by facing, 1842-1845 the same while it gives power.
+for _f in range(4):
+    _logic(1838 + _f, "comparator", (f"gate_comparator_{_f}", "gate_side", "gate_side"), "comparator",
+           shape="gate", facing=_f, creative=_f == 0, drop=1838, hardness=0.6)
+for _f in range(4):
+    _logic(1842 + _f, "comparator", (f"gate_comparator_{_f}", "gate_side", "gate_side"), "comparator",
+           shape="gate", facing=_f, on=True, creative=False, drop=1838, hardness=0.6, emit=4)
+
+# the thrower: holds items like a chest; each time power arrives it sends one out of its front,
+# into a container there or thrown onto the ground
+for _f in range(6):
+    _logic(1832 + _f, "thrower", ("thrower_body", "thrower_body", "thrower_body"), "thrower", facing=_f,
+           shape="thrower", container=True, creative=_f == 0, drop=1832, hardness=2.0)
+
+# the observer: watches the block behind it (its eye face) and gives a short pulse out of its
+# front when that block changes. facing = the side the pulse goes out of; 1826+ = pulsing.
+for _f in range(6):
+    _logic(1820 + _f, "observer", ("observer_body", "observer_body", "observer_body"), "observer", facing=_f,
+           shape="observer", creative=_f == 0, drop=1820, hardness=1.5)
+    _logic(1826 + _f, "observer", ("observer_body", "observer_body", "observer_body"), "observer", facing=_f,
+           shape="observer", on=True, creative=False, drop=1820, hardness=1.5, emit=3)
+
+# the sticky pusher: pushes like the pusher and pulls the block back when the power stops
+for _f in range(6):
+    _logic(1792 + _f, "sticky pusher", ("sticky_face", "sticky_face", "sticky_face"), "sticky", facing=_f,
+           shape="pusher", creative=_f == 0, drop=1792, hardness=1.5)
 for _f in range(4):
     _logic(1742 + _f, "conveyor belt", (f"conveyor_{_f}", "machine_side", "machine_bottom"), "conveyor", shape=SLAB,
            facing=_f, creative=_f == 0, drop=1742, hardness=0.8)

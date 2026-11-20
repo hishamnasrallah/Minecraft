@@ -290,6 +290,10 @@ RECIPES = [
     ({"rock": 6, IRON_INGOT: 2, COPPER_INGOT: 1}, (1736, 1)),
     ({IRON_INGOT: 1, "planks": 3, COPPER_INGOT: 1}, (1742, 4)), ({IRON_INGOT: 5, 48: 1}, (1746, 1)),
     ({47: 1, COPPER_INGOT: 4, IRON_INGOT: 2}, (1747, 1)),
+    ({"rock": 6, COPPER_INGOT: 2, QUARTZ: 1}, (1820, 1)),  # observer
+    ({"rock": 7, COPPER_INGOT: 1}, (1832, 1)),            # thrower
+    ({"rock": 3, COPPER_INGOT: 3, QUARTZ: 1}, (1838, 1)),  # comparator
+    ({1730: 1, WHEAT_ITEM: 3}, (1792, 1)),                # sticky pusher: a pusher with a gluey face
     ({IRON_INGOT: 1, STICK: 2}, (1750, 8)),               # track
     ({IRON_INGOT: 1, GOLD_INGOT: 1, COPPER_INGOT: 1, STICK: 1}, (1756, 4)),   # boost track
     ({IRON_INGOT: 5}, (CART, 1)),

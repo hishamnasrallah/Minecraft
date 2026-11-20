@@ -35,7 +35,11 @@ func _ready() -> void:
 	_box.add_child(_list)
 
 
-func open(kind: String, id: int, delay: int) -> void:
+var _mode := "compare"
+
+
+func open(kind: String, id: int, delay: int, mode := "compare") -> void:
+	_mode = mode
 	for c in _list.get_children():
 		_list.remove_child(c)                       # gone now, not at the end of the frame
 		c.queue_free()
@@ -55,6 +59,13 @@ func open(kind: String, id: int, delay: int) -> void:
 		for g in GATES.size():
 			var b := _button(I18n.t("gate_short_" + GATES[g]), GATES[g] == kind)
 			b.pressed.connect(func(): chosen.emit("kind", g))
+			row.add_child(b)
+	if kind == "comparator":
+		var row := _row(I18n.t("panel_mode"))
+		var modes := ["compare", "subtract"]
+		for m in modes.size():
+			var b := _button(I18n.t("mode_" + modes[m]), modes[m] == _mode)
+			b.pressed.connect(func(): chosen.emit("mode", m))
 			row.add_child(b)
 	if kind == "delay":
 		var row := _row(I18n.t("panel_wait"))

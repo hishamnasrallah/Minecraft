@@ -89,8 +89,15 @@ var tile_bottom: PackedInt32Array
 const WALL_TORCH := 1810
 const SWITCH_ON := 1703
 const GATE_ON := 1770
-const PUSHER_HEAD := 1760                   # gates 1770+ are the same gates while they give power
+const PUSHER_HEAD := 1760
+const STICKY := 1792                    # 1792-1797: sticky pushers
+const OBSERVER_ON := 1826               # 1820-1825 observers, 1826-1831 the same while pulsing
+var obs_face := 0
+var obs_out_off := 0
+var obs_out_on := 0
+var thrower_face := 0                   # gates 1770+ are the same gates while they give power
 var machine: PackedByteArray
+var lit: PackedByteArray
 var facing: PackedByteArray
 var door_axis: PackedByteArray
 var door_open: PackedByteArray
@@ -116,6 +123,11 @@ func _init(w: WorldData) -> void:
 	tile_bottom = Blocks.tile_bottom.duplicate()
 	facing = Blocks.facing.duplicate()
 	machine = Blocks.machine.duplicate()
+	lit = Blocks.lit.duplicate()
+	obs_face = Blocks.tiles.find("observer_face")
+	obs_out_off = Blocks.tiles.find("observer_out_off")
+	obs_out_on = Blocks.tiles.find("observer_out_on")
+	thrower_face = Blocks.tiles.find("thrower_face")
 	door_axis = Blocks.door_axis.duplicate()
 	door_open = Blocks.door_open.duplicate()
 	atlas_cols = Blocks.atlas_cols
@@ -406,8 +418,19 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 					if nb != 0 and machine[nb] == 1 and (dy == 0 or shapes[nb] == "wire"):
 						arms.append(dd)
 						break
+			var climbs := []                          # wire one step up beside a block: dust up its face
+			for dd in arms:
+				var up := world.get_block(x + dd.x, y + 1, z + dd.y)
+				var side := world.get_block(x + dd.x, y, z + dd.y)
+				if up != 0 and shapes[up] == "wire" and side != 0 and transparent[side] == 0:
+					climbs.append(dd)
 			if arms.size() == 1:
 				arms.append(-arms[0])                 # one neighbour: a straight line right through
+			for dd in climbs:
+				var e := Vector3(dd.x, 0, dd.y) * .5
+				var t := Vector3(absf(dd.y), 0, absf(dd.x)) * .06
+				var inner := e - Vector3(dd.x, 0, dd.y) * .02
+				boxes.append([Vector3(minf(e.x, inner.x), -.5, minf(e.z, inner.z)) - t, Vector3(maxf(e.x, inner.x), .5, maxf(e.z, inner.z)) + t])
 			for dd in arms:
 				var a := Vector3(dd.x, 0, dd.y) * .1
 				var b := Vector3(dd.x, 0, dd.y) * .5
@@ -432,8 +455,7 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 			# a thin chip (its symbol and arrow on top), a stone nub at the back where the
 			# input comes in, and a little light at the front that is lit while it gives power
 			var gd: Vector3 = [Vector3(0, 0, 1), Vector3(1, 0, 0), Vector3(0, 0, -1), Vector3(-1, 0, 0)][facing[id] % 4]
-			var lit: bool = id >= GATE_ON
-			var cap: int = tile_side[1701 if lit else 1700]     # glowing red tip, or a dark one
+			var cap: int = tile_side[1701 if lit[id] == 1 else 1700]     # glowing red tip, or a dark one
 			var stick: int = tile_side[7]
 			var parts := [[Vector3(-.5, -.5, -.5), Vector3(.5, -.375, .5)]]
 			for at in [gd * .25, -gd * .25]:          # two little torches: the output and the input
@@ -463,7 +485,8 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 					plate_hi[a] = -.25
 			if out:
 				return [[Vector3(-.5, -.5, -.5), Vector3(.5, .5, .5), tile_side[22]]]
-			return [[body_lo, body_hi, tile_side[22]], [plate_lo, plate_hi, tile_side[7]]]
+			var face: int = tile_side[id] if id >= STICKY else tile_side[7]   # sticky: a green glue face
+			return [[body_lo, body_hi, tile_side[22]], [plate_lo, plate_hi, face]]
 		"funnel":
 			# a wide bowl on top narrowing to a spout below: things go in at the top, out below
 			var rim: int = tile_side[id]
@@ -472,6 +495,42 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 				[Vector3(-.12, -.5, -.12), Vector3(.12, -.22, .12), rim]]
 		"plate":
 			return [[Vector3(-.44, -.5, -.44), Vector3(.44, -.44, .44)]]
+		"thrower":
+			# a stone block with its mouth on the front
+			var tv: Vector3 = [Vector3(0, 0, 1), Vector3(1, 0, 0), Vector3(0, 0, -1), Vector3(-1, 0, 0),
+				Vector3(0, 1, 0), Vector3(0, -1, 0)][mini(facing[id], 5)]
+			var t_lo := Vector3(-.5, -.5, -.5)
+			var t_hi := Vector3(.5, .5, .5)
+			var m_lo := Vector3(-.5, -.5, -.5)
+			var m_hi := Vector3(.5, .5, .5)
+			for a in 3:
+				if tv[a] > 0:
+					t_hi[a] = .47
+					m_lo[a] = .47
+				elif tv[a] < 0:
+					t_lo[a] = -.47
+					m_hi[a] = -.47
+			return [[t_lo, t_hi], [m_lo, m_hi, thrower_face]]
+		"observer":
+			# a stone body, the eye face on the watched side (behind) and the output light in front
+			var ov: Vector3 = [Vector3(0, 0, 1), Vector3(1, 0, 0), Vector3(0, 0, -1), Vector3(-1, 0, 0),
+				Vector3(0, 1, 0), Vector3(0, -1, 0)][mini(facing[id], 5)]
+			var b_lo := Vector3(-.5, -.5, -.5)
+			var b_hi := Vector3(.5, .5, .5)
+			var eye_lo := Vector3(-.5, -.5, -.5)
+			var eye_hi := Vector3(.5, .5, .5)
+			var out_lo := Vector3(-.5, -.5, -.5)
+			var out_hi := Vector3(.5, .5, .5)
+			for a in 3:
+				if ov[a] != 0:
+					var sgn := signf(ov[a])
+					b_lo[a] = -.44
+					b_hi[a] = .44
+					out_lo[a] = .44 if sgn > 0 else -.5
+					out_hi[a] = .5 if sgn > 0 else -.44
+					eye_lo[a] = -.5 if sgn > 0 else .44
+					eye_hi[a] = -.44 if sgn > 0 else .5
+			return [[b_lo, b_hi], [eye_lo, eye_hi, obs_face], [out_lo, out_hi, obs_out_on if lit[id] == 1 else obs_out_off]]
 		"pusher_head":
 			# a wooden plate at the far side of the cell, on a rod back to the pusher
 			var dv: Vector3 = [Vector3(0, 0, 1), Vector3(1, 0, 0), Vector3(0, 0, -1), Vector3(-1, 0, 0),

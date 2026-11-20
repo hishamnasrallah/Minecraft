@@ -1001,7 +1001,7 @@ func _overlaps_player(p: Vector3i, id: int) -> bool:
 func _usable(id: int) -> bool:
 	var d: Dictionary = Blocks.defs.get(id, {})
 	return d.has("door") or d.get("container", false) or id == 62 or id == 47 \
-		or power.kind_of(id) in ["switch", "button", "not", "and", "or", "xor", "delay"]
+		or power.kind_of(id) in ["switch", "button", "not", "and", "or", "xor", "delay", "comparator"]
 
 
 ## Doors open and close, chests open, beds set your spawn point (and skip the night).
@@ -1009,9 +1009,9 @@ func use_block(pos: Vector3i) -> bool:
 	var id := world.get_block(pos.x, pos.y, pos.z)
 	var d: Dictionary = Blocks.defs.get(id, {})
 	var mk := power.kind_of(id)
-	if mk in MachinePanel.GATES or (mk in ["pusher", "breaker", "conveyor"] and inv.item_at(selected) == 0):
+	if mk in MachinePanel.GATES or mk == "comparator" or (mk in ["pusher", "sticky", "breaker", "conveyor", "observer"] and inv.item_at(selected) == 0):
 		_panel_pos = pos
-		machine_panel.open(mk, id, int(world.settings.get(pos, {}).get("delay", 3)))
+		machine_panel.open(mk, id, int(world.settings.get(pos, {}).get("delay", 3)), str(world.settings.get(pos, {}).get("mode", "compare")))
 		touch.blocked = true
 		return true
 	if d.has("door"):
@@ -1642,7 +1642,7 @@ func place_block(allow_use := true) -> void:
 		# machines face away from you; pushers and breakers can also face up or down
 		var f := _facing()
 		var fy := player.forward().y
-		var six := power.kind_of(item) in ["pusher", "breaker"]
+		var six := power.kind_of(item) in ["pusher", "sticky", "breaker", "observer", "thrower"]
 		if six and fy > 0.75:
 			f = 4
 		elif six and fy < -0.75:
@@ -1699,13 +1699,16 @@ func _machine_choice(action: String, value: int) -> void:
 		"delay":
 			world.settings[p] = {"delay": value}
 			power.note(p, id)
+		"mode":
+			world.settings[p] = {"mode": ["compare", "subtract"][value]}
+			power.note(p, id)
 		"turn":
-			var n := 6 if kind in ["pusher", "breaker"] else 4
+			var n := 6 if kind in ["pusher", "sticky", "breaker", "observer", "thrower"] else 4
 			id = base + (f + 1) % n
 	if id != world.get_block(p.x, p.y, p.z):
 		edit(p, id, true, false)
 	Sfx.play("click", -2.0, 1.1)
-	machine_panel.open(power.kind_of(id), id, int(world.settings.get(p, {}).get("delay", 3)))
+	machine_panel.open(power.kind_of(id), id, int(world.settings.get(p, {}).get("delay", 3)), str(world.settings.get(p, {}).get("mode", "compare")))
 
 
 # ---------------------------------------------------------------- carts and tracks
