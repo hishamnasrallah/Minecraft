@@ -21,6 +21,12 @@ MILK_BUCKET, CAKE = 119, 128
 RETURNS = {MILK_BUCKET: BUCKET}          # crafting with these gives the container back
 CART = 140
 CHEST_CART = 141
+GLASS_BOTTLE, WATER_BOTTLE = 133, 134
+# potions: item -> (name, icon, effect, seconds); drunk from the hand, the bottle comes back
+POTIONS = {135: ("swiftness potion", "potion_swift", "swift", 90), 136: ("healing potion", "potion_heal", "heal", 0),
+           137: ("night vision potion", "potion_night", "night", 120), 138: ("leaping potion", "potion_leap", "leap", 90),
+           139: ("fire resistance potion", "potion_fire", "fire", 120),
+           142: ("water breathing potion", "potion_water", "water", 120)}
 EGG, FEATHER, RAW_FISH, COOKED_FISH = 124, 125, 126, 127          # from animals (animals.py)
 FOOD = {RAW_MEAT: 2, COOKED_MEAT: 6, APPLE: 4, BREAD: 5, CARROT: 3, RAW_FISH: 2, COOKED_FISH: 5, MILK_BUCKET: 3,
         CAKE: 12}      # item -> hunger points restored
@@ -42,7 +48,9 @@ FOOD_ITEMS = {RAW_MEAT: ("raw meat", "raw_meat"), COOKED_MEAT: ("cooked meat", "
 OTHER_ITEMS = {BUCKET: ("bucket", "bucket"), WATER_BUCKET: ("water bucket", "water_bucket"),
                LAVA_BUCKET: ("lava bucket", "lava_bucket"),
                SKY_KEY: ("sky key", "sky_key"), CART: ("cart", "cart"),
-               CHEST_CART: ("chest cart", "chest_cart")}
+               CHEST_CART: ("chest cart", "chest_cart"),
+               GLASS_BOTTLE: ("glass bottle", "glass_bottle"), WATER_BOTTLE: ("water bottle", "water_bottle"),
+               **{p: (v[0], v[1]) for p, v in POTIONS.items()}}
 
 # ---------------------------------------------------------------- tools
 WOOD_PICKAXE, STONE_PICKAXE, WOOD_AXE, STONE_AXE = 201, 202, 203, 204
@@ -306,7 +314,10 @@ RECIPES = [
     ({IRON_INGOT: 1, STICK: 2}, (1750, 8)),               # track
     ({IRON_INGOT: 1, GOLD_INGOT: 1, COPPER_INGOT: 1, STICK: 1}, (1756, 4)),   # boost track
     ({IRON_INGOT: 5}, (CART, 1)),
-    ({CART: 1, 48: 1}, (CHEST_CART, 1)),     # a cart with a chest: carries things along the track
+    ({CART: 1, 48: 1}, (CHEST_CART, 1)),
+    ({GLASS: 3}, (GLASS_BOTTLE, 3)),
+    ({1868: 1, GLASS_BOTTLE: 1}, (1884, 1)),            # a brewing stand: from an auto-crafter
+    ({COBBLED_SLATE: 3, IRON_INGOT: 1, GLASS_BOTTLE: 1}, (1884, 1)),     # a cart with a chest: carries things along the track
     ({116: 4, 910: 1, DIAMOND: 1}, (SKY_KEY, 1)),            # amethyst x4, glow crystal, diamond
     ({STAR_SHARD: 9}, (1804, 1)), ({1804: 1}, (STAR_SHARD, 9)),
     ({STAR_SHARD: 4, STORM_CORE: 1}, (1808, 1)),
@@ -345,6 +356,17 @@ SMELTING = [
     ({15: 1, "fuel": 1}, (664, 1)), ({COBBLED_SLATE: 1, "fuel": 1}, (SLATE, 1)),
     ({"logs": 1, "fuel": 1}, (COAL, 1)), ({24: 1, "fuel": 1}, (GLASS, 1)),
     ({RAW_FISH: 1, "fuel": 1}, (COOKED_FISH, 1)),
+]
+
+
+# the brewing stand: a water bottle and one ingredient
+BREWING = [
+    ({WATER_BOTTLE: 1, 59: 1}, (135, 1)),                # reeds: swiftness
+    ({WATER_BOTTLE: 1, APPLE: 1}, (136, 1)),             # apple: healing
+    ({WATER_BOTTLE: 1, CARROT: 1}, (137, 1)),            # carrot: night vision
+    ({WATER_BOTTLE: 1, FEATHER: 1}, (138, 1)),           # feather: leaping
+    ({WATER_BOTTLE: 1, 1890: 1}, (139, 1)),              # obsidian: fire resistance
+    ({WATER_BOTTLE: 1, RAW_FISH: 1}, (142, 1)),          # fish: water breathing
 ]
 
 

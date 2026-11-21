@@ -125,7 +125,7 @@ func _rebuild_lists() -> void:
 	_lists_dirty = false
 	_comps = []
 	_comp_of = {}
-	_item_movers = {"collector": [], "smelter": [], "crafter": []}
+	_item_movers = {"collector": [], "smelter": [], "crafter": [], "brewer": []}
 	_watch = {}
 	_comparators = []
 	for p in parts:
@@ -703,22 +703,22 @@ func _container(p: Vector3i) -> Inventory:
 	return Inventory.from_data(world.containers.get(p), 27)
 
 
-var _item_movers := {"collector": [], "smelter": [], "crafter": []}
+var _item_movers := {"collector": [], "smelter": [], "crafter": [], "brewer": []}
 var _turn := {}                      # collector -> the slot above it takes from next
 var busy_until := {}                 # smelter / crafter Vector3i -> time it stops showing it works
-const LIT_TWIN := {1747: 1748, 1748: 1748, 1868: 1869, 1869: 1869}
-const COLD_TWIN := {1747: 1747, 1748: 1747, 1868: 1868, 1869: 1868}
+const LIT_TWIN := {1747: 1748, 1748: 1748, 1868: 1869, 1869: 1869, 1884: 1885, 1885: 1885}
+const COLD_TWIN := {1747: 1747, 1748: 1747, 1868: 1868, 1869: 1868, 1884: 1884, 1885: 1884}
 
 
 func _move_items() -> void:
 	for p in _item_movers["collector"]:
 		if world.is_loaded(p.x, p.z):
 			_collect(p)
-	for kind in ["smelter", "crafter"]:
+	for kind in ["smelter", "crafter", "brewer"]:
 		for p in _item_movers[kind]:
 			if not world.is_loaded(p.x, p.z):
 				continue
-			if _has_items(p) and (_smelt(p) if kind == "smelter" else _craft(p)):
+			if _has_items(p) and (_craft(p) if kind == "crafter" else _station(p, "furnace" if kind == "smelter" else "brew")):
 				busy_until[p] = now + 1.3
 			# a working machine shows it: the fire burns, the crafting grid glows
 			var id := world.get_block(p.x, p.y, p.z)
@@ -734,7 +734,7 @@ static func _bucket(name: String) -> int:
 ## Smelters and crafters take things in at the top (slots 0-17) and give them out below (18-26).
 func _is_maker(q: Vector3i) -> bool:
 	var k: String = parts.get(q, "")
-	return k == "smelter" or k == "crafter"
+	return k == "smelter" or k == "crafter" or k == "brewer"
 
 
 func _has_items(p: Vector3i) -> bool:
@@ -837,10 +837,10 @@ func take_drop(p: Vector3i, stack: Array):
 	return left
 
 
-func _smelt(p: Vector3i) -> bool:
+func _station(p: Vector3i, station: String) -> bool:
 	var inv := _container(p)
 	for r in Items.recipes:
-		if str(r.get("station", "")) == "furnace" and _can_make(inv, r):
+		if str(r.get("station", "")) == station and _can_make(inv, r):
 			return _make(p, inv, r)
 	return false
 
@@ -853,7 +853,7 @@ static var _table: Array = []
 static func table_recipes() -> Array:
 	if _table.is_empty():
 		for r in Items.recipes:
-			if str(r.get("station", "")) != "furnace":
+			if str(r.get("station", "")) == "":
 				_table.append(r)
 		var size := func(r) -> int:
 			var n := 0

@@ -161,6 +161,36 @@ def cake_icon(rng):
     return img
 
 
+def potion(colour):
+    def gen(rng):
+        img = _blank()
+        for y in range(1, 4):
+            for x in range(7, 9):
+                _px(img, x, y, (150, 110, 70) if y == 1 else (200, 220, 230))
+        for y in range(4, 15):
+            half = 2 if y < 6 else (5 if 7 <= y <= 13 else 4)
+            for x in range(8 - half, 8 + half):
+                edge = x in (8 - half, 7 + half) or y in (4, 14)
+                inside = colour if y >= 7 else (215, 230, 240)
+                _px(img, x, y, (200, 220, 236) if edge else _shade(inside, 1 + rng.uniform(-0.08, 0.08)))
+        _px(img, 6, 9, (255, 255, 255))
+        return img
+    return gen
+
+
+def brewer_side(rng, lit=False):
+    """A stand of dark wood and stone with three bottles; they bubble and glow while it works."""
+    img = _dark_stone(rng)
+    for i, x in enumerate((3, 7, 11)):
+        for y in range(6, 12):
+            for dx in range(3):
+                c = ((240, 90, 200), (90, 200, 250), (250, 200, 80))[i] if lit and y > 8 else (180, 200, 210)
+                img.putpixel((x + dx, y), c + (255,))
+    for x in range(2, 14):
+        img.putpixel((x, 13), (90, 64, 40, 255))
+    return img
+
+
 def lava(rng):
     img = _noise(rng, (222, 92, 18), 0.08)
     for _ in range(7):                       # bright molten streaks
@@ -1961,6 +1991,11 @@ EXTRA_GENERATORS.update({
     "boost_x_off": _track(((1, 0), (-1, 0)), False), "boost_z_off": _track(((0, 1), (0, -1)), False),
     "boost_x_on": _track(((1, 0), (-1, 0)), True), "boost_z_on": _track(((0, 1), (0, -1)), True),
     "cart": cart_icon, "chest_cart": chest_cart_icon,
+    "glass_bottle": potion((215, 230, 240)), "water_bottle": potion((60, 110, 210)),
+    "potion_swift": potion((120, 200, 250)), "potion_heal": potion((240, 60, 80)),
+    "potion_night": potion((40, 50, 160)), "potion_leap": potion((120, 230, 90)),
+    "potion_fire": potion((240, 150, 40)), "potion_water": potion((40, 160, 170)),
+    "brewer_top": _dark_stone, "brewer_side": brewer_side, "brewer_side_on": lambda rng: brewer_side(rng, True),
 })
 EXTRA_GENERATORS.update({
     "wire_off": wire(False), "wire_on": wire(True), "wire_dim": wire(True, 1), "wire_mid": wire(True, 2), "switch_off": switch(False), "switch_on": switch(True),

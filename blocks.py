@@ -452,6 +452,11 @@ _logic(1748, "auto-smelter", ("smelter_top", "smelter_front_on", "machine_bottom
        hardness=2.0, on=True, creative=False, drop=1747, emit=12)
 # the auto-crafter: like the smelter, but it makes things at the crafting table (wheat -> bread,
 # planks, sticks...). Input slots first, finished things in the last 9; a tap chooses what it makes.
+# the brewing stand: water bottles and an ingredient in at the top, potions out below, by itself
+_logic(1884, "brewing stand", ("brewer_top", "brewer_side", "machine_bottom"), "brewer", container=True,
+       hardness=2.0)
+_logic(1885, "brewing stand", ("brewer_top", "brewer_side_on", "machine_bottom"), "brewer", container=True,
+       hardness=2.0, on=True, creative=False, drop=1884, emit=9)
 _logic(1868, "auto-crafter", ("crafter_top", "crafter_side", "machine_bottom"), "crafter", container=True,
        hardness=2.0)
 _logic(1869, "auto-crafter", ("crafter_top_on", "crafter_side_on", "machine_bottom"), "crafter", container=True,

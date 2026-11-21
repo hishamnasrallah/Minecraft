@@ -192,6 +192,18 @@
   "blocks": 116
  },
  {
+  "file": "potion_lab.json",
+  "name": "Potion lab",
+  "name_ar": "مختبر الجرعات",
+  "category": "small_factories",
+  "size": [
+   15,
+   8,
+   5
+  ],
+  "blocks": 124
+ },
+ {
   "file": "night_street.json",
   "name": "Street with night lights",
   "name_ar": "شارع بإنارة ليلية",

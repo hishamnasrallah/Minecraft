@@ -18,6 +18,8 @@ var pitch := 0.0
 var swimming := false
 var flying := false
 var fast := false                   # sprint / fast flying
+var boost := 1.0                    # a swiftness potion: walk faster
+var leap := 1.0                     # a leaping potion: jump higher
 var vertical := 0.0                 # flying: +1 up, -1 down
 var noclip := false
 var on_ladder := false
@@ -87,7 +89,7 @@ func _physics_process(delta: float) -> void:
 	swimming = _water_at(position + Vector3(0, 0.6, 0)) or _water_at(position + Vector3(0, -0.4, 0))
 	var feet_block := world.get_block(_cell(position.x), _cell(position.y + 0.5), _cell(position.z))
 	on_ladder = Blocks.defs.get(feet_block, {}).get("climbable", false)
-	var speed := SWIM_SPEED if swimming else WALK_SPEED * (1.4 if fast else 1.0)
+	var speed := SWIM_SPEED if swimming else WALK_SPEED * (1.4 if fast else 1.0) * boost
 	if flying:
 		speed = FLY_SPEED * (2.5 if fast else 1.0)
 	var basis_flat := Basis(Vector3.UP, yaw)
@@ -112,7 +114,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		velocity.y -= GRAVITY * delta
 		if jump_held and is_on_floor():
-			velocity.y = JUMP_VELOCITY
+			velocity.y = JUMP_VELOCITY * leap
 		elif is_on_floor() and wish.length() > 0.1 and _step_ahead(wish):
 			velocity.y = JUMP_VELOCITY      # auto-jump onto a single block step
 	if noclip:

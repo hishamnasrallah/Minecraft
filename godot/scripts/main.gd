@@ -823,7 +823,8 @@ func tap_world(pos: Vector2) -> void:
 	elif not hit.is_empty() and use_block(hit["pos"]):
 		pass
 	elif Items.placeable.has(item) or Items.food.has(item) or Items.plant.has(item) or _is_hoe(item) \
-			or item in [int(Items.S["BUCKET"]), int(Items.S["WATER_BUCKET"]), int(Items.S["LAVA_BUCKET"]), CART, CHEST_CART]:
+			or item in [int(Items.S["BUCKET"]), int(Items.S["WATER_BUCKET"]), int(Items.S["LAVA_BUCKET"]), CART, CHEST_CART] \
+			or Items.potions.has(item) or item == int(Items.S["GLASS_BOTTLE"]):
 		place_block()
 	elif not hit.is_empty():
 		var id := world.get_block(hit["pos"].x, hit["pos"].y, hit["pos"].z)
@@ -963,6 +964,43 @@ func _drop_attached(pos: Vector3i) -> void:
 			_drop_attached(p)                         # a tall stack of reeds comes down whole
 
 
+var effects := {}                   # potion effect -> seconds left
+
+
+func drink(item: int) -> void:
+	var p: Dictionary = Items.potions[item]
+	var fx := str(p["effect"])
+	if fx == "heal":
+		health.health = mini(int(Items.survival["MAX_HEALTH"]), health.health + 8)
+	else:
+		effects[fx] = float(p["seconds"])
+	inv.use_one(selected)
+	inv.add(int(Items.S["GLASS_BOTTLE"]), 1)
+	Sfx.play("eat", 0.0, 1.3)
+	hud.flash(I18n.f("drank", Items.name_of(item)))
+	_refresh_mode()
+
+
+## Potion effects wear off; what they do is read where it matters (speed, jump, light, lava, air).
+func _update_effects(delta: float) -> void:
+	if effects.is_empty():
+		player.boost = 1.0
+		player.leap = 1.0
+		return
+	var shown := []
+	for k in effects.keys():
+		effects[k] -= delta
+		if effects[k] <= 0:
+			effects.erase(k)
+		else:
+			shown.append("%s %d" % [I18n.t("fx_" + k), ceili(effects[k])])
+	player.boost = 1.5 if effects.has("swift") else 1.0
+	player.leap = 1.3 if effects.has("leap") else 1.0
+	hud.mode_label.text = ("  ·  ".join(shown)) if not shown.is_empty() else ""
+	if shown.is_empty():
+		_refresh_mode()
+
+
 var _trader = null
 
 
@@ -1049,7 +1087,7 @@ func _overlaps_player(p: Vector3i, id: int) -> bool:
 func _usable(id: int) -> bool:
 	var d: Dictionary = Blocks.defs.get(id, {})
 	return d.has("door") or d.get("container", false) or id == 62 or id == 47 \
-		or power.kind_of(id) in ["switch", "button", "not", "and", "or", "xor", "delay", "comparator"]
+		or power.kind_of(id) in ["switch", "button", "not", "and", "or", "xor", "delay", "comparator", "crafter", "collector"]
 
 
 ## Doors open and close, chests open, beds set your spawn point (and skip the night).
@@ -1670,6 +1708,18 @@ func place_block(allow_use := true) -> void:
 	if item == 131 and not hit.is_empty():
 		_open_portal(hit["pos"])
 		return
+	if Items.potions.has(item):
+		drink(item)
+		return
+	if item == int(Items.S["GLASS_BOTTLE"]):
+		var wt := target(true)
+		if not wt.is_empty() and Blocks.is_water(world.get_block(wt["pos"].x, wt["pos"].y, wt["pos"].z)):
+			inv.use_one(selected)                     # a bottle of water (the water stays)
+			if inv.add(int(Items.S["WATER_BOTTLE"]), 1) > 0:
+				drops.spawn([int(Items.S["WATER_BOTTLE"]), 1], player.position)
+			Sfx.play("splash", -4.0)
+			_refresh_mode()
+		return
 	if Items.food.has(item) and not creative:
 		if health.eat(Items.food[item]):
 			Sfx.play("eat")
@@ -2165,7 +2215,7 @@ func _factory_test(name: String) -> void:
 				_st["ft_wait"] = 1500
 			"cobble_generator", "stone_factory", "obsidian_factory", "bakery", "grill_house", "metal_works":
 				_st["ft_wait"] = 1800
-			"cargo_line", "village", "old_town", "modern_city":
+			"cargo_line", "village", "old_town", "modern_city", "potion_lab":
 				_st["ft_wait"] = 1800
 			"animal_farm":
 				for a in wildlife.animals:
@@ -2276,8 +2326,13 @@ func _factory_test(name: String) -> void:
 	if t == int(_st.get("ft_wait", 600)):
 		var out := ""
 		match name:
-			"cobble_generator", "stone_factory", "obsidian_factory", "bakery", "grill_house", "metal_works", "animal_farm", "cargo_line", "village", "old_town", "modern_city":
+			"cobble_generator", "stone_factory", "obsidian_factory", "bakery", "grill_house", "metal_works", "animal_farm", "cargo_line", "village", "old_town", "modern_city", "potion_lab":
 				var got := {}
+				if name == "potion_lab":
+					inv.slots[selected] = [135, 1]
+					drink(135)
+					_update_effects(0.1)
+					out += "drank swiftness: speed x%.1f, bottle back %s; " % [player.boost, inv.item_at(selected) == int(Items.S["GLASS_BOTTLE"]) or inv.count(int(Items.S["GLASS_BOTTLE"])) > 0]
 				for ch in found.get("chest", []):
 					for st in Inventory.from_data(world.containers.get(ch), 27).slots:
 						if st != null:
@@ -2683,11 +2738,11 @@ func _update_health(delta: float) -> void:
 			moved = 0.0
 			health.fall_top = null
 	_last_position = player.position
-	var taken := health.tick(delta, moved, player.head_under_water())
+	var taken := health.tick(delta, moved, player.head_under_water() and not effects.has("water"))
 	taken += health.track_fall(player.position.y, player.is_on_floor() or player.on_ladder, player.swimming)
 	# lava burns: 3 points a second while you stand in it
 	var body := Vector3i(floori(player.position.x + 0.5), floori(player.position.y + 0.5), floori(player.position.z + 0.5))
-	if Blocks.fluid[world.get_block(body.x, body.y, body.z)] == 2 or Blocks.fluid[world.get_block(body.x, body.y + 1, body.z)] == 2:
+	if not effects.has("fire") and (Blocks.fluid[world.get_block(body.x, body.y, body.z)] == 2 or Blocks.fluid[world.get_block(body.x, body.y + 1, body.z)] == 2):
 		_burn += delta
 		if _burn >= 0.33:
 			_burn = 0.0
@@ -2758,6 +2813,8 @@ func _update_sky(delta: float) -> void:
 	var tint := Vector3(0.72, 0.8, 1.0).lerp(Vector3.ONE, day).lerp(Vector3(1.0, 0.78, 0.6), dusk * 0.5)
 	# what you see: moonlight keeps the night readable (monsters still use `daylight`)
 	shown_light = (NIGHT_LIGHT + (1.0 - NIGHT_LIGHT) * day) * (1.0 - weather.sky_dim())
+	if effects.has("night"):
+		shown_light = maxf(shown_light, 0.9)               # night vision
 	for m in materials.values():
 		m.set_shader_parameter("daylight", shown_light)
 		m.set_shader_parameter("sky_tint", Color(tint.x, tint.y, tint.z))
@@ -2852,6 +2909,7 @@ func _process_inner(delta: float) -> void:
 		_update_paste()
 		if not _remote_world:
 			_update_growing(delta)                  # with friends, the host grows plants
+		_update_effects(delta)
 		_update_machines(delta)
 	var t4 := Time.get_ticks_usec()
 	if spawned:

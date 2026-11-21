@@ -23,6 +23,7 @@ CRAFTER, WATER, LAVA, OBSIDIAN = 1868, 10, 1880, 1890
 # items for filled chests
 COAL, RAW_MEAT, WHEAT_ITEM, BREAD, EGG, RAW_FISH, LAVA_BUCKET = 102, 103, 121, 122, 124, 126, 118
 BUCKET, MILK_BUCKET, CAKE = 112, 119, 128
+BREWER, WATER_BOTTLE = 1884, 134
 IRON_ORE, COPPER_ORE, TIN_ORE, GOLD_ORE = 25, 26, 27, 28
 IRON_BLOCK, COPPER_BLOCK, GOLD_BLOCK, TIN_BLOCK = 30, 31, 32, 908
 DOOR_BOTTOM, DOOR_TOP = 510, 511
@@ -323,6 +324,22 @@ def door_alarm():
     return c
 
 
+def potion_lab():
+    """Six brewing stands, each fed water bottles and an ingredient from the chest above:
+    swiftness (reeds), healing (apples), night vision (carrots), leaping (feathers), fire
+    resistance (obsidian) and water breathing (fish). The potions come out into the chests below."""
+    c = Clip()
+    c.box(0, 0, 0, 14, 0, 4, POLISHED)
+    for i, extra in enumerate((59, 105, 123, 125, 1890, 126)):
+        maker_line(c, 2 + i * 2, 1, 2, [BREWER], [[WATER_BOTTLE, 16], [extra, 16]])
+    for x in (0, 14):
+        c.box(x, 1, 0, x, 5, 0, GLASS)
+        c.put(x, 6, 0, LAMP)
+    c.animals(7, 1, 0, "worker:2")
+    c.text(2, 7, 2, "POTIONS", "blue")
+    return c
+
+
 def cobble_unit(c, ox, oz):
     """Lava and water make cobblestone by themselves, like in the original: lava runs into a gap
     with water under it and hardens. An observer over the gap sees it form and fires the
@@ -592,6 +609,7 @@ SMALL = [
     ("grill_house", "Grill house", "معمل شوي", grill_house),
     ("metal_works", "Metal works (iron, gold, copper, tin)", "مصنع المعادن (حديد، ذهب، نحاس، قصدير)", metal_works),
     ("cargo_line", "Cargo railway", "سكة شحن", cargo_line),
+    ("potion_lab", "Potion lab", "مختبر الجرعات", potion_lab),
     ("animal_farm", "Animal farm (eggs, lambs, milk)", "مزرعة حيوانات (بيض وخرفان وحليب)", animal_farm),
 ]
 

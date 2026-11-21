@@ -427,3 +427,16 @@ func test_filter_collector_takes_only_its_item() -> String:
 	var milk := _count_in(w, col + Vector3i(0, -1, 0), 119)
 	var empty := _count_in(w, th, 112)
 	return "" if milk == 2 and empty == 5 else "milk below %d of 2, empty buckets left above %d of 5" % [milk, empty]
+
+
+func test_potion_lab_brews_all_six() -> String:
+	var s := _world_full("potion_lab.json")
+	var w: WorldData = s[0]
+	_run_all(s[1], s[3], 30.0)
+	var made := []
+	for potion in [135, 136, 137, 138, 139, 142]:
+		var n := 0
+		for ch in _find(w, 48):
+			n += _count_in(w, ch, potion)
+		made.append(n)
+	return "" if made.min() > 0 else "potions made (swift, heal, night, leap, fire, water): %s" % [made]
