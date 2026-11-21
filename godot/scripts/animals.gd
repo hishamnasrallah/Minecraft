@@ -706,6 +706,14 @@ func feed_near(at: Vector3, item: int, reach := 3.0) -> int:
 	return 1
 
 
+## What workers trade (rubies are the money): [give item, how many, get item, how many].
+const TRADES := [
+	[[121, 16, 114, 1], [123, 16, 114, 1], [114, 1, 122, 6], [114, 1, 120, 24], [114, 3, 219, 1]],       # farmer
+	[[102, 15, 114, 1], [106, 4, 114, 1], [114, 3, 205, 1], [114, 3, 207, 1], [114, 4, 215, 1], [114, 2, 211, 1]],  # smith
+	[[124, 12, 114, 1], [114, 1, 122, 4], [114, 2, 128, 1], [114, 1, 104, 3]],                            # baker
+]
+
+
 ## A worker's job, twice a second. Farmers: walk to a ripe crop near home, harvest it, plant
 ## it again; with a full basket (or nothing left to pick) walk to the nearest chest and put
 ## the harvest in. Smiths and bakers: walk from machine to machine near home and tend them.

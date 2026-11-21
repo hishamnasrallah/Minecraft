@@ -300,6 +300,30 @@
   "blocks": 1283
  },
  {
+  "file": "village.json",
+  "name": "Village (farmers, baker, smith)",
+  "name_ar": "قرية (فلاحين وخبّاز وحدّاد)",
+  "category": "big_factories",
+  "size": [
+   45,
+   10,
+   44
+  ],
+  "blocks": 2507
+ },
+ {
+  "file": "old_town.json",
+  "name": "Old town with a market",
+  "name_ar": "بلدة قديمة فيها سوق",
+  "category": "big_factories",
+  "size": [
+   64,
+   18,
+   63
+  ],
+  "blocks": 6060
+ },
+ {
   "file": "giant_farm.json",
   "name": "Giant automatic farm",
   "name_ar": "المزرعة الأوتوماتيكية العملاقة",
@@ -322,5 +346,17 @@
    71
   ],
   "blocks": 15204
+ },
+ {
+  "file": "modern_city.json",
+  "name": "Modern city",
+  "name_ar": "مدينة حديثة",
+  "category": "big_factories",
+  "size": [
+   83,
+   53,
+   83
+  ],
+  "blocks": 24959
  }
 ]

@@ -53,7 +53,7 @@ func _open_now(kind: String, id: int, delay: int, mode: String, choices: Array, 
 		_list.remove_child(c)                       # gone now, not at the end of the frame
 		c.queue_free()
 	var title := Label.new()
-	title.text = Items.name_of(id)
+	title.text = I18n.t(["job_farmer", "job_smith", "job_baker"][clampi(id, 0, 2)]) if kind == "trade" else Items.name_of(id)
 	title.add_theme_font_size_override("font_size", 24)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_list.add_child(title)
@@ -82,6 +82,21 @@ func _open_now(kind: String, id: int, delay: int, mode: String, choices: Array, 
 			var b := _button(I18n.f("seconds", "%.1f" % (t / 10.0)), t == delay)
 			b.pressed.connect(func(): chosen.emit("delay", t))
 			row.add_child(b)
+	if kind == "trade":
+		# a worker's offers: one button each, greyed out when you cannot pay
+		for i in choices.size():
+			var o: Array = choices[i]
+			var b := _button("%d %s  →  %d %s" % [o[1], Items.name_of(int(o[0])), o[3], Items.name_of(int(o[2]))], false)
+			b.disabled = not bool(o[4])
+			b.custom_minimum_size = Vector2(380, 52)
+			b.pressed.connect(func(): chosen.emit("trade", i))
+			_list.add_child(b)
+		var done_t := _button(I18n.t("done"), false)
+		done_t.pressed.connect(close)
+		_list.add_child(done_t)
+		visible = true
+		_place.call_deferred()
+		return
 	if kind == "collector":
 		# a filter: take everything, or only one thing
 		var row := _row(I18n.t("panel_takes"))

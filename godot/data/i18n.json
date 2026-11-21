@@ -636,6 +636,22 @@
    "en": "Got: %s",
    "ar": "أخذت: %s"
   },
+  "job_farmer": {
+   "en": "Farmer",
+   "ar": "فلّاح"
+  },
+  "job_smith": {
+   "en": "Smith",
+   "ar": "حدّاد"
+  },
+  "job_baker": {
+   "en": "Baker",
+   "ar": "خبّاز"
+  },
+  "hint_trade": {
+   "en": "Trades with you: rubies are the money",
+   "ar": "بيبيع وبيشتري منك، والياقوت هو المصاري"
+  },
   "cart_holds": {
    "en": "The cart carries: %s",
    "ar": "العربة فيها: %s"

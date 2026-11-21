@@ -703,7 +703,7 @@ def power_plant(c, ox, oz):
     c.text(ox + 2, 7, oz, "POWER", "blue")
 
 
-def office_tower(c, ox, oz, floors=6):
+def office_tower(c, ox, oz, floors=6, label="FACTORY"):
     h = floors * 4
     c.box(ox, 0, oz, ox + 8, 0, oz + 8, WHITE)
     c.walls(ox, 1, oz, ox + 8, h, oz + 8, GLASS)
@@ -715,7 +715,222 @@ def office_tower(c, ox, oz, floors=6):
             c.put(cx, y, cz, CONCRETE[2])
     c.put(ox + 4, 1, oz, DOOR_BOTTOM)
     c.put(ox + 4, 2, oz, DOOR_TOP)
-    c.text(ox + 1, h + 2, oz, "FACTORY", "pink")
+    if label:
+        c.text(ox + 1, h + 2, oz, label, "pink")
+
+
+# ---------------------------------------------------------------- villages and cities
+LOG, LEAVES, GRAVEL, BED, BOOKS, WORKBENCH, FURNACE, HAY, SLAB = 4, 5, 14, 62, 45, 46, 47, 950, 300
+
+
+def house(c, ox, oz, w=6, d=5, wall=PLANKS, roof=BRICK, door_side="z0", people=()):
+    """A small house: walls with windows, a door, a flat roof with a rim, a bed, a chest and a
+    lamp inside. `people`: workers who live here ("worker:0" farmer, 1 smith, 2 baker)."""
+    c.box(ox, 0, oz, ox + w, 0, oz + d, PLANKS)
+    c.walls(ox, 1, oz, ox + w, 3, oz + d, wall)
+    for cx, cz in ((ox, oz), (ox + w, oz), (ox, oz + d), (ox + w, oz + d)):
+        c.box(cx, 1, cz, cx, 3, cz, LOG)
+    for x in range(ox + 2, ox + w - 1, 2):                    # windows
+        c.put(x, 2, oz + d, GLASS)
+    for z in range(oz + 2, oz + d - 1, 2):
+        c.put(ox, 2, z, GLASS)
+        c.put(ox + w, 2, z, GLASS)
+    c.box(ox - 1, 4, oz - 1, ox + w + 1, 4, oz + d + 1, roof)
+    c.box(ox + 1, 5, oz + 1, ox + w - 1, 5, oz + d - 1, roof)
+    dx = ox + w // 2
+    c.put(dx, 1, oz, DOOR_BOTTOM)
+    c.put(dx, 2, oz, DOOR_TOP)
+    c.put(ox + 1, 1, oz + d - 1, BED)
+    c.put(ox + w - 1, 1, oz + d - 1, CHEST)
+    c.put(dx, 3, oz + d // 2, LAMP)
+    for p in people:
+        c.animals(dx, 1, oz - 1, p)
+
+
+def tree(c, x, z, h=4):
+    c.box(x, 1, z, x, h, z, LOG)
+    c.box(x - 2, h - 1, z - 2, x + 2, h, z + 2, LEAVES)
+    c.box(x - 1, h + 1, z - 1, x + 1, h + 1, z + 1, LEAVES)
+    c.box(x, 1, z, x, h, z, LOG)
+
+
+def well(c, x, z):
+    c.box(x - 1, 0, z - 1, x + 1, 0, z + 1, COBBLE)
+    c.box(x - 1, 1, z - 1, x + 1, 1, z + 1, COBBLE)
+    c.put(x, 1, z, WATER)
+    c.put(x, 0, z, WATER)
+    for cx, cz in ((x - 1, z - 1), (x + 1, z - 1), (x - 1, z + 1), (x + 1, z + 1)):
+        c.box(cx, 2, cz, cx, 3, cz, FENCE)
+    c.box(x - 1, 4, z - 1, x + 1, 4, z + 1, SLAB)
+
+
+def field(c, ox, oz, w, d, farmer=True):
+    """Farmland in rows with water channels; a farmer looks after it and fills the chest."""
+    for x in range(ox, ox + w):
+        for z in range(oz, oz + d):
+            if z == oz + d // 2:
+                c.put(x, 0, z, WATER)
+            else:
+                c.put(x, 0, z, FARMLAND)
+                c.put(x, 1, z, CARROTS if (x + z) % 3 == 0 else WHEAT)
+    c.put(ox - 1, 0, oz + d // 2, LOG)                      # the water channel's ends are closed
+    c.put(ox + w, 0, oz + d // 2, LOG)
+    c.put(ox - 1, 1, oz, CHEST)
+    c.box(ox - 1, 0, oz - 1, ox + w, 0, oz - 1, GRAVEL)
+    if farmer:
+        c.animals(ox + w // 2, 1, oz - 1, "worker:0")
+
+
+def village():
+    """A village that lives: houses round a well, a field with farmers who harvest and fill
+    the chests, a bakery hut with a baker, a smithy with a smith, an animal pen, paths and
+    lamps that come on at night. Tap a worker to trade (rubies are the money)."""
+    c = Clip()
+    S = 44
+    for x in range(S):                                       # paths
+        c.put(x, 0, S // 2, GRAVEL)
+        c.put(S // 2, 0, x, GRAVEL)
+    well(c, S // 2, S // 2)
+    house(c, 4, 4, people=("worker:0",))
+    house(c, 13, 4)
+    house(c, 27, 4, wall=COBBLE, people=("worker:0",))
+    house(c, 4, 28, wall=COBBLE)
+    house(c, 13, 30, roof=PLANKS)
+    # bakery hut: a crafter line with wheat and eggs, a baker
+    c.box(27, 0, 27, 35, 0, 33, POLISHED)
+    c.walls(27, 1, 27, 35, 6, 33, PLANKS)
+    c.box(27, 7, 27, 35, 7, 33, BRICK)
+    c.put(31, 1, 27, DOOR_BOTTOM)
+    c.put(31, 2, 27, DOOR_TOP)
+    maker_line(c, 29, 1, 31, [CRAFTER], [[WHEAT_ITEM, 64], [WHEAT_ITEM, 64]], [BREAD])
+    maker_line(c, 33, 1, 31, [CRAFTER], [[MILK_BUCKET, 1]] * 4 + [[EGG, 8], [WHEAT_ITEM, 24]], [CAKE])
+    c.animals(31, 1, 29, "worker:2")
+    # smithy: a smelter line with iron ore and coal, a smith
+    c.box(36, 0, 4, 42, 0, 10, COBBLE)
+    c.walls(36, 1, 4, 42, 8, 10, COBBLE)
+    c.box(36, 9, 4, 42, 9, 10, SLAB)
+    c.put(39, 1, 4, DOOR_BOTTOM)
+    c.put(39, 2, 4, DOOR_TOP)
+    maker_line(c, 40, 1, 8, [SMELTER, CRAFTER], [[IRON_ORE, 64], [COAL, 64]], [IRON_BLOCK])
+    c.put(37, 1, 9, WORKBENCH)
+    c.put(38, 1, 9, FURNACE)
+    c.animals(38, 1, 6, "worker:1")
+    # the field, between the houses and the road
+    field(c, 4, 13, 14, 7)
+    field(c, 27, 13, 12, 7)
+    # animal pen
+    c.box(4, 0, 37, 12, 0, 42, GRAVEL)
+    for x in range(4, 13):
+        c.put(x, 1, 37, FENCE)
+        c.put(x, 1, 42, FENCE)
+    for z in range(37, 43):
+        c.put(4, 1, z, FENCE)
+        c.put(12, 1, z, FENCE)
+    c.animals(7, 1, 39, "hen", 2)
+    c.animals(9, 1, 40, "cow", 2)
+    c.animals(10, 1, 39, "woolly", 2)
+    for x, z in ((20, 20), (24, 24), (20, 24), (24, 20), (2, 22), (42, 22), (22, 2), (22, 42)):
+        street_lamp(c, x, 1, z, height=3)
+    for x, z in ((38, 38), (41, 30), (2, 2), (16, 40)):
+        tree(c, x, z)
+    c.text(16, 8, 21, "VILLAGE", "pink")
+    return c
+
+
+def road_grid(c, size, step):
+    """Asphalt streets every `step` blocks with dashed yellow lines and grey pavements."""
+    for a in range(size + 1):
+        for b in range(0, size + 1, step):
+            for w in (-1, 0, 1):
+                c.put(a, 0, b + w, BLACK)
+                c.put(b + w, 0, a, BLACK)
+            c.put(a, 0, b, YELLOW if a % 4 < 2 else BLACK)
+            c.put(b, 0, a, YELLOW if a % 4 < 2 else BLACK)
+            for w in (-2, 2):
+                if 0 <= b + w <= size:
+                    c.put(a, 0, b + w, LIGHT_GRAY)
+                    c.put(b + w, 0, a, LIGHT_GRAY)
+
+
+def old_town():
+    """A town of stone and wood: a market square with traders, rows of houses, a church
+    tower with a clock of lamps, a bakery and a smithy that work, gardens and street lamps."""
+    c = Clip()
+    S = 60
+    road_grid(c, S, 20)
+    # market square in the middle block
+    c.box(23, 0, 23, 37, 0, 37, POLISHED)
+    well(c, 30, 30)
+    for i, (x, z) in enumerate(((26, 26), (34, 26), (26, 34), (34, 34))):
+        c.box(x - 1, 0, z - 1, x + 1, 0, z + 1, PLANKS)       # market stalls
+        for cx, cz in ((x - 1, z - 1), (x + 1, z - 1), (x - 1, z + 1), (x + 1, z + 1)):
+            c.box(cx, 1, cz, cx, 2, cz, FENCE)
+        c.box(x - 1, 3, z - 1, x + 1, 3, z + 1, (RED, YELLOW, BLUE, ORANGE)[i])
+        c.put(x, 1, z, CHEST)
+        c.animals(x, 1, z - 2, f"worker:{i % 3}")
+    # houses round the outer blocks
+    for bx, bz in ((3, 3), (43, 3), (3, 43), (43, 43), (23, 3), (3, 23), (43, 23), (23, 43)):
+        house(c, bx, bz, wall=(COBBLE if (bx + bz) % 2 else PLANKS), roof=BRICK)
+        house(c, bx + 8, bz + 8, w=5, d=5, wall=STONE_BRICKS, roof=PLANKS)
+    # a tower with a blinking clock face
+    c.box(4, 0, 30, 9, 0, 35, STONE_BRICKS)
+    c.walls(4, 1, 30, 9, 16, 35, STONE_BRICKS)
+    c.box(4, 17, 30, 9, 17, 35, BRICK)
+    c.put(6, 1, 30, DOOR_BOTTOM)
+    c.put(6, 2, 30, DOOR_TOP)
+    blinker(c, 5, 12, 31, lamps=3)
+    # bakery and smithy that work
+    maker_line(c, 48, 1, 30, [CRAFTER], [[WHEAT_ITEM, 64]] * 3, [BREAD])
+    maker_line(c, 52, 1, 30, [SMELTER, CRAFTER], [[GOLD_ORE, 64], [COAL, 64]], [GOLD_BLOCK])
+    c.animals(50, 1, 28, "worker:2")
+    c.animals(54, 1, 28, "worker:1")
+    for x in range(0, S + 1, 10):
+        for z in (17, 43):
+            street_lamp(c, x, 1, z, height=4)
+    for x, z in ((16, 16), (44, 16), (16, 44), (44, 44)):
+        tree(c, x, z, 5)
+    c.text(22, 12, 22, "OLD TOWN", "pink")
+    return c
+
+
+def modern_city():
+    """A city of glass towers on a street grid, with night lights, a park, a power plant, a
+    factory block, a cargo railway round the station and people at work."""
+    c = Clip()
+    S = 80
+    c.box(0, -1, 0, S, -1, S, STONE_BRICKS)                 # the city's foundation
+    road_grid(c, S, 20)
+    towers = ((3, 3, 8, "OFFICE"), (23, 3, 12, "BANK"), (43, 3, 6, ""), (63, 3, 9, "HOTEL"),
+              (3, 23, 5, ""), (63, 23, 10, ""), (3, 63, 7, ""), (23, 63, 4, ""), (63, 63, 11, "TOWER"))
+    for x, z, floors, label in towers:
+        office_tower(c, x, z, floors, label)
+        c.animals(x + 4, 1, z - 1, "worker:1")
+    # park with trees and a pond
+    c.box(23, 0, 23, 37, 0, 37, 1)                            # grass
+    c.box(28, 0, 28, 32, 0, 32, WATER)
+    for x, z in ((25, 25), (35, 25), (25, 35), (35, 35)):
+        tree(c, x, z, 5)
+    # power plant and a factory block that works
+    power_plant(c, 43, 23)
+    for i, x in enumerate((45, 48, 51, 54)):
+        maker_line(c, x, 1, 46, [SMELTER], [[(IRON_ORE, COPPER_ORE, GOLD_ORE, TIN_ORE)[i], 64], [COAL, 64]])
+    c.box(43, 0, 43, 57, 0, 49, POLISHED)
+    c.animals(50, 1, 44, "worker:1")
+    # station with a cargo loop
+    track_loop(c, 3, 1, 43, 17, 57, boosts=((5, 43), (14, 57)))
+    c.cart(5, 1, 43)
+    c.put(9, 3, 43, CHEST)
+    c.fill(9, 3, 43, [[22, 64]] * 3)
+    c.put(9, 2, 43, COLLECTOR)
+    for z in (42, 44):
+        c.box(9, 1, z, 9, 3, z, IRON)
+    c.put(11, 0, 57, COLLECTOR)
+    c.put(11, -1, 57, CHEST)
+    for x in range(0, S - 2, 10):
+        for z in (18, 38, 58, 78):                          # on the pavements, clear of the railway
+            street_lamp(c, x, 1, z, height=5)
+    c.text(26, 16, 21, "CITY", "blue")
+    return c
 
 
 def mega_complex():
@@ -750,6 +965,9 @@ def mega_complex():
 
 
 LARGE = [
+    ("village", "Village (farmers, baker, smith)", "قرية (فلاحين وخبّاز وحدّاد)", village),
+    ("old_town", "Old town with a market", "بلدة قديمة فيها سوق", old_town),
+    ("modern_city", "Modern city", "مدينة حديثة", modern_city),
     ("smelter_hall", "Smelting hall (8 lines)", "قاعة الصهر الكبرى (8 خطوط)", smelter_hall),
     ("giant_farm", "Giant automatic farm", "المزرعة الأوتوماتيكية العملاقة", giant_farm),
     ("mega_complex", "Industrial complex", "المجمّع الصناعي العملاق", mega_complex),

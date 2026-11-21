@@ -213,6 +213,8 @@ UI = {
     "craft_put_in": ("Put things in it to see what it can make", "حط فيه أغراض لتشوف شو بيقدر يصنع"),
     "panel_open": ("Open it", "افتحه"),
     "got": ("Got: %s", "أخذت: %s"),
+    "job_farmer": ("Farmer", "فلّاح"), "job_smith": ("Smith", "حدّاد"), "job_baker": ("Baker", "خبّاز"),
+    "hint_trade": ("Trades with you: rubies are the money", "بيبيع وبيشتري منك، والياقوت هو المصاري"),
     "cart_holds": ("The cart carries: %s", "العربة فيها: %s"), "cart_empty": ("The cart is empty", "العربة فاضية"),
     "panel_takes": ("It takes:", "بياخد:"), "filter_any": ("Everything", "كل شي"),
     "filter_put_in": ("Put something in it or above it to choose only that", "حط فيه أو فوقه غرض لتختار ياخد بس هاد"),

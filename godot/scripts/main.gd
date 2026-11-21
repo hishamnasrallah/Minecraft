@@ -963,8 +963,27 @@ func _drop_attached(pos: Vector3i) -> void:
 			_drop_attached(p)                         # a tall stack of reeds comes down whole
 
 
+var _trader = null
+
+
+## Tapping a worker with an empty hand (or not a weapon): see what they trade.
+func _open_trades(w) -> void:
+	_trader = w
+	var offers := []
+	for o in Wildlife.TRADES[clampi(w.variant, 0, 2)]:
+		offers.append([o[0], o[1], o[2], o[3], creative or inv.count(o[0]) >= int(o[1])])
+	machine_panel.open("trade", w.variant, 0, "", offers, 0)
+	touch.blocked = true
+	w.state = "idle"
+	w.timer = 6.0
+	w.yaw = rad_to_deg(atan2(player.position.x - w.pos.x, player.position.z - w.pos.z))
+
+
 func attack(animal) -> void:
 	var item := inv.item_at(selected)
+	if animal.kind == "worker" and Items.attack_damage(item) <= 1:
+		_open_trades(animal)
+		return
 	if item == int(Items.S["BUCKET"]) and animal.kind == "cow" and animal.age <= 0:
 		inv.use_one(selected)                       # milking: an empty bucket becomes a milk bucket
 		if inv.add(int(Items.S["MILK_BUCKET"]), 1) > 0:
@@ -1783,6 +1802,21 @@ func _machine_choice(action: String, value: int) -> void:
 		"turn":
 			var n := 6 if kind in ["pusher", "sticky", "breaker", "observer", "thrower"] else 4
 			id = base + (f + 1) % n
+		"trade":
+			if _trader == null:
+				return
+			var o: Array = Wildlife.TRADES[clampi(_trader.variant, 0, 2)][value]
+			if not creative and inv.count(o[0]) < int(o[1]):
+				return
+			if not creative:
+				inv.remove(o[0], int(o[1]))
+			if inv.add(int(o[2]), int(o[3])) > 0:
+				drops.spawn([int(o[2]), int(o[3])], player.position)
+			Sfx.play("pop", -2.0, 1.2)
+			hud.flash(I18n.f("got", "%d %s" % [o[3], Items.name_of(int(o[2]))]))
+			hud.show_hotbar(inv, selected, creative)
+			_open_trades(_trader)
+			return
 		"filter":
 			world.settings[p] = {"filter": value}
 			Sfx.play("click", -2.0, 1.1)
@@ -2131,7 +2165,7 @@ func _factory_test(name: String) -> void:
 				_st["ft_wait"] = 1500
 			"cobble_generator", "stone_factory", "obsidian_factory", "bakery", "grill_house", "metal_works":
 				_st["ft_wait"] = 1800
-			"cargo_line":
+			"cargo_line", "village", "old_town", "modern_city":
 				_st["ft_wait"] = 1800
 			"animal_farm":
 				for a in wildlife.animals:
@@ -2242,7 +2276,7 @@ func _factory_test(name: String) -> void:
 	if t == int(_st.get("ft_wait", 600)):
 		var out := ""
 		match name:
-			"cobble_generator", "stone_factory", "obsidian_factory", "bakery", "grill_house", "metal_works", "animal_farm", "cargo_line":
+			"cobble_generator", "stone_factory", "obsidian_factory", "bakery", "grill_house", "metal_works", "animal_farm", "cargo_line", "village", "old_town", "modern_city":
 				var got := {}
 				for ch in found.get("chest", []):
 					for st in Inventory.from_data(world.containers.get(ch), 27).slots:
@@ -2256,6 +2290,7 @@ func _factory_test(name: String) -> void:
 					lit_n += int(Blocks.lit[world.get_block(q.x, q.y, q.z)] == 1)
 				for c in carts.carts:
 					out += "cart at %s speed %.1f carries %s; " % [Vector3i(c.pos), c.speed, c.chest]
+				out += "workers picked %d; fps %d; " % [wildlife.harvested, Engine.get_frames_per_second()]
 				out += "after %d s the chests hold %s; animals %s; machines lit %d; on the ground %d" % [int(_st.get("ft_wait", 600)) / 60, got, kinds, lit_n, drops.drops.size()]
 				for th in found.get("thrower", []):
 					var fq: Vector3i = th + Power.DIRS[power.facing_of(world.get_block(th.x, th.y, th.z))]

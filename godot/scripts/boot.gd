@@ -8,7 +8,7 @@ const PATH := "user://boot.json"
 const OK_AFTER := 15.0
 ## Bump with every release: a new version starts without the safe mode a crash of the old
 ## version switched on (the fix is probably in the new one).
-const BUILD := "2026-11-23b"
+const BUILD := "2026-11-23c"
 
 var crashed_last_time := false
 var last_stage := ""            # where the previous run stopped (shown if it crashed)
