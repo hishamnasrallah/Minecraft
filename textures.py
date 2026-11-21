@@ -142,6 +142,26 @@ def water(rng):
     return img
 
 
+def lava(rng):
+    img = _noise(rng, (222, 92, 18), 0.08)
+    for _ in range(7):                       # bright molten streaks
+        x, y = rng.randrange(TILE), rng.randrange(TILE)
+        for dx in range(rng.randint(2, 6)):
+            img.putpixel(((x + dx) % TILE, (y + dx // 3) % TILE), (255, 196, 60))
+    for _ in range(10):                      # dark cooling crust
+        img.putpixel((rng.randrange(TILE), rng.randrange(TILE)), (150, 40, 10))
+    return img
+
+
+def obsidian(rng):
+    img = _noise(rng, (26, 18, 40), 0.25)
+    for _ in range(8):
+        x, y = rng.randrange(TILE), rng.randrange(TILE)
+        for dx in range(rng.randint(1, 3)):
+            img.putpixel(((x + dx) % TILE, y), (70, 48, 110))
+    return img
+
+
 def lamp(rng):
     img = Image.new("RGB", (TILE, TILE))
     for x in range(TILE):
@@ -806,9 +826,10 @@ def bucket(rng, water_fill=False):
             edge = x in (8 - half, 7 + half) or y == 13
             _px(img, x, y, (120, 120, 126) if edge else (170, 170, 178))
     if water_fill:
+        lava_fill = water_fill == "lava"
         for x in range(4, 12):
-            _px(img, x, 6, (60, 110, 210))
-            _px(img, x, 7, (50, 96, 196))
+            _px(img, x, 6, (250, 150, 40) if lava_fill else (60, 110, 210))
+            _px(img, x, 7, (220, 90, 20) if lava_fill else (50, 96, 196))
     return img
 
 
@@ -861,6 +882,7 @@ EXTRA_GENERATORS = {
     "iron_ingot": ingot((214, 214, 220)), "copper_ingot": ingot((206, 116, 66)), "tin_ingot": ingot((196, 198, 210)),
     "gold_ingot": ingot((246, 206, 60)), "bronze_ingot": ingot((184, 136, 72)), "diamond": gem,
     "bucket": bucket, "water_bucket": lambda rng: bucket(rng, True),
+    "lava_bucket": lambda rng: bucket(rng, "lava"),
 }
 for _i, (_name, _rgb) in enumerate(__import__("blocks").DYES):
     EXTRA_GENERATORS[f"wool_{_i}"] = wool(_rgb)
@@ -1750,14 +1772,47 @@ def _dark_stone(rng):
     return img
 
 
-def smelter_front(rng):
-    """A stone furnace face with a glowing fire window."""
+def smelter_front(rng, lit=False):
+    """A stone furnace face with a fire window: dark and cold, or glowing while it works."""
     img = _dark_stone(rng)
     for x in range(4, 12):
         for y in range(8, 14):
-            img.putpixel((x, y), _shade((250, 130, 30) if y > 10 else (255, 200, 70), 1 + rng.uniform(-0.2, 0.2)) + (255,))
+            if lit:
+                c = (250, 130, 30) if y > 10 else (255, 200, 70)
+            else:
+                c = (30, 28, 30) if y > 11 else (48, 44, 46)
+            img.putpixel((x, y), _shade(c, 1 + rng.uniform(-0.2, 0.2)) + (255,))
     for x in range(4, 12):
         img.putpixel((x, 7), (40, 40, 44, 255))
+    return img
+
+
+def crafter_top(rng, lit=False):
+    """A 3 x 3 crafting grid set in a stone frame; the slots glow while it works."""
+    img = _dark_stone(rng)
+    for gx in range(3):
+        for gy in range(3):
+            for x in range(2 + gx * 4, 5 + gx * 4):
+                for y in range(2 + gy * 4, 5 + gy * 4):
+                    c = (240, 190, 90) if lit and (gx + gy) % 2 == 0 else (150, 106, 62)
+                    img.putpixel((x, y), _shade(c, 1 + rng.uniform(-0.1, 0.1)) + (255,))
+    return img
+
+
+def crafter_side(rng, lit=False):
+    """Wooden boards with a small hatch: a lamp in it shines while it works."""
+    img = Image.new("RGBA", (TILE, TILE))
+    for x in range(TILE):
+        for y in range(TILE):
+            c = (150, 108, 64) if (y // 4) % 2 else (136, 96, 56)
+            if y % 4 == 0:
+                c = (96, 66, 38)
+            img.putpixel((x, y), _shade(c, 1 + rng.uniform(-0.08, 0.08)) + (255,))
+    for x in range(5, 11):
+        for y in range(5, 11):
+            edge = x in (5, 10) or y in (5, 10)
+            c = (70, 70, 76) if edge else ((255, 214, 110) if lit else (40, 36, 34))
+            img.putpixel((x, y), c + (255,))
     return img
 
 
@@ -1882,6 +1937,9 @@ EXTRA_GENERATORS.update({
     "powered_lamp_off": powered_lamp(False), "powered_lamp_on": powered_lamp(True),
     "gate_side": smooth_stone, "collector_top": collector_top, "collector_side": _plate((96, 100, 110)),
     "smelter_top": _dark_stone, "smelter_front": smelter_front,
+    "smelter_front_on": lambda rng: smelter_front(rng, True),
+    "crafter_top": crafter_top, "crafter_top_on": lambda rng: crafter_top(rng, True),
+    "crafter_side": crafter_side, "crafter_side_on": lambda rng: crafter_side(rng, True),
 })
 for _kind in GATE_SYMBOLS:
     for _f in range(4):

@@ -24,6 +24,8 @@ var shapes := PackedStringArray()   # the same as `shape`, packed: safe to copy 
 var facing := PackedByteArray()      # stairs / ladders
 var machine := PackedByteArray()     # 1: a powered part (wires connect to it) or a door
 var lit := PackedByteArray()         # 1: the "on" look of a machine (a gate giving power, ...)
+var fluid := PackedByteArray()       # 1: water (still or flowing), 2: lava
+var flow := PackedByteArray()        # fluids: 0 = a source, 1.. = steps away from it
 var door_axis := PackedByteArray()
 var door_open := PackedByteArray()
 var plants_need_soil := {}
@@ -48,7 +50,7 @@ func _init() -> void:
 		arr.resize(MAX_ID)
 	hardness.resize(MAX_ID)
 	shapes.resize(MAX_ID)
-	for arr in [facing, door_axis, door_open, machine, lit]:
+	for arr in [facing, door_axis, door_open, machine, lit, fluid, flow]:
 		arr.resize(MAX_ID)
 	solid[0] = 0
 	for key in data["blocks"]:
@@ -71,9 +73,29 @@ func _init() -> void:
 		facing[id] = int(d.get("facing", lg.get("facing", 0) if lg is Dictionary else 0))
 		machine[id] = 1 if (d.get("logic") is Dictionary or d.has("door")) else 0
 		lit[id] = 1 if (d.get("logic") is Dictionary and bool(d["logic"].get("on", false))) else 0
+		if d.has("fluid"):
+			fluid[id] = 1 if d["fluid"] == "water" else 2
+			flow[id] = int(d["flow"])
 		if d.get("door") is Dictionary:
 			door_axis[id] = int(d["door"]["axis"])
 			door_open[id] = int(d["door"]["open"])
+
+
+func is_water(id: int) -> bool:
+	return fluid[id] == 1
+
+
+## Still or flowing water of `level` steps from its source (0 = the source itself).
+func water_id(level: int) -> int:
+	return WATER if level <= 0 else 1869 + level
+
+
+func lava_id(level: int) -> int:
+	return LAVA + level
+
+
+const LAVA := 1880
+const OBSIDIAN := 1890
 
 
 func exists(id: int) -> bool:

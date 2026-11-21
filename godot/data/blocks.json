@@ -679,6 +679,11 @@
   "collector_side",
   "smelter_top",
   "smelter_front",
+  "smelter_front_on",
+  "crafter_top",
+  "crafter_side",
+  "crafter_top_on",
+  "crafter_side_on",
   "track_x",
   "track_z",
   "track_c0",
@@ -700,6 +705,8 @@
   "storm_crystal",
   "pillar_stone",
   "storm_heart",
+  "lava",
+  "obsidian",
   "iron_ingot",
   "copper_ingot",
   "tin_ingot",
@@ -743,7 +750,8 @@
   "observer_face",
   "observer_out_off",
   "observer_out_on",
-  "thrower_face"
+  "thrower_face",
+  "lava_bucket"
  ],
  "plants_need_soil": [
   51,
@@ -1140,6 +1148,8 @@
    "solid": false,
    "emit": 0,
    "creative": false,
+   "fluid": "water",
+   "flow": 0,
    "tiles": [
     11,
     11,
@@ -15997,6 +16007,77 @@
     401
    ]
   },
+  "1748": {
+   "name": "auto-smelter",
+   "tab": "machines",
+   "hardness": 2.0,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1747,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 12,
+   "creative": false,
+   "logic": {
+    "kind": "smelter",
+    "on": true
+   },
+   "container": true,
+   "tiles": [
+    407,
+    409,
+    401
+   ]
+  },
+  "1868": {
+   "name": "auto-crafter",
+   "tab": "machines",
+   "hardness": 2.0,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1868,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "logic": {
+    "kind": "crafter"
+   },
+   "container": true,
+   "tiles": [
+    410,
+    411,
+    401
+   ]
+  },
+  "1869": {
+   "name": "auto-crafter",
+   "tab": "machines",
+   "hardness": 2.0,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1868,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 8,
+   "creative": false,
+   "logic": {
+    "kind": "crafter",
+    "on": true
+   },
+   "container": true,
+   "tiles": [
+    412,
+    413,
+    401
+   ]
+  },
   "1760": {
    "name": "pusher head",
    "tab": "machines",
@@ -16141,9 +16222,9 @@
     ]
    ],
    "tiles": [
-    409,
-    409,
-    409
+    414,
+    414,
+    414
    ]
   },
   "1751": {
@@ -16170,9 +16251,9 @@
     ]
    ],
    "tiles": [
-    410,
-    410,
-    410
+    415,
+    415,
+    415
    ]
   },
   "1752": {
@@ -16199,9 +16280,9 @@
     ]
    ],
    "tiles": [
-    411,
-    411,
-    411
+    416,
+    416,
+    416
    ]
   },
   "1753": {
@@ -16228,9 +16309,9 @@
     ]
    ],
    "tiles": [
-    412,
-    412,
-    412
+    417,
+    417,
+    417
    ]
   },
   "1754": {
@@ -16257,9 +16338,9 @@
     ]
    ],
    "tiles": [
-    413,
-    413,
-    413
+    418,
+    418,
+    418
    ]
   },
   "1755": {
@@ -16286,9 +16367,9 @@
     ]
    ],
    "tiles": [
-    414,
-    414,
-    414
+    419,
+    419,
+    419
    ]
   },
   "1756": {
@@ -16320,9 +16401,9 @@
     ]
    ],
    "tiles": [
-    415,
-    415,
-    415
+    420,
+    420,
+    420
    ]
   },
   "1757": {
@@ -16354,9 +16435,9 @@
     ]
    ],
    "tiles": [
-    416,
-    416,
-    416
+    421,
+    421,
+    421
    ]
   },
   "1758": {
@@ -16388,9 +16469,9 @@
     ]
    ],
    "tiles": [
-    417,
-    417,
-    417
+    422,
+    422,
+    422
    ]
   },
   "1759": {
@@ -16422,9 +16503,9 @@
     ]
    ],
    "tiles": [
-    418,
-    418,
-    418
+    423,
+    423,
+    423
    ]
   },
   "1800": {
@@ -16441,9 +16522,9 @@
    "emit": 0,
    "creative": true,
    "tiles": [
-    419,
-    419,
-    419
+    424,
+    424,
+    424
    ]
   },
   "1809": {
@@ -16460,9 +16541,9 @@
    "emit": 0,
    "creative": true,
    "tiles": [
-    420,
-    420,
-    420
+    425,
+    425,
+    425
    ]
   },
   "1801": {
@@ -16479,9 +16560,9 @@
    "emit": 0,
    "creative": true,
    "tiles": [
-    421,
-    422,
-    420
+    426,
+    427,
+    425
    ]
   },
   "1802": {
@@ -16498,9 +16579,9 @@
    "emit": 0,
    "creative": true,
    "tiles": [
-    423,
-    423,
-    423
+    428,
+    428,
+    428
    ]
   },
   "1803": {
@@ -16517,9 +16598,9 @@
    "emit": 0,
    "creative": true,
    "tiles": [
-    424,
-    424,
-    424
+    429,
+    429,
+    429
    ]
   },
   "1804": {
@@ -16536,9 +16617,9 @@
    "emit": 10,
    "creative": true,
    "tiles": [
-    425,
-    425,
-    425
+    430,
+    430,
+    430
    ]
   },
   "1805": {
@@ -16555,9 +16636,9 @@
    "emit": 11,
    "creative": false,
    "tiles": [
-    426,
-    426,
-    426
+    431,
+    431,
+    431
    ]
   },
   "1806": {
@@ -16574,9 +16655,9 @@
    "emit": 15,
    "creative": true,
    "tiles": [
-    427,
-    427,
-    427
+    432,
+    432,
+    432
    ]
   },
   "1807": {
@@ -16593,9 +16674,9 @@
    "emit": 0,
    "creative": true,
    "tiles": [
-    428,
-    428,
-    428
+    433,
+    433,
+    433
    ]
   },
   "1808": {
@@ -16612,9 +16693,259 @@
    "emit": 13,
    "creative": true,
    "tiles": [
-    429,
-    429,
-    429
+    434,
+    434,
+    434
+   ]
+  },
+  "1870": {
+   "name": "flowing water",
+   "tab": "natural",
+   "hardness": -1,
+   "tool": null,
+   "level": 0,
+   "drop": null,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "fluid": "water",
+   "flow": 1,
+   "tiles": [
+    11,
+    11,
+    11
+   ]
+  },
+  "1871": {
+   "name": "flowing water",
+   "tab": "natural",
+   "hardness": -1,
+   "tool": null,
+   "level": 0,
+   "drop": null,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "fluid": "water",
+   "flow": 2,
+   "tiles": [
+    11,
+    11,
+    11
+   ]
+  },
+  "1872": {
+   "name": "flowing water",
+   "tab": "natural",
+   "hardness": -1,
+   "tool": null,
+   "level": 0,
+   "drop": null,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "fluid": "water",
+   "flow": 3,
+   "tiles": [
+    11,
+    11,
+    11
+   ]
+  },
+  "1873": {
+   "name": "flowing water",
+   "tab": "natural",
+   "hardness": -1,
+   "tool": null,
+   "level": 0,
+   "drop": null,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "fluid": "water",
+   "flow": 4,
+   "tiles": [
+    11,
+    11,
+    11
+   ]
+  },
+  "1874": {
+   "name": "flowing water",
+   "tab": "natural",
+   "hardness": -1,
+   "tool": null,
+   "level": 0,
+   "drop": null,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "fluid": "water",
+   "flow": 5,
+   "tiles": [
+    11,
+    11,
+    11
+   ]
+  },
+  "1875": {
+   "name": "flowing water",
+   "tab": "natural",
+   "hardness": -1,
+   "tool": null,
+   "level": 0,
+   "drop": null,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "fluid": "water",
+   "flow": 6,
+   "tiles": [
+    11,
+    11,
+    11
+   ]
+  },
+  "1876": {
+   "name": "flowing water",
+   "tab": "natural",
+   "hardness": -1,
+   "tool": null,
+   "level": 0,
+   "drop": null,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "fluid": "water",
+   "flow": 7,
+   "tiles": [
+    11,
+    11,
+    11
+   ]
+  },
+  "1880": {
+   "name": "lava",
+   "tab": "natural",
+   "hardness": -1,
+   "tool": null,
+   "level": 0,
+   "drop": null,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 15,
+   "creative": false,
+   "fluid": "lava",
+   "flow": 0,
+   "tiles": [
+    435,
+    435,
+    435
+   ]
+  },
+  "1881": {
+   "name": "flowing lava",
+   "tab": "natural",
+   "hardness": -1,
+   "tool": null,
+   "level": 0,
+   "drop": null,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 13,
+   "creative": false,
+   "fluid": "lava",
+   "flow": 1,
+   "tiles": [
+    435,
+    435,
+    435
+   ]
+  },
+  "1882": {
+   "name": "flowing lava",
+   "tab": "natural",
+   "hardness": -1,
+   "tool": null,
+   "level": 0,
+   "drop": null,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 13,
+   "creative": false,
+   "fluid": "lava",
+   "flow": 2,
+   "tiles": [
+    435,
+    435,
+    435
+   ]
+  },
+  "1883": {
+   "name": "flowing lava",
+   "tab": "natural",
+   "hardness": -1,
+   "tool": null,
+   "level": 0,
+   "drop": null,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 13,
+   "creative": false,
+   "fluid": "lava",
+   "flow": 3,
+   "tiles": [
+    435,
+    435,
+    435
+   ]
+  },
+  "1890": {
+   "name": "obsidian",
+   "tab": "building",
+   "hardness": 15.0,
+   "tool": "pickaxe",
+   "level": 4,
+   "drop": 1890,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    436,
+    436,
+    436
    ]
   }
  }

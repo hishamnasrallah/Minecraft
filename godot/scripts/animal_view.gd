@@ -59,7 +59,13 @@ const PALETTES := {
 	"fish": [Color8(240, 138, 40), Color8(184, 198, 208), Color8(70, 122, 204)],
 	"bird": [Color8(66, 116, 204), Color8(204, 66, 52), Color8(134, 102, 70)],
 	"butterfly": [Color8(250, 210, 50), Color8(246, 132, 36), Color8(80, 150, 250), Color8(244, 244, 236)],
+	"worker": [Color8(86, 150, 64), Color8(128, 132, 142), Color8(238, 234, 222)],   # farmer, smith, baker
 }
+const SKIN := Color8(214, 170, 132)
+const SKIN_DARK := Color8(180, 130, 98)
+const PANTS := Color8(62, 76, 120)
+const BOOT := Color8(70, 50, 36)
+const HAIR := Color8(92, 64, 40)
 const SCALES := {"globlet": 0.5}      # species drawn as a smaller copy of another
 const SAME_AS := {"globlet": "glob"}
 
@@ -171,6 +177,18 @@ const MODELS := {
 		["wing", Vector3(.03, .025, .01), Vector3(.05, .005, .04), WING_PALE], ["wing", Vector3(-.03, .025, .01), Vector3(.05, .005, .04), WING_PALE],
 	],
 	# the gloom: a tall, thin shadow with glowing eyes
+	# a worker: a person in a shirt of their trade's colour, overalls and a cap
+	"worker": [
+		["body", Vector3(0, 1.08, 0), Vector3(.5, .72, .28), VAR], ["bib", Vector3(0, .98, .145), Vector3(.34, .5, .02), PANTS],
+		["strap", Vector3(.13, 1.32, .145), Vector3(.06, .2, .02), PANTS], ["strap", Vector3(-.13, 1.32, .145), Vector3(.06, .2, .02), PANTS],
+		["belt", Vector3(0, .74, 0), Vector3(.52, .08, .3), BOOT],
+		["head", Vector3(0, 1.66, 0), Vector3(.42, .42, .42), SKIN], ["hair", Vector3(0, 1.8, -.04), Vector3(.44, .16, .38), HAIR],
+		["cap", Vector3(0, 1.91, 0), Vector3(.46, .1, .46), VAR2], ["brim", Vector3(0, 1.88, .27), Vector3(.46, .04, .14), VAR2],
+		["eye", Vector3(.1, 1.7, .211), Vector3(.08, .06, .02), DARK], ["eye", Vector3(-.1, 1.7, .211), Vector3(.08, .06, .02), DARK],
+		["nose", Vector3(0, 1.6, .24), Vector3(.08, .12, .06), SKIN_DARK], ["mouth", Vector3(0, 1.53, .211), Vector3(.14, .03, .02), SKIN_DARK],
+		["leg", Vector3(.33, 1.42, 0), Vector3(.14, .62, .14), VAR], ["leg", Vector3(-.33, 1.42, 0), Vector3(.14, .62, .14), VAR],
+		["leg", Vector3(.12, .72, 0), Vector3(.2, .72, .22), PANTS], ["leg", Vector3(-.12, .72, 0), Vector3(.2, .72, .22), PANTS],
+	],
 	"gloom": [
 		["body", Vector3(0, 1.0, 0), Vector3(.5, .8, .3), SHADOW], ["head", Vector3(0, 1.62, 0), Vector3(.44, .4, .4), SHADOW_EDGE],
 		["glow", Vector3(.1, 1.66, .205), Vector3(.1, .06, .02), GLOW], ["glow", Vector3(-.1, 1.66, .205), Vector3(.1, .06, .02), GLOW],

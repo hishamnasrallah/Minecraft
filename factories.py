@@ -12,19 +12,39 @@ the container below) and the auto-smelter (input slots, then output slots).
 """
 from blocks import CONCRETE, NEON
 
-AIR, STONE_BRICKS, GLASS, LAMP, PLANKS, IRON, FENCE, CHEST = 0, 41, 12, 11, 7, 30, 61, 48
+AIR, STONE_BRICKS, GLASS, LAMP, PLANKS, IRON, FENCE, CHEST, BRICK = 0, 41, 12, 11, 7, 30, 61, 48, 8
 TORCH, COBBLE, POLISHED = 50, 22, 803
-FARMLAND, WHEAT = 970, 971
+FARMLAND, WHEAT, CARROTS = 970, 971, 975
 WIRE, SWITCH, BUTTON, CELL, PLATE, SENSOR, PLAMP = 1700, 1702, 1704, 1705, 1706, 1707, 1708
 NOT, AND, OR, XOR, DELAY = 1710, 1714, 1718, 1722, 1726
 PUSHER, BREAKER, CONVEYOR, COLLECTOR, SMELTER = 1730, 1736, 1742, 1746, 1747
 STICKY, OBSERVER, THROWER, COMPARATOR = 1792, 1820, 1832, 1838     # + facing
+CRAFTER, WATER, LAVA, OBSIDIAN = 1868, 10, 1880, 1890
+# items for filled chests
+COAL, RAW_MEAT, WHEAT_ITEM, BREAD, EGG, RAW_FISH, LAVA_BUCKET = 102, 103, 121, 122, 124, 126, 118
+IRON_ORE, COPPER_ORE, TIN_ORE, GOLD_ORE = 25, 26, 27, 28
+IRON_BLOCK, COPPER_BLOCK, GOLD_BLOCK, TIN_BLOCK = 30, 31, 32, 908
 DOOR_BOTTOM, DOOR_TOP = 510, 511
 WHITE, LIGHT_GRAY, GRAY, BLACK, YELLOW, ORANGE, RED, BLUE = (CONCRETE[i] for i in (0, 1, 2, 3, 7, 6, 5, 12))
 
 
 class Clip(dict):
-    """A clipboard with drawing helpers."""
+    """A clipboard with drawing helpers. `extras` holds what comes with a cell besides its
+    block: things already in a chest ({"items": [[id, n], ...]}), animals that live there
+    ({"animals": ["hen", ...]}) and what a crafter makes ({"craft": id})."""
+
+    def __init__(self, *a):
+        super().__init__(*a)
+        self.extras = {}
+
+    def fill(self, x, y, z, items):
+        self.extras.setdefault((x, y, z), {})["items"] = [list(st) for st in items]
+
+    def animals(self, x, y, z, kind, n=1):
+        self.extras.setdefault((x, y, z), {}).setdefault("animals", []).extend([kind] * n)
+
+    def craft(self, x, y, z, item):
+        self.extras.setdefault((x, y, z), {})["craft"] = item
 
     def put(self, x, y, z, block):
         self[(x, y, z)] = block
@@ -56,6 +76,27 @@ def smelter_tower(c, x, y, z):
     c.put(x, y + 2, z, SMELTER)
     c.put(x, y + 3, z, COLLECTOR)
     c.put(x, y + 4, z, CHEST)
+
+
+def maker_line(c, x, y, z, machines, inputs=(), crafts=()):
+    """A column that works things top to bottom: an input chest, then for every machine a
+    collector over it, then a collector and the output chest. `machines`: SMELTER / CRAFTER
+    from the top; `crafts`: what each crafter makes; `inputs`: what is in the top chest."""
+    top = y + 2 * len(machines) + 2
+    c.put(x, top, z, CHEST)
+    if inputs:
+        c.fill(x, top, z, inputs)
+    yy = top - 1
+    crafts = list(crafts)
+    for m in machines:
+        c.put(x, yy, z, COLLECTOR)
+        c.put(x, yy - 1, z, m)
+        if m == CRAFTER and crafts:
+            c.craft(x, yy - 1, z, crafts.pop(0))
+        yy -= 2
+    c.put(x, yy, z, COLLECTOR)
+    c.put(x, yy - 1, z, CHEST)
+    return top
 
 
 def street_lamp(c, x, y, z, height=4):
@@ -136,23 +177,39 @@ def logic_board():
     return c
 
 
+def watched_row(c, x, z, y=0):
+    """The start of a self-harvesting row: an observer looks down at the crop at x + 1 and
+    fires the row's wire each time it grows; a sideways breaker under a post harvests that
+    crop (the observer sits where its breaker would be)."""
+    c.put(x, y, z, PLANKS)
+    c.put(x, y + 1, z, BREAKER + 1)             # facing +x, into the watched crop
+    c.put(x, y + 2, z, PLANKS)                  # the wire on it powers the breaker below
+    c.put(x, y + 3, z, WIRE)
+    c.put(x + 1, y + 2, z, OBSERVER + 4)        # output up into the wire, watching the crop
+
+
 def wheat_harvester():
-    """Press the button: breakers over every crop harvest it; the items roll along the
-    conveyors into collectors and down into chests."""
+    """Harvests by itself, like the farms in the original: an observer watches one crop and
+    every time it grows it fires the breakers over the rows; breakers take only ripe crops and
+    plant the seed again. The items roll along the conveyors into collectors and chests. The
+    button harvests at once."""
     c = Clip()
     length = 10
     c.box(-1, -3, -1, length + 2, -1, 4, STONE_BRICKS)
     for x in range(length):
         c.put(x, 0, 0, CONVEYOR + 1)            # carries +x
-        c.put(x, 0, 1, FARMLAND)
-        c.put(x, 1, 1, WHEAT)
-        c.put(x, 0, 2, FARMLAND)
-        c.put(x, 1, 2, WHEAT)
         c.put(x, 0, 3, CONVEYOR + 1)
-        c.put(x, 2, 1, BREAKER + 5)             # facing down, right above the crop
-        c.put(x, 2, 2, BREAKER + 5)
-        c.put(x, 3, 1, WIRE)
-        c.put(x, 3, 2, WIRE)
+        for z in (1, 2):
+            c.put(x, 0, z, FARMLAND)
+            c.put(x, 1, z, WHEAT if z == 1 else CARROTS)
+            c.put(x, 2, z, BREAKER + 5)         # facing down, right above the crop
+            c.put(x, 3, z, WIRE)
+    for z in (1, 2):
+        watched_row(c, 0, z)
+    # a path along the far side, where the farmer lives
+    for x in range(-1, length + 1):
+        c.put(x, 0, 4, PLANKS)
+    c.animals(4, 1, 4, "worker:0")
     for z in (0, 3):                            # the end of each conveyor: collector -> chest
         c.put(length, -1, z, COLLECTOR)
         c.put(length, -2, z, CHEST)
@@ -162,7 +219,7 @@ def wheat_harvester():
             c.box(x, 1, z, x, 2, z, PLANKS)
     c.put(-1, 3, 1, WIRE)
     c.put(-1, 3, 2, BUTTON)
-    c.text(0, 6, 1, "HARVEST", "pink")
+    c.text(0, 6, 1, "AUTO FARM", "pink")
     return c
 
 
@@ -259,18 +316,204 @@ def door_alarm():
     return c
 
 
+def cobble_unit(c, ox, oz):
+    """Lava and water make cobblestone by themselves, like in the original: lava runs into a gap
+    with water under it and hardens. An observer over the gap sees it form and fires the
+    breaker beside it; the stone drops on the conveyor and the lava runs in again.
+    The conveyor at (ox + 2, 0, oz + 2) carries +x."""
+    c.put(ox + 1, 1, oz + 1, LAVA)                        # the lava source, behind glass
+    for x, y, z in ((ox, 1, oz + 1), (ox + 1, 1, oz), (ox + 1, 1, oz + 2), (ox + 1, 2, oz + 1)):
+        c.put(x, y, z, GLASS)
+    c.put(ox + 2, 0, oz + 1, WATER)                       # water under the gap
+    c.put(ox + 2, 1, oz + 1, AIR)                         # the gap: cobblestone forms here
+    c.put(ox + 2, 1, oz, GLASS)
+    c.put(ox + 2, 2, oz + 1, OBSERVER + 4)                # watches the gap, pulses up
+    c.put(ox + 2, 3, oz + 1, WIRE)
+    c.put(ox + 3, 3, oz + 1, WIRE)
+    c.put(ox + 3, 2, oz + 1, STONE_BRICKS)                # the wire on it runs the breaker below
+    c.put(ox + 3, 1, oz + 1, BREAKER + 3)                 # facing -x, into the gap
+
+
+def cobble_generator():
+    """Cobblestone forever: lava + water, an observer, a breaker and a conveyor to a chest."""
+    c = Clip()
+    c.box(-1, -3, -1, 8, 0, 4, STONE_BRICKS)
+    cobble_unit(c, 0, 0)
+    for x in range(2, 6):
+        c.put(x, 0, 2, CONVEYOR + 1)
+        c.put(x, 1, 2, AIR)
+    c.put(6, 0, 2, AIR)
+    c.put(6, -1, 2, COLLECTOR)
+    c.put(6, -2, 2, CHEST)
+    c.text(0, 5, 1, "COBBLE", "blue")
+    return c
+
+
+def stone_factory():
+    """Two cobblestone generators feed one conveyor into an auto-smelter (filled with coal) that
+    bakes the cobblestone into smooth stone, down into a chest."""
+    c = Clip()
+    c.box(-1, -6, -1, 14, 0, 7, STONE_BRICKS)
+    cobble_unit(c, 0, 0)
+    cobble_unit(c, 0, 4)                                  # its conveyor is at z = 6
+    for x in range(2, 10):
+        c.put(x, 0, 2, CONVEYOR + 1)
+        c.put(x, 1, 2, AIR)
+    for x in range(2, 5):                                 # the second line turns into the first
+        c.put(x, 0, 6, CONVEYOR + 1)
+        c.put(x, 1, 6, AIR)
+    for z in range(6, 2, -1):
+        c.put(5, 0, z, CONVEYOR + 2)                      # carries -z
+        c.put(5, 1, z, AIR)
+    c.put(10, 0, 2, AIR)
+    c.put(10, -1, 2, COLLECTOR)                           # into the smelter's top
+    c.put(10, -2, 2, SMELTER)
+    c.fill(10, -2, 2, [[COAL, 64], [COAL, 64]])
+    c.put(10, -3, 2, COLLECTOR)
+    c.put(10, -4, 2, CHEST)
+    c.text(0, 5, 1, "STONE", "blue")
+    return c
+
+
+def obsidian_factory():
+    """Hard lava stone: a clock fires a thrower full of lava buckets, and a breaker on the
+    other half of the beat. The thrower pours lava next to a water source, it turns into
+    obsidian, the breaker mines it and it falls into a collector over a chest. Empty buckets
+    stay in the thrower."""
+    c = Clip()
+    c.box(-1, -3, -5, 5, -1, 4, STONE_BRICKS)
+    c.box(-1, 0, -5, 5, 0, 4, STONE_BRICKS)
+    c.put(1, 1, 1, THROWER + 1)                           # facing +x, into the cell
+    c.fill(1, 1, 1, [[LAVA_BUCKET, 1]] * 20)
+    c.put(3, 1, 1, BREAKER + 3)                           # facing -x, into the cell
+    c.put(2, 1, 1, AIR)                                   # the cell
+    c.put(2, 1, 2, WATER)                                 # a water source beside it
+    for x, y, z in ((1, 1, 2), (3, 1, 2), (2, 1, 3), (2, 2, 2), (2, 1, 0), (2, 2, 1)):
+        c.put(x, y, z, GLASS)
+    c.put(2, 0, 1, COLLECTOR)
+    c.put(2, -1, 1, CHEST)
+    # the clock in the floor: its wire runs under the thrower; the breaker gets it through a
+    # NOT gate, so it mines on the other half of the beat (the stone falls into the collector
+    # before the next lava comes)
+    blinker(c, 0, 0, -3, lamps=2)
+    for x, z in ((1, -1), (1, 0), (1, 1), (3, -1), (3, 1)):
+        c.put(x, 0, z, WIRE)
+    c.put(3, 0, 0, NOT)                                   # facing +z: in from z - 1, out to z + 1
+    c.text(0, 4, 1, "OBSIDIAN", "pink")
+    return c
+
+
+def bakery():
+    """Auto-crafters turn wheat into bread and eggs with wheat into egg bread, by themselves."""
+    c = Clip()
+    c.box(0, 0, 0, 8, 0, 4, POLISHED)
+    for x, inputs, make in ((2, [[WHEAT_ITEM, 64]] * 3, BREAD), (4, [[WHEAT_ITEM, 64]] * 2, BREAD),
+                            (6, [[EGG, 16], [WHEAT_ITEM, 64]], BREAD)):
+        maker_line(c, x, 1, 2, [CRAFTER], inputs, [make])
+    for x in (0, 8):
+        c.box(x, 1, 0, x, 5, 0, PLANKS)
+        c.put(x, 6, 0, LAMP)
+    c.animals(3, 1, 3, "worker:2")
+    c.text(1, 8, 2, "BAKERY", "pink")
+    return c
+
+
+def grill_house():
+    """A cooking line: auto-smelters with coal cook raw meat and fish into food."""
+    c = Clip()
+    c.box(0, 0, 0, 8, 0, 4, BRICK)
+    for x, raw in ((2, RAW_MEAT), (4, RAW_FISH), (6, RAW_MEAT)):
+        maker_line(c, x, 1, 2, [SMELTER], [[raw, 64], [COAL, 64]])
+    for x in (0, 8):
+        c.box(x, 1, 0, x, 5, 0, BRICK)
+        c.put(x, 6, 0, LAMP)
+    c.animals(5, 1, 3, "worker:1")
+    c.text(1, 8, 2, "GRILL", "pink")
+    return c
+
+
+def metal_works():
+    """Ore in at the top, ingots out of the smelter, and an auto-crafter under it presses
+    every 9 ingots into a block: iron, gold, copper and tin lines."""
+    c = Clip()
+    c.box(0, 0, 0, 10, 0, 4, POLISHED)
+    for x, ore, block in ((2, IRON_ORE, IRON_BLOCK), (4, GOLD_ORE, GOLD_BLOCK), (6, COPPER_ORE, COPPER_BLOCK),
+                          (8, TIN_ORE, TIN_BLOCK)):
+        maker_line(c, x, 1, 2, [SMELTER, CRAFTER], [[ore, 64], [ore, 26], [COAL, 64], [COAL, 26]], [block])
+    for x in (0, 10):
+        c.box(x, 1, 0, x, 7, 0, IRON)
+        c.put(x, 8, 0, LAMP)
+    c.animals(3, 1, 3, "worker:1")
+    c.animals(7, 1, 3, "worker:1")
+    c.text(1, 10, 2, "METALS", "blue")
+    return c
+
+
+def animal_farm():
+    """Two pens. Hens lay eggs on a floor of conveyors that carries them into a collector over
+    a chest. In the sheep pen a thrower full of wheat on a slow clock feeds the sheep: fed
+    sheep pair up and have lambs."""
+    c = Clip()
+    c.box(-1, -3, -2, 15, -1, 6, STONE_BRICKS)
+    c.box(7, 0, -1, 15, 0, 5, STONE_BRICKS)
+    # hen pen: conveyors carry +x, then -z along x = 5 into a collector in the corner
+    for x in range(0, 5):
+        for z in range(0, 5):
+            c.put(x, 0, z, CONVEYOR + 1)
+    for z in range(1, 5):
+        c.put(5, 0, z, CONVEYOR + 2)
+    c.put(5, 0, 0, COLLECTOR)
+    c.put(5, -1, 0, CHEST)
+    for x in range(-1, 7):
+        c.put(x, 1, -1, FENCE)
+        c.put(x, 1, 5, FENCE)
+    for z in range(-1, 6):
+        c.put(-1, 1, z, FENCE)
+        c.put(6, 1, z, FENCE)
+    c.animals(1, 1, 1, "hen", 2)
+    c.animals(3, 1, 3, "hen", 2)
+    # sheep pen: small, so the sheep often step on the plate in front of the thrower
+    c.box(11, 0, 1, 13, 0, 3, PLANKS)
+    for x in range(10, 15):
+        c.put(x, 1, 0, FENCE)
+        c.put(x, 1, 4, FENCE)
+    for z in range(0, 5):
+        c.put(10, 1, z, FENCE)
+        c.put(14, 1, z, FENCE)
+    c.put(14, 1, 2, THROWER + 3)                          # facing -x, into the pen
+    c.fill(14, 1, 2, [[WHEAT_ITEM, 64]])
+    # a slow clock behind it: each beat the thrower feeds a sheep that can eat (wheat is
+    # only used when one can); fed sheep pair up and have lambs
+    c.box(15, 0, -1, 19, 0, 2, STONE_BRICKS)
+    c.put(15, 1, 2, WIRE)
+    c.put(15, 1, 1, WIRE)
+    blinker(c, 16, 1, 0, lamps=1)
+    c.animals(11, 1, 1, "woolly", 1)
+    c.animals(11, 1, 3, "woolly", 1)
+    c.animals(12, 1, 2, "woolly", 1)
+    c.text(0, 4, -2, "FARM", "pink")
+    return c
+
+
 SMALL = [
     ("auto_smelter", "Auto smelting line", "خط صهر أوتوماتيكي", auto_smelter),
     ("lamp_clock", "Blinking lamp clock", "ساعة ضو بتغمّز", lamp_clock),
     ("auto_door", "Automatic door", "باب أوتوماتيكي", auto_door),
     ("logic_board", "Logic gates board", "لوح البوابات المنطقية", logic_board),
-    ("wheat_harvester", "Wheat harvester", "حاصدة قمح بكبسة زر", wheat_harvester),
+    ("wheat_harvester", "Automatic farm", "مزرعة بتحصد لحالها", wheat_harvester),
     ("storage_tower", "Storage tower", "برج تخزين", storage_tower),
     ("night_street", "Street with night lights", "شارع بإنارة ليلية", night_street),
     ("hidden_door", "Sliding stone door", "باب حجر بينزلق", hidden_door),
     ("fill_meter", "Chest fill meter", "عدّاد امتلاء الصندوق", fill_meter),
     ("snack_machine", "Snack machine", "ماكينة سناك", snack_machine),
     ("door_alarm", "Door alarm", "إنذار الباب", door_alarm),
+    ("cobble_generator", "Cobblestone generator", "مولّد حجر من الحمم والماء", cobble_generator),
+    ("stone_factory", "Stone factory", "مصنع حجر", stone_factory),
+    ("obsidian_factory", "Obsidian factory", "مصنع الحجر البركاني", obsidian_factory),
+    ("bakery", "Bakery", "مخبز أوتوماتيكي", bakery),
+    ("grill_house", "Grill house", "معمل شوي", grill_house),
+    ("metal_works", "Metal works (iron, gold, copper, tin)", "مصنع المعادن (حديد، ذهب، نحاس، قصدير)", metal_works),
+    ("animal_farm", "Animal farm (eggs and lambs)", "مزرعة حيوانات (بيض وخرفان)", animal_farm),
 ]
 
 
@@ -296,7 +539,8 @@ def smelter_hall(c=None, ox=0, oz=0):
 
 
 def giant_farm(c=None, ox=0, oz=0, rows=8, length=36):
-    """Rows of wheat with a breaker bridge over each pair, all on one button, conveyors to
+    """Rows of wheat and carrots with a breaker bridge over each pair. Every row harvests by
+    itself (an observer watches its first crop); one button also harvests them all. Conveyors to
     collectors and chests; night lights and a fence around. Copper wire fades after 15
     blocks, so delay gates on pillars every 12 blocks pass the signal on at full strength."""
     c = c if c is not None else Clip()
@@ -315,9 +559,11 @@ def giant_farm(c=None, ox=0, oz=0, rows=8, length=36):
                     c.put(x, 3, zz, DELAY + 1)      # facing +x
                 else:
                     c.put(x, 0, zz, FARMLAND)
-                    c.put(x, 1, zz, WHEAT)
+                    c.put(x, 1, zz, CARROTS if r % 2 else WHEAT)
                     c.put(x, 2, zz, BREAKER + 5)
                     c.put(x, 3, zz, WIRE)
+        for zz in (z + 1, z + 2):
+            watched_row(c, ox, zz)                  # each row harvests by itself
         for zz in (z, z + 3):
             c.put(ox + length, -1, zz, COLLECTOR)
             c.put(ox + length, -2, zz, CHEST)
@@ -426,18 +672,20 @@ def mega_complex():
 
 LARGE = [
     ("smelter_hall", "Smelting hall (8 lines)", "قاعة الصهر الكبرى (8 خطوط)", smelter_hall),
-    ("giant_farm", "Giant wheat farm", "مزرعة القمح العملاقة", giant_farm),
+    ("giant_farm", "Giant automatic farm", "المزرعة الأوتوماتيكية العملاقة", giant_farm),
     ("mega_complex", "Industrial complex", "المجمّع الصناعي العملاق", mega_complex),
 ]
 
 
 def all_designs():
-    """[(file, English name, Arabic name, category, clip)] with the clip moved to start at 0."""
+    """[(file, English name, Arabic name, category, clip)] with the clip moved to start at 0
+    (its extras moved with it)."""
     out = []
     for category, designs in (("small_factories", SMALL), ("big_factories", LARGE)):
         for file, en, ar, make in designs:
             clip = make()
             lo = [min(p[a] for p in clip) for a in range(3)]
-            out.append((file, en, ar, category,
-                        {(x - lo[0], y - lo[1], z - lo[2]): b for (x, y, z), b in clip.items()}))
+            moved = Clip({(x - lo[0], y - lo[1], z - lo[2]): b for (x, y, z), b in clip.items()})
+            moved.extras = {(x - lo[0], y - lo[1], z - lo[2]): e for (x, y, z), e in clip.extras.items()}
+            out.append((file, en, ar, category, moved))
     return out

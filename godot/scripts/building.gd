@@ -13,7 +13,14 @@ var clipboard := {}:         # Vector3i offset -> id
 		clipboard = value
 		_clip_size = null       # big library buildings have 200 000 cells: measure once
 var _clip_size = null
+var extras := {}             # Vector3i offset -> what comes with that cell (filled chests, animals)
 var undo_stack := []
+
+
+## A building from a file, with what comes with it.
+func load_file(path: String) -> void:
+	clipboard = Schematics.load_file(path)
+	extras = Schematics.last_extras.duplicate()
 
 
 const TRACK_TURN := {1750: 1751, 1751: 1750, 1752: 1755, 1753: 1752, 1754: 1753, 1755: 1754,
@@ -119,6 +126,7 @@ func copy(world: WorldData) -> String:
 		return problem
 	var b = bounds()
 	clipboard = {}
+	extras = {}
 	var solid := 0
 	for x in range(b[0].x, b[1].x + 1):
 		for y in range(b[0].y, b[1].y + 1):
@@ -161,6 +169,10 @@ func rotate() -> String:
 	for p in clipboard:
 		out[Vector3i(p.z, p.y, sx - 1 - p.x)] = rotate_block(clipboard[p])
 	clipboard = out
+	var ex := {}
+	for p in extras:
+		ex[Vector3i(p.z, p.y, sx - 1 - p.x)] = extras[p]
+	extras = ex
 	return I18n.t("rotated")
 
 
@@ -172,6 +184,10 @@ func mirror() -> String:
 	for p in clipboard:
 		out[Vector3i(sx - 1 - p.x, p.y, p.z)] = mirror_block(clipboard[p])
 	clipboard = out
+	var ex := {}
+	for p in extras:
+		ex[Vector3i(sx - 1 - p.x, p.y, p.z)] = extras[p]
+	extras = ex
 	return I18n.t("mirrored")
 
 

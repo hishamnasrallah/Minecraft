@@ -39,10 +39,19 @@ static func to_data(clip: Dictionary, name: String) -> Dictionary:
 	return {"format": FORMAT, "version": 1, "name": name, "size": [s.x, s.y, s.z], "palette": palette, "blocks": runs}
 
 
+## What came with the cells of the file loaded last (library buildings): things already in
+## chests, animals living there, what a crafter makes. Vector3i -> Dictionary.
+static var last_extras := {}
+
+
 ## Back to a clipboard. Unknown blocks become air. Returns {} for a bad file.
 static func from_data(data) -> Dictionary:
+	last_extras = {}
 	if not data is Dictionary or data.get("format") != FORMAT:
 		return {}
+	for e in data.get("extras", []):
+		if e is Array and e.size() == 4 and e[3] is Dictionary:
+			last_extras[Vector3i(int(e[0]), int(e[1]), int(e[2]))] = e[3]
 	var s := Vector3i(int(data["size"][0]), int(data["size"][1]), int(data["size"][2]))
 	var ids := []
 	for entry in data["palette"]:

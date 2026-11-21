@@ -38,7 +38,7 @@ func _ready() -> void:
 var _mode := "compare"
 
 
-func open(kind: String, id: int, delay: int, mode := "compare") -> void:
+func open(kind: String, id: int, delay: int, mode := "compare", choices := [], current := 0) -> void:
 	_mode = mode
 	for c in _list.get_children():
 		_list.remove_child(c)                       # gone now, not at the end of the frame
@@ -73,9 +73,38 @@ func open(kind: String, id: int, delay: int, mode := "compare") -> void:
 			var b := _button(I18n.f("seconds", "%.1f" % (t / 10.0)), t == delay)
 			b.pressed.connect(func(): chosen.emit("delay", t))
 			row.add_child(b)
-	var turn := _button("↻  " + I18n.t("panel_turn"), false)
-	turn.pressed.connect(func(): chosen.emit("turn", 0))
-	_list.add_child(turn)
+	if kind == "crafter":
+		# what it makes: by itself (food first), or one thing you pick from what is inside
+		var row := _row(I18n.t("panel_makes"))
+		var auto := _button(I18n.t("craft_auto"), current == 0)
+		auto.pressed.connect(func(): chosen.emit("craft", 0))
+		row.add_child(auto)
+		var shown := choices.duplicate()
+		if current != 0 and not current in shown:
+			shown.push_front(current)
+		var n := 0
+		for item in shown:
+			if n == 4:
+				row = HBoxContainer.new()             # a second row for the rest
+				row.add_theme_constant_override("separation", 8)
+				_list.add_child(row)
+			var b := _button(Items.name_of(int(item)), int(item) == current)
+			b.pressed.connect(func(): chosen.emit("craft", int(item)))
+			row.add_child(b)
+			n += 1
+		if shown.is_empty():
+			var none := Label.new()
+			none.text = I18n.t("craft_put_in")
+			none.add_theme_font_size_override("font_size", 16)
+			none.modulate = Color(1, 1, 1, 0.7)
+			_list.add_child(none)
+		var box := _button("📦  " + I18n.t("panel_open"), false)
+		box.pressed.connect(func(): chosen.emit("open", 0))
+		_list.add_child(box)
+	else:
+		var turn := _button("↻  " + I18n.t("panel_turn"), false)
+		turn.pressed.connect(func(): chosen.emit("turn", 0))
+		_list.add_child(turn)
 	var done := _button(I18n.t("done"), false)
 	done.pressed.connect(close)
 	_list.add_child(done)

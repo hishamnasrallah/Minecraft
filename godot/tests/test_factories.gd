@@ -128,23 +128,57 @@ func test_logic_board() -> String:
 	return "" if off and one and both and not_lit else "AND board: %s %s %s, NOT lamp lit %s" % [off, one, both, not_lit]
 
 
+## The farms harvest by themselves: ripen every crop the observers do not watch (nothing
+## happens), then let a watched crop grow: the row's breakers take every ripe crop and plant it
+## again. Twice, to see it keeps going. The button still harvests at once.
 func _harvest(file: String) -> String:
 	var s := _world(file)
 	var w: WorldData = s[0]
 	var p: Power = s[1]
 	var dropped: Array = s[2]
-	var wheat := _find(w, 971)
-	if wheat.is_empty():
-		return "%s: no wheat planted" % file
-	var button: Vector3i = _find(w, 1704)[0]
+	var crops := []
+	for k in w.changes:
+		for pos in w.changes[k]:
+			if Blocks.defs.get(w.get_block(pos.x, pos.y, pos.z), {}).has("crop"):
+				crops.append(pos)
+	if crops.is_empty():
+		return "%s: nothing planted" % file
+	var watched := {}
+	for o in _find(w, 1824):
+		watched[o + Vector3i(0, -1, 0)] = true
+	if watched.is_empty():
+		return "%s: no observer watches a crop" % file
+	var ripe := func(pos: Vector3i) -> void:
+		var b := w.get_block(pos.x, pos.y, pos.z)
+		w.set_block(pos.x, pos.y, pos.z, b - int(Blocks.defs[b]["crop"]["stage"]) + 3, true, false)
 	_run(p, 3)
-	p.press_button(button)
+	for round in 2:
+		for c in crops:
+			if not watched.has(c):
+				ripe.call(c)
+		_run(p, 10)
+		if dropped.size() != round * crops.size():
+			return "%s: harvested before anything was watched growing (%d drops)" % [file, dropped.size()]
+		for c in watched:
+			ripe.call(c)                      # the watched crops grow: the rows fire
+		_run(p, 25)
+		var unripe := 0
+		for c in crops:
+			var b := w.get_block(c.x, c.y, c.z)
+			if not Blocks.defs.get(b, {}).has("crop") or int(Blocks.defs[b]["crop"]["stage"]) != 0:
+				unripe += 1
+		if unripe != 0:
+			return "%s round %d: %d of %d crops not harvested and planted again" % [file, round + 1, unripe, crops.size()]
+		if dropped.size() != (round + 1) * crops.size():
+			return "%s round %d: %d drops for %d crops" % [file, round + 1, dropped.size(), crops.size()]
+	# the button harvests ripe crops at once
+	for c in crops:
+		ripe.call(c)
+	_run(p, 3)
+	p.press_button(_find(w, 1704)[0])
 	_run(p, 25)
-	var left := _find(w, 971).size()
-	if left != 0:
-		return "%s: %d of %d crops not harvested" % [file, left, wheat.size()]
-	if dropped.size() != wheat.size():
-		return "%s: %d drops for %d crops" % [file, dropped.size(), wheat.size()]
+	if dropped.size() != 3 * crops.size():
+		return "%s: the button harvested %d of %d" % [file, dropped.size() - 2 * crops.size(), crops.size()]
 	return ""
 
 
@@ -222,3 +256,142 @@ func test_clock_next_to_the_town_stays_cheap() -> String:
 	w.unload_chunk(Vector2i(0, 0))
 	_run(p, 20)
 	return ""
+
+
+## A library building with its extras (filled chests, crafter choices) and fluids running.
+func _world_full(clip_file: String) -> Array:
+	var w := WorldData.new(3)
+	var clip := Schematics.load_file("res://data/schematics/" + clip_file)
+	var extras := Schematics.last_extras.duplicate()
+	var size := Vector3i.ZERO
+	for q in clip:
+		size = Vector3i(maxi(size.x, q.x), maxi(size.y, q.y), maxi(size.z, q.z))
+	for cx in range(-1, size.x / 16 + 2):
+		for cz in range(-1, size.z / 16 + 2):
+			w.chunks[Vector2i(cx, cz)] = WorldData.Chunk.new()
+	var p := Power.new(w)
+	var f := Fluids.new()
+	f.world = w
+	f.set_block = func(pos: Vector3i, id: int) -> void: w.set_block(pos.x, pos.y, pos.z, id, true, false)
+	w.on_edit = func(pos: Vector3i, id: int) -> void:
+		p.note(pos, id)
+		f.note(pos)
+	p.set_block = func(pos: Vector3i, id: int) -> void: w.set_block(pos.x, pos.y, pos.z, id, true, false)
+	var dropped := []
+	p.spawn_drop = func(st: Array, _pos: Vector3) -> void: dropped.append(st)
+	p.break_drops = func(id: int) -> Array: return [[Items.drop_for(id), 1]]
+	var edits := {}
+	for q in clip:
+		if clip[q] != 0:
+			edits[Vector3i(0, Y, 0) + q] = clip[q]
+	w.bulk_set(edits)
+	for q in extras:
+		var at: Vector3i = Vector3i(0, Y, 0) + q
+		var e: Dictionary = extras[q]
+		if e.has("items"):
+			w.containers[at] = (e["items"] as Array).map(func(st): return [int(st[0]), int(st[1])])
+		if e.has("craft"):
+			w.settings[at] = {"craft": int(e["craft"])}
+	return [w, p, dropped, f]
+
+
+func _run_all(p: Power, f: Fluids, seconds: float) -> void:
+	var t := 0.0
+	while t < seconds:
+		p.update(Power.TICK + 0.001)
+		f.update(Power.TICK + 0.001)
+		t += Power.TICK + 0.001
+
+
+func _dropped_count(dropped: Array, item: int) -> int:
+	var n := 0
+	for st in dropped:
+		if int(st[0]) == item:
+			n += int(st[1])
+	return n
+
+
+func test_cobble_generator_runs_by_itself() -> String:
+	var s := _world_full("cobble_generator.json")
+	_run_all(s[1], s[3], 12.0)
+	var n := _dropped_count(s[2], 22)
+	return "" if n >= 5 else "cobblestone mined in 12 s: %d" % n
+
+
+func test_stone_factory() -> String:
+	var s := _world_full("stone_factory.json")
+	var w: WorldData = s[0]
+	var p: Power = s[1]
+	_run_all(p, s[3], 12.0)
+	var n := _dropped_count(s[2], 22)
+	if n < 10:
+		return "two generators mined only %d cobblestone in 12 s" % n
+	# what the conveyor brings: cobblestone on the collector over the smelter
+	var smelter: Vector3i = _find(w, 1747)[0] if not _find(w, 1747).is_empty() else _find(w, 1748)[0]
+	p.take_drop(smelter + Vector3i(0, 1, 0), [22, 8])
+	_run_all(p, s[3], 12.0)
+	var stone := _count_in(w, smelter + Vector3i(0, -2, 0), 3)
+	return "" if stone == 8 else "smooth stone in the chest: %d of 8" % stone
+
+
+func test_obsidian_factory() -> String:
+	var s := _world_full("obsidian_factory.json")
+	var w: WorldData = s[0]
+	var p: Power = s[1]
+	var thrower: Vector3i = _find(w, 1833)[0]
+	_run_all(p, s[3], 25.0)
+	var n := _dropped_count(s[2], 1890)
+	var empty := _count_in(w, thrower, int(Items.S["BUCKET"]))
+	if n < 4:
+		return "obsidian made in 25 s: %d" % n
+	return "" if empty == n else "empty buckets back in the thrower %d for %d obsidian" % [empty, n]
+
+
+func _line_output(file: String, item: int, lines: int, seconds: float) -> String:
+	var s := _world_full(file)
+	var w: WorldData = s[0]
+	var p: Power = s[1]
+	_run_all(p, s[3], seconds)
+	var chests := _find(w, 48)
+	chests.sort_custom(func(a, b): return a.y < b.y)
+	var got := 0
+	var lines_with := 0
+	for ch in chests.slice(0, lines):
+		var n := _count_in(w, ch, item)
+		got += n
+		lines_with += int(n > 0)
+	return "" if lines_with == lines else "%s: %d of %d lines made item %d (%d in all)" % [file, lines_with, lines, item, got]
+
+
+func test_bakery_bakes_bread() -> String:
+	return _line_output("bakery.json", 122, 3, 30.0)
+
+
+func test_grill_house_cooks() -> String:
+	var s := _world_full("grill_house.json")
+	var w: WorldData = s[0]
+	_run_all(s[1], s[3], 30.0)
+	var chests := _find(w, 48)
+	chests.sort_custom(func(a, b): return a.y < b.y)
+	var meat := 0
+	var fish := 0
+	for ch in chests.slice(0, 3):
+		meat += int(_count_in(w, ch, 104) > 0)
+		fish += int(_count_in(w, ch, 127) > 0)
+	return "" if meat == 2 and fish == 1 else "lines cooking meat %d of 2, fish %d of 1" % [meat, fish]
+
+
+func test_metal_works_makes_blocks() -> String:
+	var s := _world_full("metal_works.json")
+	var w: WorldData = s[0]
+	var p: Power = s[1]
+	_run_all(p, s[3], 90.0)
+	var chests := _find(w, 48)
+	chests.sort_custom(func(a, b): return a.y < b.y)
+	var made := []
+	for item in [30, 32, 31, 908]:
+		var n := 0
+		for ch in chests.slice(0, 4):
+			n += _count_in(w, ch, item)
+		made.append(n)
+	return "" if made.min() > 0 else "metal blocks made (iron, gold, copper, tin): %s" % [made]

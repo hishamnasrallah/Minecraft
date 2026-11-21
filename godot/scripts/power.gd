@@ -18,6 +18,7 @@ const DIRS := [Vector3i(0, 0, 1), Vector3i(1, 0, 0), Vector3i(0, 0, -1), Vector3
 
 var world: WorldData
 var set_block: Callable            # func(pos: Vector3i, id: int) -> void   (the game's edit, remeshes)
+var feed_animal: Callable          # func(at: Vector3, item: int) -> int: 1 an animal there ate it, -1 one is there but full
 var spawn_drop: Callable           # func(stack: Array, pos: Vector3) -> void
 var break_drops: Callable          # func(id: int) -> Array of stacks a broken block gives
 
@@ -124,7 +125,7 @@ func _rebuild_lists() -> void:
 	_lists_dirty = false
 	_comps = []
 	_comp_of = {}
-	_item_movers = {"collector": [], "smelter": []}
+	_item_movers = {"collector": [], "smelter": [], "crafter": []}
 	_watch = {}
 	_comparators = []
 	for p in parts:
@@ -447,7 +448,7 @@ func _tick(comp: Dictionary) -> bool:
 				if on and not before:
 					_push(p, pd)
 					var there := world.get_block(head_at.x, head_at.y, head_at.z)
-					if there == 0 or there == WorldData.WATER or Blocks.plants_need_soil.has(there):
+					if there == 0 or Blocks.fluid[there] != 0 or Blocks.plants_need_soil.has(there):
 						set_block.call(head_at, PUSHER_HEAD + _info[id][1])   # the head sticks out
 				elif not on and before:
 					var hid := world.get_block(head_at.x, head_at.y, head_at.z)
@@ -572,7 +573,7 @@ const PULSE := 0.25                  # how long an observer's pulse lasts (secon
 
 
 static func _movable(id: int) -> bool:
-	return id != 0 and id != WorldData.WATER and Blocks.hardness[id] >= 0 \
+	return id != 0 and Blocks.fluid[id] == 0 and Blocks.hardness[id] >= 0 \
 		and (id < PUSHER_HEAD or id > PUSHER_HEAD + 5) \
 		and not Blocks.defs.get(id, {}).get("container", false) and not Blocks.defs.get(id, {}).has("door")
 
@@ -583,7 +584,7 @@ func _push(p: Vector3i, d: Vector3i) -> void:
 	var q := p + d
 	while true:
 		var b := world.get_block(q.x, q.y, q.z)
-		if b == 0 or b == WorldData.WATER or Blocks.plants_need_soil.has(b):
+		if b == 0 or Blocks.fluid[b] != 0 or Blocks.plants_need_soil.has(b):
 			break
 		if not _movable(b) or line.size() >= PUSH_LIMIT or q.y + d.y < 0 or q.y + d.y >= WorldData.H:
 			return
@@ -602,13 +603,50 @@ func _throw(p: Vector3i, d: Vector3i) -> void:
 	var mine := _container(p)
 	var q := p + d
 	var into_box: bool = world.containers.has(q) or Blocks.defs.get(world.get_block(q.x, q.y, q.z), {}).get("container", false)
+	var front := world.get_block(q.x, q.y, q.z)
 	for i in 27:
 		if mine.slots[i] == null:
 			continue
 		var item := int(mine.slots[i][0])
+		# buckets: a full one pours its water or lava out in front, an empty one scoops a source up
+		if item == _bucket("WATER_BUCKET") or item == _bucket("LAVA_BUCKET"):
+			if into_box or not (front == 0 or Blocks.plants_need_soil.has(front) or (Blocks.fluid[front] != 0 and Blocks.flow[front] > 0)):
+				continue
+			set_block.call(q, WorldData.WATER if item == _bucket("WATER_BUCKET") else Blocks.LAVA)
+			mine.slots[i] = [_bucket("BUCKET"), 1]
+			world.containers[p] = mine.to_data()
+			changed_containers[p] = true
+			Sfx.play("dig_soft", -6.0)
+			return
+		if item == _bucket("BUCKET"):
+			if front != WorldData.WATER and front != Blocks.LAVA:
+				continue
+			var full := _bucket("WATER_BUCKET") if front == WorldData.WATER else _bucket("LAVA_BUCKET")
+			if int(mine.slots[i][1]) > 1 and mine.add(full, 1) > 0:
+				continue                               # no room for the full bucket
+			if int(mine.slots[i][1]) > 1:
+				mine.use_one(i)
+			else:
+				mine.slots[i] = [full, 1]
+			set_block.call(q, 0)
+			world.containers[p] = mine.to_data()
+			changed_containers[p] = true
+			Sfx.play("dig_soft", -6.0)
+			return
+		# food for an animal standing in front: it eats it (and wants to breed); one that is
+		# full is left alone and the food stays in
+		if not into_box and feed_animal.is_valid():
+			var fed: int = feed_animal.call(Vector3(q), item)
+			if fed < 0:
+				return
+			if fed > 0:
+				mine.use_one(i)
+				world.containers[p] = mine.to_data()
+				changed_containers[p] = true
+				return
 		if into_box:
 			var dst := _container(q)
-			var slot := _slot_for(dst, item, 18 if parts.get(q, "") == "smelter" else 27)
+			var slot := _slot_for(dst, item, 18 if _is_maker(q) else 27)
 			if slot == -1:
 				return                                 # the box in front is full
 			if dst.slots[slot] == null:
@@ -617,7 +655,7 @@ func _throw(p: Vector3i, d: Vector3i) -> void:
 				dst.slots[slot][1] += 1
 			world.containers[q] = dst.to_data()
 			changed_containers[q] = true
-		elif world.get_block(q.x, q.y, q.z) == 0 or world.get_block(q.x, q.y, q.z) == WorldData.WATER:
+		elif world.get_block(q.x, q.y, q.z) == 0 or Blocks.fluid[world.get_block(q.x, q.y, q.z)] != 0:
 			spawn_drop.call([item, 1], Vector3(q))
 		else:
 			return                                     # a wall in front: nothing comes out
@@ -630,7 +668,21 @@ func _throw(p: Vector3i, d: Vector3i) -> void:
 
 func _break(q: Vector3i) -> void:
 	var b := world.get_block(q.x, q.y, q.z)
-	if b == 0 or b == WorldData.WATER or Blocks.hardness[b] < 0:
+	if b == 0 or Blocks.fluid[b] != 0 or Blocks.hardness[b] < 0:
+		return
+	var crop = Blocks.defs[b].get("crop")
+	if crop is Dictionary:
+		# a harvester: it leaves a growing crop alone, takes a ripe one and plants the seed again
+		if int(crop["next"]) != 0:
+			return
+		var stacks: Array = break_drops.call(b)
+		if stacks.size() > 1 and int(stacks[1][1]) > 0:
+			stacks[1][1] = int(stacks[1][1]) - 1          # one seed goes back into the ground
+		for st in stacks:
+			if int(st[1]) > 0:
+				spawn_drop.call(st, Vector3(q))
+		set_block.call(q, b - int(crop["stage"]))
+		Sfx.play("dig_soft", -8.0)
 		return
 	for st in break_drops.call(b):
 		spawn_drop.call(st, Vector3(q))
@@ -643,16 +695,38 @@ func _container(p: Vector3i) -> Inventory:
 	return Inventory.from_data(world.containers.get(p), 27)
 
 
-var _item_movers := {"collector": [], "smelter": []}
+var _item_movers := {"collector": [], "smelter": [], "crafter": []}
+var _turn := {}                      # collector -> the slot above it takes from next
+var busy_until := {}                 # smelter / crafter Vector3i -> time it stops showing it works
+const LIT_TWIN := {1747: 1748, 1748: 1748, 1868: 1869, 1869: 1869}
+const COLD_TWIN := {1747: 1747, 1748: 1747, 1868: 1868, 1869: 1868}
 
 
 func _move_items() -> void:
 	for p in _item_movers["collector"]:
 		if world.is_loaded(p.x, p.z):
 			_collect(p)
-	for p in _item_movers["smelter"]:
-		if _has_items(p):
-			_smelt(p)
+	for kind in ["smelter", "crafter"]:
+		for p in _item_movers[kind]:
+			if not world.is_loaded(p.x, p.z):
+				continue
+			if _has_items(p) and (_smelt(p) if kind == "smelter" else _craft(p)):
+				busy_until[p] = now + 1.3
+			# a working machine shows it: the fire burns, the crafting grid glows
+			var id := world.get_block(p.x, p.y, p.z)
+			var show: int = (LIT_TWIN if busy_until.get(p, 0.0) > now else COLD_TWIN).get(id, id)
+			if show != id:
+				set_block.call(p, show)
+
+
+static func _bucket(name: String) -> int:
+	return int(Items.S[name])
+
+
+## Smelters and crafters take things in at the top (slots 0-17) and give them out below (18-26).
+func _is_maker(q: Vector3i) -> bool:
+	var k: String = parts.get(q, "")
+	return k == "smelter" or k == "crafter"
 
 
 func _has_items(p: Vector3i) -> bool:
@@ -673,22 +747,26 @@ func _collect(p: Vector3i) -> void:
 	var changed := false
 	# from the container above (from a smelter: only its finished items)
 	var above := p + Vector3i(0, 1, 0)
-	if world.containers.has(above) or parts.get(above, "") == "smelter":
+	if world.containers.has(above) or _is_maker(above):
 		var src := _container(above)
-		var first := 18 if parts.get(above, "") == "smelter" else 0
-		for i in range(first, 27):
+		var first := 18 if _is_maker(above) else 0
+		# take turns between the slots, so ore and coal (or eggs and wheat) come down mixed
+		var start: int = _turn.get(p, 0)
+		for k in 27 - first:
+			var i := first + (start + k) % (27 - first)
 			if src.slots[i] != null and mine.can_take([src.slots[i][0], 1]):
 				mine.add(int(src.slots[i][0]), 1)
 				src.use_one(i)
 				world.containers[above] = src.to_data()
 				changed_containers[above] = true
 				changed = true
+				_turn[p] = (i - first + 1) % (27 - first)
 				break
 	# into the container below (a smelter takes it into its input slots)
 	var below := p + Vector3i(0, -1, 0)
-	if world.containers.has(below) or parts.get(below, "") == "smelter" or Blocks.defs.get(world.get_block(below.x, below.y, below.z), {}).get("container", false):
+	if world.containers.has(below) or _is_maker(below) or Blocks.defs.get(world.get_block(below.x, below.y, below.z), {}).get("container", false):
 		var dst := _container(below)
-		var last := 18 if parts.get(below, "") == "smelter" else 27
+		var last := 18 if _is_maker(below) else 27
 		for i in 27:
 			if mine.slots[i] == null:
 				continue
@@ -733,35 +811,82 @@ func take_drop(p: Vector3i, stack: Array):
 	return left
 
 
-func _smelt(p: Vector3i) -> void:
+func _smelt(p: Vector3i) -> bool:
 	var inv := _container(p)
 	for r in Items.recipes:
-		if str(r.get("station", "")) != "furnace":
-			continue
-		var ok := true
-		for k in r["in"]:
-			if _count(inv, k, 18) < int(r["in"][k]):
-				ok = false
+		if str(r.get("station", "")) == "furnace" and _can_make(inv, r):
+			return _make(p, inv, r)
+	return false
+
+
+## Recipes made at the crafting table, the ones a crafter picks by itself first: food, then
+## the ones that need the fewest things.
+static var _table: Array = []
+
+
+static func table_recipes() -> Array:
+	if _table.is_empty():
+		for r in Items.recipes:
+			if str(r.get("station", "")) != "furnace":
+				_table.append(r)
+		var size := func(r) -> int:
+			var n := 0
+			for k in r["in"]:
+				n += int(r["in"][k])
+			return n + (0 if Items.food.has(int(r["out"][0])) else 1000)
+		_table.sort_custom(func(a, b): return size.call(a) < size.call(b))
+	return _table
+
+
+## What a crafter could make from what is in it now (item ids, best first).
+func craft_options(p: Vector3i) -> Array:
+	var inv := _container(p)
+	var out := []
+	for r in table_recipes():
+		var item := int(r["out"][0])
+		if not item in out and _can_make(inv, r):
+			out.append(item)
+			if out.size() >= 8:
 				break
-		if not ok:
+	return out
+
+
+func _craft(p: Vector3i) -> bool:
+	var inv := _container(p)
+	var want := int(world.settings.get(p, {}).get("craft", 0)) if world.settings.get(p) is Dictionary else 0
+	for r in table_recipes():
+		if want != 0 and int(r["out"][0]) != want:
 			continue
-		var out_slot := _slot_for(inv, int(r["out"][0]), 27)
-		if out_slot < 18:
-			out_slot = -1
-			for i in range(18, 27):
-				var s = inv.slots[i]
-				if s == null or (int(s[0]) == int(r["out"][0]) and int(s[1]) < Items.max_stack(int(s[0]))):
-					out_slot = i
-					break
-		if out_slot == -1:
-			return                                  # output full
-		for k in r["in"]:
-			_take(inv, k, int(r["in"][k]), 18)
-		var cur = inv.slots[out_slot]
-		inv.slots[out_slot] = [int(r["out"][0]), int(r["out"][1]) + (int(cur[1]) if cur != null else 0)]
-		world.containers[p] = inv.to_data()
-		changed_containers[p] = true
-		return
+		if _can_make(inv, r):
+			return _make(p, inv, r)
+	return false
+
+
+func _can_make(inv: Inventory, r: Dictionary) -> bool:
+	for k in r["in"]:
+		if _count(inv, k, 18) < int(r["in"][k]):
+			return false
+	return true
+
+
+## Take a recipe's things from the input slots and put what it makes in the output slots.
+func _make(p: Vector3i, inv: Inventory, r: Dictionary) -> bool:
+	var item := int(r["out"][0])
+	var out_slot := -1
+	for i in range(18, 27):
+		var s = inv.slots[i]
+		if s == null or (int(s[0]) == item and int(s[1]) + int(r["out"][1]) <= Items.max_stack(item)):
+			out_slot = i
+			break
+	if out_slot == -1:
+		return false                                # output full
+	for k in r["in"]:
+		_take(inv, k, int(r["in"][k]), 18)
+	var cur = inv.slots[out_slot]
+	inv.slots[out_slot] = [item, int(r["out"][1]) + (int(cur[1]) if cur != null else 0)]
+	world.containers[p] = inv.to_data()
+	changed_containers[p] = true
+	return true
 
 
 func _matches(key, item: int) -> bool:

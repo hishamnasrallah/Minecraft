@@ -90,7 +90,7 @@ static func scan_heights(c: WorldData.Chunk, transparent: PackedByteArray) -> Ar
 				if b == 0:
 					continue
 				highest = maxi(highest, y)
-				if transparent[b] == 0 or b == WorldData.WATER:
+				if transparent[b] == 0 or Blocks.fluid[b] != 0:
 					lowest = mini(lowest, y)
 					break
 	return [mini(lowest, highest), highest]

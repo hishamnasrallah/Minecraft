@@ -61,7 +61,7 @@ func _cell(v: float) -> int:
 
 
 func _water_at(p: Vector3) -> bool:
-	return world.get_block(_cell(p.x), _cell(p.y), _cell(p.z)) == WorldData.WATER
+	return Blocks.fluid[world.get_block(_cell(p.x), _cell(p.y), _cell(p.z))] != 0
 
 
 func head_under_water() -> bool:

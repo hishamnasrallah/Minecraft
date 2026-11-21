@@ -883,7 +883,7 @@ func column_info(key: Vector2i) -> Array:
 				var b := data[(lx * H + y) * CS + lz]
 				if b == 0:
 					continue
-				if b == WATER:
+				if Blocks.fluid[b] == 1:
 					water = maxi(water, y)
 				elif TRANSPARENT[b] == 0:
 					top = y
@@ -923,7 +923,7 @@ func raycast(origin: Vector3, direction: Vector3, max_distance := 6.0, hit_water
 	var t := 0.0
 	while t <= max_distance:
 		var b := get_block(cell.x, cell.y, cell.z)
-		if b != 0 and (b != WATER or hit_water):
+		if b != 0 and (Blocks.fluid[b] == 0 or hit_water):
 			return {"pos": cell, "normal": normal, "distance": t}
 		var a := 0
 		if t_max.y < t_max[a]:

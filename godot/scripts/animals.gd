@@ -83,16 +83,21 @@ const SPECIES := {
 	# the bog glob: a hopping one-eyed lump that bursts into two globlets
 	"glob": {"speed": 2.6, "height": 0.9, "width": 0.9, "flee_range": 0.0, "swims": true, "group": [1, 1], "health": 8,
 		"hostile": true, "cap": "hostile", "move": "hop", "hop": 7.0, "damage": 2, "reach": 1.5, "splits": "globlet"},
+	# workers: people who live at a farm or factory from the library. A farmer (green) walks to
+	# ripe crops near home, harvests them, plants the seed again and takes the harvest to the
+	# nearest chest; a smith (grey) and a baker (white) go from machine to machine tending them.
+	"worker": {"speed": 2.6, "height": 1.9, "width": 0.5, "flee_range": 0.0, "swims": false, "group": [1, 1],
+		"health": 20, "food": [122], "call": ""},
 	"globlet": {"speed": 3.0, "height": 0.45, "width": 0.45, "flee_range": 0.0, "swims": true, "group": [1, 1], "health": 3,
 		"hostile": true, "cap": "hostile", "move": "hop", "hop": 6.0, "damage": 1, "reach": 1.1},
 }
 const DROPS := {"rabbit": [RAW_MEAT, 1, 1], "deer": [RAW_MEAT, 2, 3], "duck": [RAW_MEAT, 1, 2], "gloom": [COAL, 0, 2],
 	"woolly": [WOOL, 1, 2], "hen": [FEATHER, 1, 2], "goat": [RAW_MEAT, 1, 2], "frog": [0, 0, 0], "turtle": [0, 0, 0],
 	"lizard": [0, 0, 0], "fish": [RAW_FISH, 1, 1], "bird": [FEATHER, 0, 1], "butterfly": [0, 0, 0], "firefly": [0, 0, 0],
-	"bramble": [STICK, 1, 3], "glob": [0, 0, 0], "globlet": [SEEDS, 0, 1]}   # item, min, max
+	"bramble": [STICK, 1, 3], "glob": [0, 0, 0], "globlet": [SEEDS, 0, 1], "worker": [0, 0, 0]}   # item, min, max
 # colour variants: woolly fleece = wool colour index (mostly naturals); see AnimalView.PALETTES
 const WOOL_COLOURS := [0, 0, 0, 0, 1, 1, 2, 3, 4, 4, 6, 7, 10, 12, 13, 14]
-const VARIANTS := {"rabbit": 2, "fish": 3, "butterfly": 4, "bird": 3}
+const VARIANTS := {"rabbit": 2, "fish": 3, "butterfly": 4, "bird": 3, "worker": 3}
 const NIGHT_RESTERS := ["woolly", "hen", "goat", "deer"]
 const AROUND := [Vector2i(4, 0), Vector2i(-4, 0), Vector2i(0, 4), Vector2i(0, -4), Vector2i(3, 3), Vector2i(-3, -3)]
 
@@ -132,6 +137,11 @@ class Animal:
 	var health: int
 	var dead := false
 	var killed := false            # died from the player's hits (not despawned)
+	var burn := 0.0                # time spent in lava since the last burn
+	var farm := false              # lives on a farm (came with a library building): kept, but stays home
+	var carry := {}                # a worker's harvest: item -> count
+	var job_t := 0.0
+	var work_cell = null           # the crop or machine a worker is going to
 	var hurt_time := 0.0
 	var hostile := false
 	var ambient := false
@@ -193,7 +203,7 @@ class Animal:
 		var feet := Wildlife.cell(pos.y - 0.4)
 		for drop in 3:
 			var b := world.get_block(Wildlife.cell(x), feet - drop, Wildlife.cell(z))
-			if b == WorldData.WATER:
+			if Blocks.is_water(b):
 				return true
 			if b != 0:
 				return false
@@ -259,7 +269,7 @@ class Animal:
 			state = "follow"
 			yaw = rad_to_deg(atan2(px, pz))
 			return
-		elif tame and not spec["swims"] and dist < 48.0 and (dist > 7.0 or (state == "follow" and dist > 3.0)):
+		elif tame and not farm and not spec["swims"] and dist < 48.0 and (dist > 7.0 or (state == "follow" and dist > 3.0)):
 			state = "follow"                       # a pet tags along when you walk off
 			yaw = rad_to_deg(atan2(px, pz))
 			return
@@ -287,6 +297,8 @@ class Animal:
 			var a := randf() * TAU
 			var d := randf_range(3, 8)
 			target = Vector2(pos.x + sin(a) * d, pos.z + cos(a) * d)
+			if farm and Vector2(home.x - pos.x, home.z - pos.z).length() > 4.0:
+				target = Vector2(home.x, home.z) + Vector2(randf_range(-2, 2), randf_range(-2, 2))
 			state = "walk"
 			timer = 8.0
 
@@ -299,7 +311,7 @@ class Animal:
 			_fly(dt, world)
 			return
 		if move == "swim":
-			in_water = world.get_block(Wildlife.cell(pos.x), Wildlife.cell(pos.y + 0.15), Wildlife.cell(pos.z)) == WorldData.WATER
+			in_water = Blocks.is_water(world.get_block(Wildlife.cell(pos.x), Wildlife.cell(pos.y + 0.15), Wildlife.cell(pos.z)))
 			if in_water:
 				_swim(dt, world, player)
 				return
@@ -355,8 +367,11 @@ class Animal:
 				var cx := Wildlife.cell(ax)
 				var cz := Wildlife.cell(az)
 				var head := Wildlife.cell(pos.y + spec["height"] + 0.9)
-				var step_free := not world.solid_at(cx, Wildlife.cell(pos.y + 1.1), cz) and not world.solid_at(cx, head, cz)
-				var leap_free: bool = int(spec.get("climb", 1)) >= 2 and not step_free \
+				# fences and walls are too tall to step over (they are 1.5 blocks in the original)
+				var low := world.get_block(cx, Wildlife.cell(pos.y + 0.1), cz)
+				var fenced: bool = Blocks.shape[low] == "fence"
+				var step_free := not fenced and not world.solid_at(cx, Wildlife.cell(pos.y + 1.1), cz) and not world.solid_at(cx, head, cz)
+				var leap_free: bool = int(spec.get("climb", 1)) >= 2 and not step_free and not fenced \
 					and not world.solid_at(cx, Wildlife.cell(pos.y + 2.1), cz) and not world.solid_at(cx, head + 1, cz)
 				if (on_ground or in_water) and step_free:
 					vy = 7.0
@@ -383,7 +398,7 @@ class Animal:
 	## Gravity, floating in water and landing.
 	func _fall(dt: float, world: WorldData) -> void:
 		var h: float = spec["height"]
-		in_water = world.get_block(Wildlife.cell(pos.x), Wildlife.cell(pos.y + h * 0.4), Wildlife.cell(pos.z)) == WorldData.WATER
+		in_water = Blocks.is_water(world.get_block(Wildlife.cell(pos.x), Wildlife.cell(pos.y + h * 0.4), Wildlife.cell(pos.z)))
 		if in_water and move != "swim":
 			vy = minf(vy + 25 * dt, 1.5) if vy < 5 else vy - GRAVITY * dt
 			vy *= 0.9
@@ -419,8 +434,8 @@ class Animal:
 				var a := randf() * TAU
 				t = pos + Vector3(sin(a) * 4.0, randf_range(-1.0, 1.0), cos(a) * 4.0)
 				state = "walk"
-			if world.get_block(Wildlife.cell(t.x), Wildlife.cell(t.y), Wildlife.cell(t.z)) == WorldData.WATER \
-					and world.get_block(Wildlife.cell(t.x), Wildlife.cell(t.y + 0.5), Wildlife.cell(t.z)) == WorldData.WATER:
+			if Blocks.is_water(world.get_block(Wildlife.cell(t.x), Wildlife.cell(t.y), Wildlife.cell(t.z))) \
+					and Blocks.is_water(world.get_block(Wildlife.cell(t.x), Wildlife.cell(t.y + 0.5), Wildlife.cell(t.z))):
 				target3 = t
 			timer = randf_range(2.0, 5.0)
 		var to := target3 - pos
@@ -428,7 +443,7 @@ class Animal:
 		if to.length_squared() > 0.01:
 			vel = vel.lerp(to.normalized() * speed, minf(1.0, dt * 3.0))
 		var n := pos + vel * dt
-		if world.get_block(Wildlife.cell(n.x), Wildlife.cell(n.y + 0.15), Wildlife.cell(n.z)) == WorldData.WATER:
+		if Blocks.is_water(world.get_block(Wildlife.cell(n.x), Wildlife.cell(n.y + 0.15), Wildlife.cell(n.z))):
 			pos = n
 		else:
 			vel = -vel * 0.5
@@ -475,6 +490,7 @@ class Animal:
 
 var world: WorldData
 var animals := []
+var parked := []                # tame / farm animals in chunks that are not loaded
 var laid := []                  # [[item, count], position] dropped while no game is attached (tests)
 var _spawn_timer := 0.0
 var _spawn_turn := 0
@@ -550,6 +566,10 @@ func update(dt: float, player: Vector3, daylight := 1.0, hostile := true, can_ta
 				damage += int(a.spec.get("damage", ATTACK_DAMAGE))
 			else:
 				remote_damage[target_peer] = int(remote_damage.get(target_peer, 0)) + int(a.spec.get("damage", ATTACK_DAMAGE))
+		if a.kind == "worker" and not a.dead:
+			_tick_worker(a, dt, game)
+		if not a.ambient and not a.dead and Blocks.fluid[world.get_block(cell(a.pos.x), cell(a.pos.y + 0.2), cell(a.pos.z))] == 2:
+			_burn(a, dt, game)
 		if a.hostile:
 			if not hostile:
 				a.dead = true
@@ -579,7 +599,10 @@ func update(dt: float, player: Vector3, daylight := 1.0, hostile := true, can_ta
 				_born.append(s)
 		var gone := not world.is_loaded(cell(a.pos.x), cell(a.pos.z))
 		var too_far := d2 > DESPAWN_DISTANCE * DESPAWN_DISTANCE and not a.tame
-		if a.dead or gone or too_far or a.pos.y < -10:
+		if gone and a.tame and not a.dead:
+			parked.append(a)                       # a farm or a pet far away: back when you return
+			animals.remove_at(i)
+		elif a.dead or gone or too_far or a.pos.y < -10:
 			animals.remove_at(i)
 		i -= 1
 	if not _lovers.is_empty():
@@ -587,6 +610,8 @@ func update(dt: float, player: Vector3, daylight := 1.0, hostile := true, can_ta
 	if not _born.is_empty():
 		animals.append_array(_born)
 		_born.clear()
+	if not parked.is_empty() and _frame % 30 == 0:
+		_unpark()
 	_spawn_timer -= dt
 	if _spawn_timer <= 0:
 		_spawn_timer = SPAWN_EVERY
@@ -636,6 +661,177 @@ func _tick_passive(a: Animal, dt: float, d2: float, daylight: float, game) -> vo
 			_sound(call, d2, 0.0, 1.35 if a.age > 0 else 1.0)
 
 
+## A machine (a thrower) holds out food at `at`: the nearest animal there that likes it eats
+## it (a baby grows faster, a grown one wants to breed). 1 if one ate, -1 if one that likes it
+## is there but cannot eat now (in love or resting after a lamb), 0 if nobody is there.
+func feed_near(at: Vector3, item: int, reach := 3.0) -> int:
+	var best: Animal = null
+	var best_d := reach * reach
+	var full := false
+	var crowd := 0
+	for a: Animal in animals:
+		if a.dead or not a.wants_food(item):
+			continue
+		var d := Vector2(a.pos.x - at.x, a.pos.z - at.z).length_squared()
+		if d >= reach * reach or absf(a.pos.y - at.y) > 1.5:
+			continue
+		crowd += 1
+		if a.age <= 0 and (a.love > 0 or a.breed_cd > 0):
+			full = true                            # not now
+			continue
+		if d < best_d:
+			best = a
+			best_d = d
+	if best != null and best.age <= 0 and crowd >= 8:
+		return -1                                  # the pen is full: no more lambs
+	if best == null:
+		return -1 if full else 0
+	if best.age > 0:
+		best.age = maxf(0.0, best.age - 60.0)
+	else:
+		best.love = LOVE_TIME
+	best.tame = true
+	_sound("eat", best.pos.distance_squared_to(_player), -4.0)
+	return 1
+
+
+## A worker's job, twice a second. Farmers: walk to a ripe crop near home, harvest it, plant
+## it again; with a full basket (or nothing left to pick) walk to the nearest chest and put
+## the harvest in. Smiths and bakers: walk from machine to machine near home and tend them.
+func _tick_worker(a: Animal, dt: float, game) -> void:
+	a.job_t -= dt
+	if a.job_t > 0:
+		return
+	a.job_t = 0.5
+	if a.state == "flee" or a.state == "follow" and not a.farm:
+		return
+	var here := Vector3i(cell(a.pos.x), cell(a.pos.y + 0.2), cell(a.pos.z))
+	var home := Vector3i(cell(a.home.x), cell(a.home.y + 0.2), cell(a.home.z))
+	var basket := 0
+	for k in a.carry:
+		basket += int(a.carry[k])
+	if a.variant == 0:
+		var crop = _near(home, 7, 2, func(b: int) -> bool:
+			var c = Blocks.defs.get(b, {}).get("crop")
+			return c is Dictionary and int(c["next"]) == 0)
+		if basket >= 12 or (basket > 0 and crop == null):
+			var chest = _near(home, 8, 3, func(b: int) -> bool: return b == 48)
+			if chest != null:
+				if _reach(a, chest):
+					var inv := Inventory.from_data(world.containers.get(chest), 27)
+					for k in a.carry.keys():
+						var left := inv.add(int(k), int(a.carry[k]))
+						if left > 0:
+							a.carry[k] = left
+						else:
+							a.carry.erase(k)
+					world.containers[chest] = inv.to_data()
+					if game != null and game.power != null:
+						game.power.changed_containers[chest] = true
+					a.walk_phase += 3.0
+				return
+		if crop != null:
+			if _reach(a, crop):
+				var b := world.get_block(crop.x, crop.y, crop.z)
+				var c: Dictionary = Blocks.defs[b]["crop"]
+				var drop := Items.drop_for(b)
+				if drop != 0:
+					a.carry[drop] = int(a.carry.get(drop, 0)) + 1
+				var bonus = Blocks.defs[b].get("bonus")
+				if bonus is Array:
+					var n := randi_range(int(bonus[1]), int(bonus[2])) - 1      # one is planted again
+					if n > 0:
+						a.carry[int(bonus[0])] = int(a.carry.get(int(bonus[0]), 0)) + n
+				if game != null:
+					game.edit(crop, b - int(c["stage"]), true, false)
+				else:
+					world.set_block(crop.x, crop.y, crop.z, b - int(c["stage"]), true, false)
+				a.walk_phase += 3.0                # the arms swing: work done
+				harvested += 1
+			return
+	else:
+		# smith (1): smelters, crafters, chests; baker (2): crafters and chests
+		var wanted := [1747, 1748, 1868, 1869, 48] if a.variant == 1 else [1868, 1869, 48, 47]
+		if a.work_cell == null or randf() < 0.08:
+			var spots := _all_near(home, 7, 3, func(b: int) -> bool: return b in wanted)
+			if not spots.is_empty():
+				a.work_cell = spots.pick_random()
+		if a.work_cell != null and _reach(a, a.work_cell):
+			a.walk_phase += 2.0
+			if randf() < 0.15:
+				a.work_cell = null                 # on to the next machine
+
+
+## Walk to a cell; true once standing next to it (the worker faces it).
+func _reach(a: Animal, c: Vector3i) -> bool:
+	var to := Vector2(c.x - a.pos.x, c.z - a.pos.z)
+	if to.length() < 1.45 and absf(c.y - a.pos.y) < 2.5:
+		a.state = "idle"
+		a.timer = 1.5
+		a.yaw = rad_to_deg(atan2(to.x, to.y))
+		return true
+	a.state = "walk"
+	a.target = Vector2(c.x, c.z) - to.normalized() * 0.9
+	a.timer = 4.0
+	return false
+
+
+var harvested := 0                   # crops picked by workers (tests)
+
+
+func _near(centre: Vector3i, r: int, h: int, ok: Callable):
+	var best = null
+	var best_d := 1 << 30
+	for dx in range(-r, r + 1):
+		for dz in range(-r, r + 1):
+			for dy in range(-h, h + 1):
+				var q := centre + Vector3i(dx, dy, dz)
+				if ok.call(world.get_block(q.x, q.y, q.z)):
+					var d := dx * dx + dz * dz + dy * dy
+					if d < best_d:
+						best = q
+						best_d = d
+	return best
+
+
+func _all_near(centre: Vector3i, r: int, h: int, ok: Callable) -> Array:
+	var out := []
+	for dx in range(-r, r + 1):
+		for dz in range(-r, r + 1):
+			for dy in range(-h, h + 1):
+				var q := centre + Vector3i(dx, dy, dz)
+				if ok.call(world.get_block(q.x, q.y, q.z)):
+					out.append(q)
+	return out
+
+
+## Lava burns an animal; one that dies in it drops its meat cooked, at the edge of the lava.
+func _burn(a: Animal, dt: float, game) -> void:
+	a.burn += dt
+	if a.burn < 0.5:
+		return
+	a.burn = 0.0
+	var held := held_item
+	held_item = 0                              # lava does not feed anyone
+	var tame := a.tame
+	a.tame = false
+	var drop: Array = a.hit(a.pos, 2)
+	a.tame = tame
+	held_item = held
+	if drop.is_empty():
+		return
+	var cooked := {RAW_MEAT: 104, RAW_FISH: 127}
+	drop[0] = int(cooked.get(int(drop[0]), int(drop[0])))
+	var at := a.pos + Vector3(0, 0.6, 0)
+	for d in [Vector3(1, 0, 0), Vector3(-1, 0, 0), Vector3(0, 0, 1), Vector3(0, 0, -1)]:
+		var q: Vector3 = a.pos + d
+		var b := world.get_block(cell(q.x), cell(q.y + 0.2), cell(q.z))
+		if Blocks.fluid[b] != 2 and (b == 0 or Blocks.solid[b] == 0):
+			at = q + Vector3(0, 0.3, 0)
+			break
+	_drop(drop, at, game)
+
+
 ## Pairs of fed adults walk to each other; when they meet a baby appears.
 func _breed() -> void:
 	for a: Animal in _lovers:
@@ -655,6 +851,7 @@ func _breed() -> void:
 			var baby := Animal.new(a.kind, (a.pos + best.pos) * 0.5 + Vector3(0, 0.3, 0))
 			baby.age = GROW_TIME
 			baby.tame = true
+			baby.farm = a.farm
 			baby.variant = a.variant if randf() < 0.5 else best.variant
 			_born.append(baby)
 			for p: Animal in [a, best]:
@@ -717,10 +914,19 @@ func _open_sky(p: Vector3) -> bool:
 ## Tamed animals are kept with the world (wild ones come and go): kind, place, colour, age.
 func save_pets() -> Array:
 	var out := []
-	for a in animals:
+	for a in animals + parked:
 		if a.tame and not a.dead and not a.hostile:
-			out.append([a.kind, a.pos.x, a.pos.y, a.pos.z, a.variant, a.age, a.health])
+			out.append([a.kind, a.pos.x, a.pos.y, a.pos.z, a.variant, a.age, a.health, a.farm])
 	return out
+
+
+## Tamed and farm animals whose ground is not loaded wait here, and come back with it.
+func _unpark() -> void:
+	for i in range(parked.size() - 1, -1, -1):
+		var a: Animal = parked[i]
+		if world.is_loaded(cell(a.pos.x), cell(a.pos.z)):
+			animals.append(a)
+			parked.remove_at(i)
 
 
 func load_pets(list) -> void:
@@ -734,7 +940,12 @@ func load_pets(list) -> void:
 		a.age = float(p[5])
 		a.health = int(p[6])
 		a.tame = true
-		animals.append(a)
+		a.farm = p.size() >= 8 and bool(p[7])
+		a.home = a.pos
+		if world.is_loaded(cell(a.pos.x), cell(a.pos.z)):
+			animals.append(a)
+		else:
+			parked.append(a)
 
 
 func hostile_count() -> int:
@@ -865,7 +1076,7 @@ func try_spawn(player: Vector3) -> Array:
 		if kind == "fish":                      # a school shares a colour
 			colour = animal.variant if colour < 0 else colour
 			animal.variant = colour
-			if world.get_block(cell(p.x), cell(p.y + 0.15), cell(p.z)) != WorldData.WATER:
+			if not Blocks.is_water(world.get_block(cell(p.x), cell(p.y + 0.15), cell(p.z))):
 				continue
 		elif animal.blocked(world, animal.pos.x, animal.pos.z):
 			continue

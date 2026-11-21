@@ -58,7 +58,7 @@ block(6, "sand", "sand", NATURAL, 0.5, "shovel")
 block(7, "oak planks", "planks", BUILDING, 2.0, "axe")
 block(8, "brick", "brick", BUILDING, 2.0, "pickaxe", 1)
 block(9, "bedrock", "bedrock", NATURAL, -1, creative=True)
-block(WATER, "water", "water", NATURAL, -1, transparent=True, solid=False, creative=False)
+block(WATER, "water", "water", NATURAL, -1, transparent=True, solid=False, creative=False, fluid="water", flow=0)
 block(LAMP, "lamp", "lamp", FUNCTIONAL, 0.3, emit=14)
 block(GLASS, "glass", "glass", BUILDING, 0.3, transparent=True)
 block(13, "coal ore", "coal_ore", NATURAL, 3.0, "pickaxe", 1, drop=102)
@@ -447,6 +447,15 @@ _logic(1746, "collector", ("collector_top", "collector_side", "machine_bottom"),
        hardness=1.5)
 _logic(1747, "auto-smelter", ("smelter_top", "smelter_front", "machine_bottom"), "smelter", container=True,
        hardness=2.0)
+# while it works its fire burns (the same machine, lit)
+_logic(1748, "auto-smelter", ("smelter_top", "smelter_front_on", "machine_bottom"), "smelter", container=True,
+       hardness=2.0, on=True, creative=False, drop=1747, emit=12)
+# the auto-crafter: like the smelter, but it makes things at the crafting table (wheat -> bread,
+# planks, sticks...). Input slots first, finished things in the last 9; a tap chooses what it makes.
+_logic(1868, "auto-crafter", ("crafter_top", "crafter_side", "machine_bottom"), "crafter", container=True,
+       hardness=2.0)
+_logic(1869, "auto-crafter", ("crafter_top_on", "crafter_side_on", "machine_bottom"), "crafter", container=True,
+       hardness=2.0, on=True, creative=False, drop=1868, emit=8)
 # the head a pusher sticks out while it is powered (one per facing, like the pusher's 0-5):
 # a wooden plate on a rod. It is part of the pusher: it drops nothing and is not pushed.
 PUSHER_HEAD = 1760
@@ -487,6 +496,23 @@ block(PORTAL, "portal", "portal", FUNCTIONAL, -1, translucent=True, solid=False,
 block(STORM_CRYSTAL, "storm crystal", "storm_crystal", FUNCTIONAL, 1.0, "pickaxe", emit=15, drop=None)
 block(PILLAR_STONE, "pillar stone", "pillar_stone", BUILDING, 12.0, "pickaxe", 3)
 block(STORM_HEART, "storm heart", "storm_heart", FUNCTIONAL, 3.0, "pickaxe", emit=13)
+
+
+# ---------------------------------------------------------------- fluids
+# Flowing water and lava: a source (level 0) spreads to the cells around it one level weaker
+# each step (water 7 steps, lava 3) and straight down as a full column. Lava meeting water
+# turns into cobblestone (flowing lava), obsidian (a lava source) or stone (lava falling on water).
+LAVA, OBSIDIAN = 1880, 1890
+for _l in range(1, 8):
+    block(1869 + _l, "flowing water", "water", NATURAL, -1, transparent=True, solid=False, creative=False,
+          drop=None, fluid="water", flow=_l)
+block(LAVA, "lava", "lava", NATURAL, -1, transparent=True, solid=False, creative=False, emit=15, drop=None,
+      fluid="lava", flow=0)
+for _l in range(1, 4):
+    block(LAVA + _l, "flowing lava", "lava", NATURAL, -1, transparent=True, solid=False, creative=False, emit=13,
+          drop=None, fluid="lava", flow=_l)
+block(OBSIDIAN, "obsidian", "obsidian", BUILDING, 15.0, "pickaxe", 4)
+FLUIDS = {i: (d["fluid"], d["flow"]) for i, d in BLOCK_DEFS.items() if d.get("fluid")}
 
 
 # ---------------------------------------------------------------- derived lookups

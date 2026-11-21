@@ -272,17 +272,30 @@ func _ready() -> void:
 	drops.hud = hud
 	add_child(drops)
 	power = Power.new(world)
+	fluids = Fluids.new()
+	fluids.world = world
+	fluids.set_block = func(p: Vector3i, id: int) -> void: edit(p, id, true, false)
+	fluids.wash = func(p: Vector3i, id: int) -> void:
+		var d := Items.drop_for(id)
+		if d != 0:
+			drops.spawn([d, 1], Vector3(p))
 	world.on_edit = func(p: Vector3i, id: int) -> void:
 		power.note(p, id)
+		fluids.note(p)
 		if Net.active() and not _applying_remote:
 			Net.send_edit(p, id)
 		if Blocks.defs.get(id, {}).has("crop") or Items.sapling_trees.has(id):
 			growing[p] = true                      # also crops and saplings from pasted buildings
 	power.set_block = func(p: Vector3i, id: int) -> void: edit(p, id, true, false)
 	power.spawn_drop = func(st: Array, p: Vector3) -> void: _drop_from_machine(st, p)
+	power.feed_animal = func(at: Vector3, item: int) -> int: return wildlife.feed_near(at, item)
 	power.break_drops = func(id: int) -> Array:
 		var d := Items.drop_for(id)
-		return [[d, 1]] if d != 0 else []
+		var out := [[d, 1]] if d != 0 else []
+		var bonus = Blocks.defs[id].get("bonus")
+		if bonus is Array:                       # ripe crops: extra seeds / carrots
+			out.append([int(bonus[0]), randi_range(int(bonus[1]), int(bonus[2]))])
+		return out
 
 	var layer := CanvasLayer.new()
 	layer.layer = 2
@@ -859,7 +872,7 @@ func _rebuild(keys: Array, y_lo := -1, y_hi := -1) -> void:
 
 func break_at(pos: Vector3i) -> void:
 	var id := world.get_block(pos.x, pos.y, pos.z)
-	if id == 0 or id == WorldData.WATER or (Blocks.hardness[id] < 0 and not creative):
+	if id == 0 or Blocks.fluid[id] != 0 or (Blocks.hardness[id] < 0 and not creative):
 		return
 	if Blocks.hardness[id] < 0:
 		edit(pos, 0, true)
@@ -930,7 +943,7 @@ func _drop_attached(pos: Vector3i) -> void:
 	for c in cells:
 		var p: Vector3i = c[0]
 		var id := world.get_block(p.x, p.y, p.z)
-		if id == 0 or id == WorldData.WATER:
+		if id == 0 or Blocks.fluid[id] != 0:
 			continue
 		var d: Dictionary = Blocks.defs[id]
 		var shape: String = d.get("shape", "cube")
@@ -992,7 +1005,8 @@ func attack(animal) -> void:
 
 
 func _replaceable(p: Vector3i) -> bool:
-	return world.get_block(p.x, p.y, p.z) in [0, WorldData.WATER, 51, 52]
+	var b := world.get_block(p.x, p.y, p.z)
+	return b in [0, 51, 52] or Blocks.fluid[b] != 0
 
 
 func _overlaps_player(p: Vector3i, id: int) -> bool:
@@ -1020,6 +1034,10 @@ func use_block(pos: Vector3i) -> bool:
 		_panel_pos = pos
 		machine_panel.open(mk, id, int(world.settings.get(pos, {}).get("delay", 3)), str(world.settings.get(pos, {}).get("mode", "compare")))
 		touch.blocked = true
+		return true
+	if mk == "crafter":
+		_panel_pos = pos
+		_open_crafter_panel(pos, id)
 		return true
 	if d.has("door"):
 		var other_y: int = pos.y - 1 if d["door"]["top"] else pos.y + 1
@@ -1284,6 +1302,7 @@ func _apply_remote_edits(edits: Dictionary) -> void:
 
 
 # ---------------------------------------------------------------- pasting big buildings
+var _paste_extras := {}            # world cell -> what comes with it (filled chests, animals)
 var _paste_batches := []            # [chunk key, {pos: id}] still to build, nearest first
 var _paste_total := 0
 var _paste_done := 0
@@ -1372,6 +1391,33 @@ func _start_paste(origin: Vector3i, include_air: bool) -> void:
 		_paste_total += by_chunk[k].size()
 	_paste_done = 0
 	_paste_prev = {}
+	_paste_extras = {}
+	for p in builder.extras:
+		_paste_extras[origin + p] = builder.extras[p]
+
+
+## A library building is built: fill its chests, set its crafters and let its animals in.
+func _apply_extras() -> void:
+	for q in _paste_extras:
+		var e: Dictionary = _paste_extras[q]
+		if e.has("items") and Blocks.defs.get(world.get_block(q.x, q.y, q.z), {}).get("container", false):
+			var slots := []
+			for st in e["items"]:
+				slots.append([int(st[0]), int(st[1])])
+			world.containers[q] = slots
+			power.changed_containers[q] = true
+		if e.has("craft"):
+			world.settings[q] = {"craft": int(e["craft"])}
+		for entry in e.get("animals", []):
+			var kind := str(entry).get_slice(":", 0)      # "worker:0" = a farmer (1 smith, 2 baker)
+			if Wildlife.SPECIES.has(kind):
+				var a := Wildlife.Animal.new(kind, Vector3(q) + Vector3(randf_range(-0.3, 0.3), 0.1, randf_range(-0.3, 0.3)))
+				if str(entry).contains(":"):
+					a.variant = int(str(entry).get_slice(":", 1))
+				a.tame = true                       # they belong to the farm: kept with the world
+				a.farm = true                       # and they stay there instead of following you
+				wildlife.animals.append(a)
+	_paste_extras = {}
 
 
 ## After pasting a building on top of the player: move them just outside its nearest side,
@@ -1424,6 +1470,7 @@ func _update_paste() -> void:
 		_paste_done += batch.size()
 		budget -= batch.size()
 	if _paste_batches.is_empty():
+		_apply_extras()
 		_step_out_of(_paste_box)
 		builder.undo_stack.append(_paste_prev)
 		if builder.undo_stack.size() > Builder.UNDO_STEPS:
@@ -1452,6 +1499,7 @@ func _update_machines(delta: float) -> void:
 	power.set_inputs(pressed, world.time_of_day < 0.5)
 	if not _remote_world:
 		power.update(delta)                         # with friends, the host runs the machines
+		fluids.update(delta)
 	# conveyors carry the player and items standing on them
 	var below := feet + Vector3i(0, -1, 0)
 	for c in [feet, below]:
@@ -1477,6 +1525,7 @@ func _update_machines(delta: float) -> void:
 
 # ---------------------------------------------------------------- farming and growing
 var growing := {}                  # Vector3i -> true: saplings and crops that will grow
+var grow_speed := 1.0              # tests make plants grow faster
 var _grow_timer := 0.0
 
 
@@ -1531,7 +1580,7 @@ func _update_growing(delta: float) -> void:
 			var nxt := int(d["crop"]["next"])
 			if nxt == 0:
 				growing.erase(p)                # ripe
-			elif randf() < 1.0 / 45.0:          # about 45 s per stage
+			elif randf() < grow_speed / 45.0:   # about 45 s per stage
 				edit(p, nxt)
 		elif Items.sapling_trees.has(id):
 			if randf() < 1.0 / 90.0:            # about a minute and a half
@@ -1601,11 +1650,13 @@ func place_block(allow_use := true) -> void:
 		return
 	if item == int(Items.S["BUCKET"]):
 		var w := target(true)
-		if not w.is_empty() and world.get_block(w["pos"].x, w["pos"].y, w["pos"].z) == WorldData.WATER:
+		var got := world.get_block(w["pos"].x, w["pos"].y, w["pos"].z) if not w.is_empty() else 0
+		if got == WorldData.WATER or got == Blocks.LAVA:      # only a source fills a bucket
 			edit(w["pos"], 0, true, false)
+			Sfx.play("dig_soft")
 			if not creative:
 				inv.use_one(selected)
-				if inv.add(int(Items.S["WATER_BUCKET"])) > 0:
+				if inv.add(int(Items.S["WATER_BUCKET" if got == WorldData.WATER else "LAVA_BUCKET"])) > 0:
 					hud.flash(I18n.t("inventory_full"))
 			_refresh_mode()
 		return
@@ -1628,10 +1679,13 @@ func place_block(allow_use := true) -> void:
 		else:
 			hud.flash(I18n.t("cart_needs_track"))
 		return
-	if item == int(Items.S["WATER_BUCKET"]):
-		if _replaceable(pos) and edit(pos, WorldData.WATER) and not creative:
-			inv.slots[selected] = [int(Items.S["BUCKET"]), 1]
-			_refresh_mode()
+	if item == int(Items.S["WATER_BUCKET"]) or item == int(Items.S["LAVA_BUCKET"]):
+		var src := WorldData.WATER if item == int(Items.S["WATER_BUCKET"]) else Blocks.LAVA
+		if _replaceable(pos) and edit(pos, src, true, false):
+			Sfx.play("dig_soft")
+			if not creative:
+				inv.slots[selected] = [int(Items.S["BUCKET"]), 1]
+				_refresh_mode()
 		return
 	if not Items.placeable.has(item) or not _replaceable(pos) or _overlaps_player(pos, item):
 		return
@@ -1715,10 +1769,25 @@ func _machine_choice(action: String, value: int) -> void:
 		"turn":
 			var n := 6 if kind in ["pusher", "sticky", "breaker", "observer", "thrower"] else 4
 			id = base + (f + 1) % n
+		"craft":
+			world.settings[p] = {"craft": value}
+			Sfx.play("click", -2.0, 1.1)
+			_open_crafter_panel(p, id)
+			return
+		"open":
+			machine_panel.close()
+			open_screen(p)
+			return
 	if id != world.get_block(p.x, p.y, p.z):
 		edit(p, id, true, false)
 	Sfx.play("click", -2.0, 1.1)
 	machine_panel.open(power.kind_of(id), id, int(world.settings.get(p, {}).get("delay", 3)), str(world.settings.get(p, {}).get("mode", "compare")))
+
+
+func _open_crafter_panel(pos: Vector3i, id: int) -> void:
+	var cur := int(world.settings.get(pos, {}).get("craft", 0)) if world.settings.get(pos) is Dictionary else 0
+	machine_panel.open("crafter", id, 0, "", power.craft_options(pos), cur)
+	touch.blocked = true
 
 
 # ---------------------------------------------------------------- carts and tracks
@@ -1952,7 +2021,7 @@ func _factory_test(name: String) -> void:
 		set_mode(true)
 		set_flying(true)
 		player.position.y += 3
-		builder.clipboard = Schematics.load_file("res://data/schematics/%s.json" % name)
+		builder.load_file("res://data/schematics/%s.json" % name)
 		_clip_from_library = true
 		_face_clip_to_player()
 		var f := Vector3i(floori(player.position.x + 0.5), floori(player.position.y) - 4, floori(player.position.z + 0.5))
@@ -1972,7 +2041,7 @@ func _factory_test(name: String) -> void:
 						k = "chest"
 					elif id == 1708 or id == 1709:
 						k = "lamp"
-					elif id == 971 or id == 974:
+					elif Blocks.defs.get(id, {}).has("crop"):
 						k = "crop"
 					if k != "":
 						if not found.has(k):
@@ -1987,7 +2056,15 @@ func _factory_test(name: String) -> void:
 		match name:
 			"wheat_harvester", "giant_farm":
 				_st["ft_crops"] = found.get("crop", []).size()
-				use_block(found["button"][0])
+				grow_speed = 30.0                    # nobody presses anything: it must harvest by itself
+				_st["ft_wait"] = 1500
+			"cobble_generator", "stone_factory", "obsidian_factory", "bakery", "grill_house", "metal_works":
+				_st["ft_wait"] = 1800
+			"animal_farm":
+				for a in wildlife.animals:
+					if a.kind == "hen":
+						a.egg_timer = randf_range(1.0, 4.0)   # lay soon
+				_st["ft_wait"] = 6000
 			"auto_smelter", "smelter_hall":
 				for sm in found.get("smelter", []):
 					world.containers[sm + Vector3i(0, 2, 0)] = [[25, 2], [102, 2]]
@@ -2092,10 +2169,27 @@ func _factory_test(name: String) -> void:
 	if t == int(_st.get("ft_wait", 600)):
 		var out := ""
 		match name:
+			"cobble_generator", "stone_factory", "obsidian_factory", "bakery", "grill_house", "metal_works", "animal_farm":
+				var got := {}
+				for ch in found.get("chest", []):
+					for st in Inventory.from_data(world.containers.get(ch), 27).slots:
+						if st != null:
+							got[Items.name_of(int(st[0]))] = int(got.get(Items.name_of(int(st[0])), 0)) + int(st[1])
+				var kinds := {}
+				for a in wildlife.animals:
+					kinds[a.kind + (" baby" if a.age > 0 else "")] = int(kinds.get(a.kind + (" baby" if a.age > 0 else ""), 0)) + 1
+				var lit_n := 0
+				for q in found.get("smelter", []) + found.get("crafter", []):
+					lit_n += int(Blocks.lit[world.get_block(q.x, q.y, q.z)] == 1)
+				out = "after %d s the chests hold %s; animals %s; machines lit %d; on the ground %d" % [int(_st.get("ft_wait", 600)) / 60, got, kinds, lit_n, drops.drops.size()]
+				for th in found.get("thrower", []):
+					var fq: Vector3i = th + Power.DIRS[power.facing_of(world.get_block(th.x, th.y, th.z))]
+					out += "; thrower holds %s, in front %s" % [world.containers.get(th), Blocks.name_of[world.get_block(fq.x, fq.y, fq.z)]]
 			"wheat_harvester", "giant_farm":
 				var left := 0
 				for c in found.get("crop", []):
-					left += int(world.get_block(c.x, c.y, c.z) in [971, 974])
+					var cb := world.get_block(c.x, c.y, c.z)
+					left += int(Blocks.defs.get(cb, {}).has("crop") and int(Blocks.defs[cb]["crop"]["next"]) == 0)
 				var stored := 0
 				for ch in found.get("chest", []):
 					for st in Inventory.from_data(world.containers.get(ch), 27).slots:
@@ -2106,7 +2200,7 @@ func _factory_test(name: String) -> void:
 					for st in Inventory.from_data(world.containers.get(co), 27).slots:
 						if st != null:
 							held += int(st[1])
-				out = "harvested %d of %d crops, items in chests %d, in collectors %d, still on the ground %d" % [int(_st["ft_crops"]) - left, _st["ft_crops"], stored, held, drops.drops.size()]
+				out = "by itself in 25 s: ripe crops waiting %d of %d, items in chests %d, in collectors %d, still on the ground %d; workers %d picked %d" % [left, _st["ft_crops"], stored, held, drops.drops.size(), wildlife.animals.filter(func(a): return a.kind == "worker").size(), wildlife.harvested]
 			"auto_smelter", "smelter_hall":
 				var ingots := 0
 				for sm in found.get("smelter", []):
@@ -2130,7 +2224,7 @@ func _factory_test(name: String) -> void:
 				out = "lamps lit at night %d of %d" % [found.get("lamp", []).filter(func(p): return world.get_block(p.x, p.y, p.z) == 1709).size(), found.get("lamp", []).size()]
 			"logic_board":
 				out = "lamps lit %d of %d" % [found.get("lamp", []).filter(func(p): return world.get_block(p.x, p.y, p.z) == 1709).size(), found.get("lamp", []).size()]
-		print("FACTORY %s after 10 s: %s" % [name, out])
+		print("FACTORY %s: %s" % [name, out])
 		get_tree().quit()
 
 
@@ -2381,6 +2475,7 @@ var _applying_remote := false       # edits from the network must not be sent ba
 var _net_timer := 0.0
 var _clock_timer := 0.0
 var power: Power
+var fluids: Fluids
 var ghost: MeshInstance3D
 var debris: Debris
 var _cave_dark := 0.0               # 0 above ground .. 1 deep underground (darkens the sky)
@@ -2480,6 +2575,16 @@ func _update_health(delta: float) -> void:
 	_last_position = player.position
 	var taken := health.tick(delta, moved, player.head_under_water())
 	taken += health.track_fall(player.position.y, player.is_on_floor() or player.on_ladder, player.swimming)
+	# lava burns: 3 points a second while you stand in it
+	var body := Vector3i(floori(player.position.x + 0.5), floori(player.position.y + 0.5), floori(player.position.z + 0.5))
+	if Blocks.fluid[world.get_block(body.x, body.y, body.z)] == 2 or Blocks.fluid[world.get_block(body.x, body.y + 1, body.z)] == 2:
+		_burn += delta
+		if _burn >= 0.33:
+			_burn = 0.0
+			if health.damage(1, "lava"):
+				taken += 1
+	else:
+		_burn = 0.3
 	if taken > 0:
 		hud.hurt_flash()
 		Sfx.play("hurt")
@@ -2493,6 +2598,7 @@ func _update_health(delta: float) -> void:
 
 
 var _spawn_shield := 0.0
+var _burn := 0.3
 
 
 func respawn() -> void:
@@ -2684,7 +2790,7 @@ func _process_inner(delta: float) -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--paste=") and spawned and not _st.has("paste"):
 			_st["paste"] = true                         # testing: build a library building in front of us
-			builder.clipboard = Schematics.load_file("res://data/schematics/%s.json" % a.substr(8))
+			builder.load_file("res://data/schematics/%s.json" % a.substr(8))
 			_clip_from_library = true
 			var f := player.forward()
 			var at := Vector3i(floori(player.position.x + f.x * 6), floori(player.position.y) - 1, floori(player.position.z + f.z * 6))
@@ -2723,7 +2829,7 @@ func _process_inner(delta: float) -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--pastehere=") and spawned and not _st.has("pastehere"):
 			_st["pastehere"] = true                      # testing: a building right on top of us
-			builder.clipboard = Schematics.load_file("res://data/schematics/%s.json" % a.substr(12))
+			builder.load_file("res://data/schematics/%s.json" % a.substr(12))
 			_clip_from_library = true
 			var at := Vector3i(floori(player.position.x + 0.5), floori(player.position.y), floori(player.position.z + 0.5) - 2)   # a wall on us
 			_st["before"] = player.position
@@ -2743,7 +2849,7 @@ func _process_inner(delta: float) -> void:
 			creative = true
 			set_flying(true)
 			chunks.render_distance = 5
-			builder.clipboard = Schematics.load_file("res://data/schematics/mega_complex.json")
+			builder.load_file("res://data/schematics/mega_complex.json")
 			_clip_from_library = true
 			if not "--nopaste" in OS.get_cmdline_user_args():
 				_start_paste(Vector3i(floori(player.position.x) - 48, floori(player.position.y) - 1, floori(player.position.z) - 35), true)
@@ -2751,7 +2857,7 @@ func _process_inner(delta: float) -> void:
 			_st["center"] = player.position
 		if _st_frame == 200 and not "--nopaste" in OS.get_cmdline_user_args():
 			for k in 2:                                 # two blinking clocks on top
-				builder.clipboard = Schematics.load_file("res://data/schematics/lamp_clock.json")
+				builder.load_file("res://data/schematics/lamp_clock.json")
 				_start_paste(Vector3i(floori(player.position.x) + k * 12, floori(player.position.y) + 3, floori(player.position.z)), true)
 				while not _paste_batches.is_empty():
 					_update_paste()
@@ -3241,7 +3347,7 @@ func _process_inner(delta: float) -> void:
 		for yaw_deg in [0.0, 90.0, 180.0, 270.0]:
 			player.yaw = deg_to_rad(yaw_deg)
 			player.rotation.y = player.yaw
-			builder.clipboard = Schematics.load_file("res://data/schematics/hisham.json")
+			builder.load_file("res://data/schematics/hisham.json")
 			_clip_from_library = true
 			_face_clip_to_player()
 			var f := player.forward()
@@ -3258,7 +3364,7 @@ func _process_inner(delta: float) -> void:
 		print("WORD ", res)
 		var fronts := []
 		for n in ["auto_door", "auto_smelter", "wheat_harvester", "giant_farm", "lamp_clock", "logic_board", "night_street", "storage_tower", "smelter_hall", "mega_complex", "small_house", "talia"]:
-			builder.clipboard = Schematics.load_file("res://data/schematics/%s.json" % n)
+			builder.load_file("res://data/schematics/%s.json" % n)
 			fronts.append("%s:%s" % [n, ["+z", "+x", "-z", "-x"][_clip_front()]])
 		print("WORD fronts ", fronts)
 		if not _shot_path:
@@ -3269,7 +3375,7 @@ func _process_inner(delta: float) -> void:
 		player.pitch = 0.1
 		player.camera.rotation.x = player.pitch
 		set_flying(true)
-		builder.clipboard = Schematics.load_file("res://data/schematics/%s.json" % ("talia" if "--talia" in OS.get_cmdline_user_args() else "hisham"))
+		builder.load_file("res://data/schematics/%s.json" % ("talia" if "--talia" in OS.get_cmdline_user_args() else "hisham"))
 		_face_clip_to_player()
 		var aim := Vector3i(floori(player.position.x + 0.5), floori(player.position.y) - 1, floori(player.position.z + 0.5) + 6)
 		_start_paste(_paste_origin({"pos": aim, "normal": Vector3i(0, 1, 0)}), true)
@@ -3279,7 +3385,7 @@ func _process_inner(delta: float) -> void:
 			set_mode(true)
 			player.yaw = 0.0
 			player.rotation.y = 0.0
-			builder.clipboard = Schematics.load_file("res://data/schematics/auto_door.json")
+			builder.load_file("res://data/schematics/auto_door.json")
 			_clip_from_library = true
 			_face_clip_to_player()
 			var f := Vector3i(floori(player.position.x + 0.5), floori(player.position.y), floori(player.position.z + 0.5))

@@ -120,6 +120,30 @@
   "blocks": 77
  },
  {
+  "file": "grill_house.json",
+  "name": "Grill house",
+  "name_ar": "معمل شوي",
+  "category": "small_factories",
+  "size": [
+   9,
+   9,
+   5
+  ],
+  "blocks": 77
+ },
+ {
+  "file": "bakery.json",
+  "name": "Bakery",
+  "name_ar": "مخبز أوتوماتيكي",
+  "category": "small_factories",
+  "size": [
+   9,
+   9,
+   5
+  ],
+  "blocks": 78
+ },
+ {
   "file": "fill_meter.json",
   "name": "Chest fill meter",
   "name_ar": "عدّاد امتلاء الصندوق",
@@ -130,6 +154,18 @@
    3
   ],
   "blocks": 92
+ },
+ {
+  "file": "metal_works.json",
+  "name": "Metal works (iron, gold, copper, tin)",
+  "name_ar": "مصنع المعادن (حديد، ذهب، نحاس، قصدير)",
+  "category": "small_factories",
+  "size": [
+   11,
+   11,
+   5
+  ],
+  "blocks": 105
  },
  {
   "file": "storage_tower.json",
@@ -168,6 +204,18 @@
   "blocks": 180
  },
  {
+  "file": "cobble_generator.json",
+  "name": "Cobblestone generator",
+  "name_ar": "مولّد حجر من الحمم والماء",
+  "category": "small_factories",
+  "size": [
+   10,
+   9,
+   6
+  ],
+  "blocks": 256
+ },
+ {
   "file": "logic_board.json",
   "name": "Logic gates board",
   "name_ar": "لوح البوابات المنطقية",
@@ -180,16 +228,52 @@
   "blocks": 263
  },
  {
+  "file": "obsidian_factory.json",
+  "name": "Obsidian factory",
+  "name_ar": "مصنع الحجر البركاني",
+  "category": "small_factories",
+  "size": [
+   9,
+   8,
+   10
+  ],
+  "blocks": 299
+ },
+ {
   "file": "wheat_harvester.json",
-  "name": "Wheat harvester",
-  "name_ar": "حاصدة قمح بكبسة زر",
+  "name": "Automatic farm",
+  "name_ar": "مزرعة بتحصد لحالها",
   "category": "small_factories",
   "size": [
    14,
    10,
    6
   ],
-  "blocks": 369
+  "blocks": 382
+ },
+ {
+  "file": "animal_farm.json",
+  "name": "Animal farm (eggs and lambs)",
+  "name_ar": "مزرعة حيوانات (بيض وخرفان)",
+  "category": "small_factories",
+  "size": [
+   21,
+   8,
+   9
+  ],
+  "blocks": 625
+ },
+ {
+  "file": "stone_factory.json",
+  "name": "Stone factory",
+  "name_ar": "مصنع حجر",
+  "category": "small_factories",
+  "size": [
+   16,
+   12,
+   9
+  ],
+  "blocks": 1034
  },
  {
   "file": "smelter_hall.json",
@@ -205,8 +289,8 @@
  },
  {
   "file": "giant_farm.json",
-  "name": "Giant wheat farm",
-  "name_ar": "مزرعة القمح العملاقة",
+  "name": "Giant automatic farm",
+  "name_ar": "المزرعة الأوتوماتيكية العملاقة",
   "category": "big_factories",
   "size": [
    43,

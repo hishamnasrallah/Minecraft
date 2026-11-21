@@ -84,6 +84,8 @@ func update(delta: float, player_pos: Vector3, inv: Inventory, light: float) -> 
 		node.modulate = Color(light, light, light)
 		if d["age"] > LIFETIME or next.y < -10:
 			_remove(d)
+		elif Blocks.fluid[world.get_block(floori(next.x + 0.5), floori(next.y + 0.5), floori(next.z + 0.5))] == 2:
+			_remove(d)                                       # items burn up in lava
 	picked_total += got.size()
 	return got
 

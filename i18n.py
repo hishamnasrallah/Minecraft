@@ -21,7 +21,7 @@ NAMES_AR = {
     "not gate": "بوابة عكس (NOT)", "and gate": "بوابة و (AND)", "or gate": "بوابة أو (OR)",
     "xor gate": "بوابة إما (XOR)", "delay gate": "مؤخّر", "pusher": "دافع", "breaker": "كاسر",
     "pusher head": "رأس الدافع", "sticky pusher": "دافع لزّيق", "observer": "مراقب", "thrower": "رامي", "comparator": "مقارِن", "power torch": "شعلة طاقة", "track": "سكة", "boost track": "سكة دفع", "cart": "عربة",
-    "conveyor belt": "سير ناقل", "collector": "جامع", "auto-smelter": "فرن أوتوماتيكي",
+    "conveyor belt": "سير ناقل", "collector": "جامع", "auto-smelter": "فرن أوتوماتيكي", "auto-crafter": "صانع أوتوماتيكي",
     "sky stone": "حجر سماوي", "sky soil": "تربة سماوية", "sky grass": "عشب سماوي", "cloud": "غيمة",
     "star ore": "خام النجوم", "star block": "بلوك نجوم", "portal": "بوابة", "storm crystal": "بلّورة العاصفة",
     "pillar stone": "حجر الأعمدة", "storm heart": "قلب العاصفة", "star shard": "شظية نجمة", "sky key": "مفتاح السماء",
@@ -37,7 +37,7 @@ NAMES_AR = {
     "reeds": "قصب", "sand": "رمل", "sandstone": "حجر رملي", "sandstone bricks": "طوب رملي", "snow": "ثلج",
     "stick": "عصا", "stone": "حجر", "stone bricks": "طوب حجري", "tall grass": "عشب طويل", "tiles": "بلاط",
     "tin ingot": "سبيكة قصدير", "tin ore": "خام قصدير", "torch": "شعلة", "water": "ماء",
-    "water bucket": "سطل ماء", "white flower": "وردة بيضاء", "workbench": "طاولة صنع",
+    "water bucket": "سطل ماء", "lava bucket": "سطل حمم", "lava": "حمم", "flowing lava": "حمم سايلة", "flowing water": "ماء جاري", "obsidian": "حجر بركاني أسود", "white flower": "وردة بيضاء", "workbench": "طاولة صنع",
     "yellow flower": "وردة صفراء",
 }
 COLORS_AR = ["أبيض", "رمادي فاتح", "رمادي", "أسود", "بني", "أحمر", "برتقالي", "أصفر", "ليموني", "أخضر",
@@ -161,6 +161,7 @@ UI = {
     # death
     "you_died": ("You died", "متت"), "respawn": ("Respawn", "ارجع"),
     "cause_starved": ("You starved.", "متت من الجوع."), "cause_drowned": ("You drowned.", "غرقت."),
+    "cause_lava": ("You fell into lava.", "وقعت بالحمم."),
     "cause_fell from a high place": ("You fell from a high place.", "وقعت من مكان عالي."),
     # settings
     "settings": ("Settings", "الإعدادات"), "language": ("Language", "اللغة"),
@@ -206,6 +207,11 @@ UI = {
     "hint_or": ("OR: power out when either side is powered", "أو: بيطلّع كهربا إذا وحدة من الجهتين فيها"),
     "hint_xor": ("XOR: power out when exactly one side is powered", "يا هيك يا هيك: بيطلّع كهربا إذا جهة وحدة بس فيها"),
     "hint_delay": ("Passes power on a little later", "بيمرّر الكهربا بعد شوي"),
+    "hint_crafter": ("Makes things by itself from what goes in at the top; they come out below",
+                     "بيصنع لحاله من الأشياء اللي بتنحط فيه من فوق، وبتطلع من تحت"),
+    "panel_makes": ("It makes:", "بيصنع:"), "craft_auto": ("By itself", "لحاله"),
+    "craft_put_in": ("Put things in it to see what it can make", "حط فيه أغراض لتشوف شو بيقدر يصنع"),
+    "panel_open": ("Open it", "افتحه"),
     "hint_pusher": ("Pushes the blocks in front of it when powered", "بيدفش البلوكات يلي قدامه لما توصله كهربا"),
     "hint_breaker": ("Breaks the block in front of it when powered", "بيكسر البلوك يلي قدامه لما توصله كهربا"),
     "hint_torch": ("Gives power all round, until the block it is on gets power", "بتعطي كهربا لكل اللي حواليها، لحد ما البلوك يلي عليه توصله كهربا"),

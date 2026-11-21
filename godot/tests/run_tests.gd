@@ -3,7 +3,8 @@ extends SceneTree
 ## Each test_* function in the test files returns "" when it passes, or a failure message.
 
 const TEST_FILES := ["res://tests/test_world.gd", "res://tests/test_deep_world.gd", "res://tests/test_gameplay.gd", "res://tests/test_weather.gd",
-	"res://tests/test_animals.gd", "res://tests/test_power.gd", "res://tests/test_zbench.gd", "res://tests/test_factories.gd"]
+	"res://tests/test_animals.gd", "res://tests/test_power.gd", "res://tests/test_zbench.gd", "res://tests/test_factories.gd",
+	"res://tests/test_fluids.gd"]
 
 
 func _initialize() -> void:

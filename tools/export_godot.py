@@ -88,7 +88,7 @@ def export_items():
                                                  "IDLE_PER_SECOND", "WALK_PER_BLOCK", "JUMP", "MINE", "ATTACK",
                                                  "REGEN", "REGEN_EVERY", "STARVE_EVERY", "DROWN_EVERY", "SAFE_FALL")},
         "special": {"STICK": inv.STICK, "COAL": inv.COAL, "RAW_MEAT": inv.RAW_MEAT, "COOKED_MEAT": inv.COOKED_MEAT,
-                    "APPLE": inv.APPLE, "SEEDS": inv.SEEDS, "BUCKET": inv.BUCKET, "WATER_BUCKET": inv.WATER_BUCKET,
+                    "APPLE": inv.APPLE, "SEEDS": inv.SEEDS, "BUCKET": inv.BUCKET, "WATER_BUCKET": inv.WATER_BUCKET, "LAVA_BUCKET": inv.LAVA_BUCKET,
                     "STACK_SIZE": inv.STACK_SIZE, "HOTBAR_SIZE": inv.HOTBAR_SIZE, "INVENTORY_SIZE": inv.INVENTORY_SIZE},
     }
 
@@ -161,6 +161,8 @@ def export_library():
     index = []
     for file, en, ar, category, clip in factories.all_designs():
         data = schematics.to_data(clip, en)
+        if clip.extras:
+            data["extras"] = [[x, y, z, e] for (x, y, z), e in sorted(clip.extras.items())]
         (folder / f"{file}.json").write_text(json.dumps(data, separators=(",", ":")))
         index.append({"file": f"{file}.json", "name": en, "name_ar": ar, "category": category,
                       "size": data["size"], "blocks": sum(1 for b in clip.values() if b)})

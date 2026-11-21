@@ -151,5 +151,6 @@ func _load(entry: Array) -> void:
 		_status.text = I18n.t("cant_read")
 		return
 	builder.clipboard = clip
+	builder.extras = Schematics.last_extras.duplicate()
 	library.visible = false
 	action.emit("loaded:" + str(entry[1]))

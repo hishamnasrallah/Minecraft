@@ -81,6 +81,8 @@ var corners: Array                # face_corners
 var corner_uvs: Array             # face_uvs
 var shapes: PackedStringArray
 var transparent: PackedByteArray
+var fluid: PackedByteArray
+var flow: PackedByteArray
 var translucent: PackedByteArray
 var emit: PackedByteArray
 var tile_top: PackedInt32Array
@@ -124,6 +126,8 @@ func _init(w: WorldData) -> void:
 	facing = Blocks.facing.duplicate()
 	machine = Blocks.machine.duplicate()
 	lit = Blocks.lit.duplicate()
+	fluid = Blocks.fluid.duplicate()
+	flow = Blocks.flow.duplicate()
 	obs_face = Blocks.tiles.find("observer_face")
 	obs_out_off = Blocks.tiles.find("observer_out_off")
 	obs_out_on = Blocks.tiles.find("observer_out_on")
@@ -167,7 +171,7 @@ func _column_tops(key: Vector2i) -> void:
 						var b := data[(lx * H + y) * CS + lz]
 						if b == 0:
 							continue
-						if b == WATER:
+						if fluid[b] == 1:
 							water = maxi(water, y)
 						elif transparent[b] == 0:
 							top = y
@@ -248,7 +252,7 @@ func _spread(q: PackedInt32Array, is_sky: bool) -> void:
 			var b := world.get_block(x_lo + nx, wy, z_lo + nz)
 			if b != 0 and transparent[b] == 0:
 				continue
-			var new_level := level - (2 if b == WATER else 1)
+			var new_level := level - (2 if fluid[b] == 1 else 1)
 			var ni := (nx * RH + ny) * R + nz
 			var current := sky[ni] if is_sky else lamp[ni]
 			if new_level > current:
@@ -350,14 +354,22 @@ func _mesh_rows(key: Vector2i, row_lo: int, row_hi: int) -> Dictionary:
 				if shapes[id] != "cube":
 					_shape(out, id, x, y, z)
 					continue
-				var water := id == WATER
+				var fl := fluid[id]
+				var water := fl == 1
 				var g: Group = out["water"] if water else (out["translucent"] if translucent[id] else out["solid"])
-				var lowered := water and world.get_block(x, y + 1, z) != WATER
+				# a fluid's surface sits lower the further it has run from its source; under
+				# more of the same fluid it is full
+				var lowered := fl != 0 and fluid[world.get_block(x, y + 1, z)] != fl
+				var top := 0.4 - flow[id] * (0.1 if water else 0.2)
 				for f in 6:
 					var n: Vector3i = faces[f][0]
 					var nb := world.get_block(x + n.x, y + n.y, z + n.z)
-					if water:
-						if nb == WATER or (nb != 0 and transparent[nb] == 0):
+					if fl != 0:
+						if fluid[nb] == fl and not (n.y == 0 and lowered and flow[nb] > flow[id]):
+							continue
+						if nb != 0 and transparent[nb] == 0:
+							continue
+						if n.y < 0 and fluid[nb] != 0:
 							continue
 					elif (nb != 0 and (transparent[nb] == 0 or nb == id)) or (n.y == -1 and y == 0):
 						continue
@@ -368,7 +380,7 @@ func _mesh_rows(key: Vector2i, row_lo: int, row_hi: int) -> Dictionary:
 					# ambient occlusion: each corner gets darker for every solid block around it
 					# (water is left flat). The quad is split along the brighter diagonal so the
 					# shading stays smooth instead of showing a crease.
-					var ao := [3, 3, 3, 3] if water else _corner_ao(f, x, y, z)
+					var ao := [3, 3, 3, 3] if fl != 0 else _corner_ao(f, x, y, z)
 					var order := corners_a
 					if ao[0] + ao[2] < ao[1] + ao[3]:
 						order = corners_b
@@ -377,7 +389,7 @@ func _mesh_rows(key: Vector2i, row_lo: int, row_hi: int) -> Dictionary:
 						var i: int = quad_index[q]
 						var c: Vector3 = corners[f][i]
 						if lowered and c.y > 0:
-							c.y = 0.4
+							c.y = top
 						g.verts.append(Vector3(x, y, z) + c)
 						g.colors.append(Color(col.r, col.g, col.b * ao_levels[ao[q]], 1.0))
 						var uv: Vector2 = corner_uvs[f][i]
