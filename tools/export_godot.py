@@ -73,6 +73,7 @@ def export_items():
                   for i, t in inv.TOOLS.items()},
         "food": {str(i): v for i, v in inv.FOOD.items()},
         "groups": inv.GROUPS,
+        "returns": {str(k): v for k, v in inv.RETURNS.items()},
         "recipes": [{"in": {key(k): n for k, n in ing.items()}, "out": [res, cnt]} for ing, (res, cnt) in inv.RECIPES]
         + [{"in": {key(k): n for k, n in ing.items()}, "out": [res, cnt], "station": "furnace"}
            for ing, (res, cnt) in inv.SMELTING],
@@ -88,7 +89,7 @@ def export_items():
                                                  "IDLE_PER_SECOND", "WALK_PER_BLOCK", "JUMP", "MINE", "ATTACK",
                                                  "REGEN", "REGEN_EVERY", "STARVE_EVERY", "DROWN_EVERY", "SAFE_FALL")},
         "special": {"STICK": inv.STICK, "COAL": inv.COAL, "RAW_MEAT": inv.RAW_MEAT, "COOKED_MEAT": inv.COOKED_MEAT,
-                    "APPLE": inv.APPLE, "SEEDS": inv.SEEDS, "BUCKET": inv.BUCKET, "WATER_BUCKET": inv.WATER_BUCKET, "LAVA_BUCKET": inv.LAVA_BUCKET,
+                    "APPLE": inv.APPLE, "SEEDS": inv.SEEDS, "BUCKET": inv.BUCKET, "WATER_BUCKET": inv.WATER_BUCKET, "LAVA_BUCKET": inv.LAVA_BUCKET, "MILK_BUCKET": inv.MILK_BUCKET, "CAKE": inv.CAKE,
                     "STACK_SIZE": inv.STACK_SIZE, "HOTBAR_SIZE": inv.HOTBAR_SIZE, "INVENTORY_SIZE": inv.INVENTORY_SIZE},
     }
 

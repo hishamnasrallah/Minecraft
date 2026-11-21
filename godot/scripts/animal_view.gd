@@ -177,6 +177,23 @@ const MODELS := {
 		["wing", Vector3(.03, .025, .01), Vector3(.05, .005, .04), WING_PALE], ["wing", Vector3(-.03, .025, .01), Vector3(.05, .005, .04), WING_PALE],
 	],
 	# the gloom: a tall, thin shadow with glowing eyes
+	"cow": [
+		["body", Vector3(0.0, 0.86, 0.0), Vector3(0.7, 0.62, 1.1), Color8(122, 84, 56)],
+		["patch", Vector3(0.351, 0.95, 0.15), Vector3(0.02, 0.3, 0.36), Color8(232, 222, 200)],
+		["patch", Vector3(-0.351, 0.8, -0.2), Vector3(0.02, 0.26, 0.3), Color8(232, 222, 200)],
+		["udder", Vector3(0.0, 0.52, -0.25), Vector3(0.26, 0.1, 0.24), Color8(226, 160, 160)],
+		["head", Vector3(0.0, 1.12, 0.66), Vector3(0.46, 0.42, 0.34), Color8(122, 84, 56)],
+		["muzzle", Vector3(0.0, 1.0, 0.84), Vector3(0.34, 0.18, 0.04), Color8(232, 222, 200)],
+		["horn", Vector3(0.27, 1.34, 0.62), Vector3(0.08, 0.14, 0.08), Color8(226, 216, 190)],
+		["horn", Vector3(-0.27, 1.34, 0.62), Vector3(0.08, 0.14, 0.08), Color8(226, 216, 190)],
+		["eye", Vector3(0.231, 1.18, 0.74), Vector3(0.02, 0.06, 0.06), Color8(31, 26, 23)],
+		["eye", Vector3(-0.231, 1.18, 0.74), Vector3(0.02, 0.06, 0.06), Color8(31, 26, 23)],
+		["tail", Vector3(0.0, 0.95, -0.56), Vector3(0.06, 0.4, 0.06), Color8(92, 62, 40)],
+		["leg", Vector3(0.22, 0.55, 0.38), Vector3(0.18, 0.55, 0.18), Color8(92, 62, 40)],
+		["leg", Vector3(-0.22, 0.55, 0.38), Vector3(0.18, 0.55, 0.18), Color8(92, 62, 40)],
+		["leg", Vector3(0.22, 0.55, -0.38), Vector3(0.18, 0.55, 0.18), Color8(92, 62, 40)],
+		["leg", Vector3(-0.22, 0.55, -0.38), Vector3(0.18, 0.55, 0.18), Color8(92, 62, 40)],
+	],
 	# a worker: a person in a shirt of their trade's colour, overalls and a cap
 	"worker": [
 		["body", Vector3(0, 1.08, 0), Vector3(.5, .72, .28), VAR], ["bib", Vector3(0, .98, .145), Vector3(.34, .5, .02), PANTS],

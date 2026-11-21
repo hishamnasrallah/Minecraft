@@ -965,6 +965,14 @@ func _drop_attached(pos: Vector3i) -> void:
 
 func attack(animal) -> void:
 	var item := inv.item_at(selected)
+	if item == int(Items.S["BUCKET"]) and animal.kind == "cow" and animal.age <= 0:
+		inv.use_one(selected)                       # milking: an empty bucket becomes a milk bucket
+		if inv.add(int(Items.S["MILK_BUCKET"]), 1) > 0:
+			drops.spawn([int(Items.S["MILK_BUCKET"]), 1], player.position)
+		Sfx.play("dig_soft", -2.0, 1.2)
+		hud.flash(I18n.f("got", Items.name_of(int(Items.S["MILK_BUCKET"]))))
+		_refresh_mode()
+		return
 	var feeding: bool = animal.wants_food(item)
 	if animal.tame and not feeding and Items.attack_damage(item) <= 1:
 		var call := str(animal.spec.get("call", ""))
@@ -1035,7 +1043,7 @@ func use_block(pos: Vector3i) -> bool:
 		machine_panel.open(mk, id, int(world.settings.get(pos, {}).get("delay", 3)), str(world.settings.get(pos, {}).get("mode", "compare")))
 		touch.blocked = true
 		return true
-	if mk == "crafter":
+	if mk == "crafter" or mk == "collector":
 		_panel_pos = pos
 		_open_crafter_panel(pos, id)
 		return true
@@ -1408,6 +1416,8 @@ func _apply_extras() -> void:
 			power.changed_containers[q] = true
 		if e.has("craft"):
 			world.settings[q] = {"craft": int(e["craft"])}
+		if e.has("filter"):
+			world.settings[q] = {"filter": int(e["filter"])}
 		for entry in e.get("animals", []):
 			var kind := str(entry).get_slice(":", 0)      # "worker:0" = a farmer (1 smith, 2 baker)
 			if Wildlife.SPECIES.has(kind):
@@ -1643,6 +1653,8 @@ func place_block(allow_use := true) -> void:
 		if health.eat(Items.food[item]):
 			Sfx.play("eat")
 			inv.use_one(selected)
+			if Items.returns.has(item):
+				inv.add(Items.returns[item], 1)      # a drunk milk bucket is an empty bucket
 			hud.flash(I18n.f("ate", Items.name_of(item)))
 		else:
 			hud.flash(I18n.t("not_hungry"))
@@ -1769,6 +1781,11 @@ func _machine_choice(action: String, value: int) -> void:
 		"turn":
 			var n := 6 if kind in ["pusher", "sticky", "breaker", "observer", "thrower"] else 4
 			id = base + (f + 1) % n
+		"filter":
+			world.settings[p] = {"filter": value}
+			Sfx.play("click", -2.0, 1.1)
+			_open_crafter_panel(p, id)
+			return
 		"craft":
 			world.settings[p] = {"craft": value}
 			Sfx.play("click", -2.0, 1.1)
@@ -1785,8 +1802,10 @@ func _machine_choice(action: String, value: int) -> void:
 
 
 func _open_crafter_panel(pos: Vector3i, id: int) -> void:
-	var cur := int(world.settings.get(pos, {}).get("craft", 0)) if world.settings.get(pos) is Dictionary else 0
-	machine_panel.open("crafter", id, 0, "", power.craft_options(pos), cur)
+	var collector := power.kind_of(id) == "collector"
+	var key := "filter" if collector else "craft"
+	var cur := int(world.settings.get(pos, {}).get(key, 0)) if world.settings.get(pos) is Dictionary else 0
+	machine_panel.open(power.kind_of(id), id, 0, "", power.filter_options(pos) if collector else power.craft_options(pos), cur)
 	touch.blocked = true
 
 

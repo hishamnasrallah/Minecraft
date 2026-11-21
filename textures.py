@@ -142,6 +142,25 @@ def water(rng):
     return img
 
 
+def cake_icon(rng):
+    """A round-cornered cake: sponge sides, white icing and red berries on top."""
+    img = _blank()
+    for x in range(2, 14):
+        for y in range(6, 14):
+            if y < 9:
+                c = (246, 244, 238) if (x + y) % 5 else (232, 228, 220)
+            else:
+                c = (214, 150, 82) if y != 11 else (238, 236, 228)
+            if (x in (2, 13) and y in (6, 13)):
+                continue
+            _px(img, x, y, c)
+    for x, y in ((4, 6), (8, 6), (11, 7), (6, 7)):
+        _px(img, x, y, (210, 40, 50))
+    for x in range(3, 13, 3):
+        _px(img, x, 9, (238, 236, 228))
+    return img
+
+
 def lava(rng):
     img = _noise(rng, (222, 92, 18), 0.08)
     for _ in range(7):                       # bright molten streaks
@@ -826,10 +845,11 @@ def bucket(rng, water_fill=False):
             edge = x in (8 - half, 7 + half) or y == 13
             _px(img, x, y, (120, 120, 126) if edge else (170, 170, 178))
     if water_fill:
-        lava_fill = water_fill == "lava"
         for x in range(4, 12):
-            _px(img, x, 6, (250, 150, 40) if lava_fill else (60, 110, 210))
-            _px(img, x, 7, (220, 90, 20) if lava_fill else (50, 96, 196))
+            fills = {"lava": ((250, 150, 40), (220, 90, 20)), "milk": ((248, 248, 244), (226, 226, 220))}
+            top, low = fills.get(water_fill, ((60, 110, 210), (50, 96, 196)))
+            _px(img, x, 6, top)
+            _px(img, x, 7, low)
     return img
 
 
@@ -882,7 +902,8 @@ EXTRA_GENERATORS = {
     "iron_ingot": ingot((214, 214, 220)), "copper_ingot": ingot((206, 116, 66)), "tin_ingot": ingot((196, 198, 210)),
     "gold_ingot": ingot((246, 206, 60)), "bronze_ingot": ingot((184, 136, 72)), "diamond": gem,
     "bucket": bucket, "water_bucket": lambda rng: bucket(rng, True),
-    "lava_bucket": lambda rng: bucket(rng, "lava"),
+    "lava_bucket": lambda rng: bucket(rng, "lava"), "milk_bucket": lambda rng: bucket(rng, "milk"),
+    "cake": cake_icon,
 }
 for _i, (_name, _rgb) in enumerate(__import__("blocks").DYES):
     EXTRA_GENERATORS[f"wool_{_i}"] = wool(_rgb)

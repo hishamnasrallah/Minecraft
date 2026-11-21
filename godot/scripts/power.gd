@@ -619,20 +619,28 @@ func _throw(p: Vector3i, d: Vector3i) -> void:
 			Sfx.play("dig_soft", -6.0)
 			return
 		if item == _bucket("BUCKET"):
-			if front != WorldData.WATER and front != Blocks.LAVA:
+			var full := 0
+			if front == WorldData.WATER or front == Blocks.LAVA:
+				full = _bucket("WATER_BUCKET") if front == WorldData.WATER else _bucket("LAVA_BUCKET")
+			elif not into_box and feed_animal.is_valid() and int(feed_animal.call(Vector3(q), item)) == 2:
+				full = _bucket("MILK_BUCKET")           # a cow in front: milk
+				front = -1
+			if full == 0:
 				continue
-			var full := _bucket("WATER_BUCKET") if front == WorldData.WATER else _bucket("LAVA_BUCKET")
 			if int(mine.slots[i][1]) > 1 and mine.add(full, 1) > 0:
 				continue                               # no room for the full bucket
 			if int(mine.slots[i][1]) > 1:
 				mine.use_one(i)
 			else:
 				mine.slots[i] = [full, 1]
-			set_block.call(q, 0)
+			if front != -1:
+				set_block.call(q, 0)
 			world.containers[p] = mine.to_data()
 			changed_containers[p] = true
 			Sfx.play("dig_soft", -6.0)
 			return
+		if item == _bucket("MILK_BUCKET"):
+			continue                                   # milk stays in (a collector below takes it)
 		# food for an animal standing in front: it eats it (and wants to breed); one that is
 		# full is left alone and the food stays in
 		if not into_box and feed_animal.is_valid():
@@ -739,6 +747,22 @@ func _has_items(p: Vector3i) -> bool:
 	return false
 
 
+## A collector set to one item (a tap chooses it) only takes that item.
+func passes(p: Vector3i, item: int) -> bool:
+	var s = world.settings.get(p)
+	return not (s is Dictionary and int(s.get("filter", 0)) != 0 and int(s["filter"]) != item)
+
+
+## What a collector's filter could be set to: what is in it, above it and lying on it.
+func filter_options(p: Vector3i) -> Array:
+	var out := []
+	for q in [p, p + Vector3i(0, 1, 0)]:
+		for s in _container(q).slots:
+			if s != null and not int(s[0]) in out:
+				out.append(int(s[0]))
+	return out.slice(0, 8)
+
+
 func _collect(p: Vector3i) -> void:
 	var above_p := p + Vector3i(0, 1, 0)
 	if not _has_items(p) and not _has_items(above_p):
@@ -754,7 +778,7 @@ func _collect(p: Vector3i) -> void:
 		var start: int = _turn.get(p, 0)
 		for k in 27 - first:
 			var i := first + (start + k) % (27 - first)
-			if src.slots[i] != null and mine.can_take([src.slots[i][0], 1]):
+			if src.slots[i] != null and passes(p, int(src.slots[i][0])) and mine.can_take([src.slots[i][0], 1]):
 				mine.add(int(src.slots[i][0]), 1)
 				src.use_one(i)
 				world.containers[above] = src.to_data()
@@ -804,6 +828,8 @@ func wants_drop(p: Vector3i) -> bool:
 
 
 func take_drop(p: Vector3i, stack: Array):
+	if not passes(p, int(stack[0])):
+		return stack                               # a filter: other things stay lying there
 	var inv := _container(p)
 	var left = inv.give(stack)
 	world.containers[p] = inv.to_data()
@@ -884,6 +910,15 @@ func _make(p: Vector3i, inv: Inventory, r: Dictionary) -> bool:
 		_take(inv, k, int(r["in"][k]), 18)
 	var cur = inv.slots[out_slot]
 	inv.slots[out_slot] = [item, int(r["out"][1]) + (int(cur[1]) if cur != null else 0)]
+	for k in r["in"]:
+		if not k is String and Items.returns.has(int(k)):
+			# the empty bucket goes out with what was made
+			for n in int(r["in"][k]):
+				for i in range(18, 27):
+					var s = inv.slots[i]
+					if s == null or (int(s[0]) == Items.returns[int(k)] and int(s[1]) < Items.max_stack(int(s[0]))):
+						inv.slots[i] = [Items.returns[int(k)], 1 + (int(s[1]) if s != null else 0)]
+						break
 	world.containers[p] = inv.to_data()
 	changed_containers[p] = true
 	return true

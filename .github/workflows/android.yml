@@ -42,9 +42,11 @@ jobs:
 
       - name: Signing key and editor settings
         run: |
-          keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android \
-            -keystore "$HOME/debug.keystore" -storepass android \
-            -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
+          # always the same key (kept in the repository): updates install over the old app
+          cp android_keys/blockworld.keystore "$HOME/debug.keystore"
+          # every build gets a higher version number
+          sed -i "s/^version\/code=.*/version\/code=${GITHUB_RUN_NUMBER}/" godot/export_presets.cfg
+          grep -n "version/code" godot/export_presets.cfg
           mkdir -p "$HOME/.config/godot"
           for name in editor_settings-4.tres "editor_settings-${GODOT_VERSION}.tres"; do
             cat > "$HOME/.config/godot/$name" <<EOT

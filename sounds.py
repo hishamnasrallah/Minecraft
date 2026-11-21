@@ -186,6 +186,15 @@ def bleat(rng):
     return _lowpass(tone, 2600)
 
 
+def moo(rng):
+    """A long low call that rises and falls."""
+    n = int(RATE * 0.58)
+    tone = _tone(n, lambda t: 105 + 30 * math.sin(math.pi * min(1.0, t / 0.5)) - 10 * t,
+                 lambda t: min(1.0, t / 0.06) * math.exp(-max(0.0, t - 0.4) / 0.06),
+                 ((1, 1.0), (2, 0.7), (3, 0.5), (4, 0.35), (6, 0.2)))
+    return _lowpass(tone, 900)
+
+
 def croak(rng):
     """A low creaky ribbit: a buzz chopped into pulses."""
     n = int(RATE * 0.26)
@@ -208,7 +217,7 @@ SOUNDS = {
     "dig_stone": dig_stone, "dig_dirt": dig_dirt, "dig_wood": dig_wood, "dig_glass": dig_glass,
     "dig_soft": dig_soft, "place": place, "step": step, "splash": splash, "hurt": hurt, "eat": eat,
     "pop": pop, "click": click, "rain": rain,
-    "cluck": cluck, "bleat": bleat, "croak": croak, "chirp": chirp,
+    "cluck": cluck, "bleat": bleat, "croak": croak, "chirp": chirp, "moo": moo,
 }
 LOOPS = {"rain"}          # ambient loops (longer; the game plays them with looping on)
 

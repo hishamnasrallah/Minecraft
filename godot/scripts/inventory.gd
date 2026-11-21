@@ -178,6 +178,10 @@ func craft(r: Dictionary) -> bool:
 	if add(r["out"][0], r["out"][1]) > 0:
 		slots = before
 		return false
+	for k in r["in"]:
+		if not k is String and Items.returns.has(int(k)) and add(Items.returns[int(k)], int(r["in"][k])) > 0:
+			slots = before                        # no room for the empty bucket
+			return false
 	return true
 
 

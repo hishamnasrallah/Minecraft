@@ -632,6 +632,22 @@
    "en": "Open it",
    "ar": "افتحه"
   },
+  "got": {
+   "en": "Got: %s",
+   "ar": "أخذت: %s"
+  },
+  "panel_takes": {
+   "en": "It takes:",
+   "ar": "بياخد:"
+  },
+  "filter_any": {
+   "en": "Everything",
+   "ar": "كل شي"
+  },
+  "filter_put_in": {
+   "en": "Put something in it or above it to choose only that",
+   "ar": "حط فيه أو فوقه غرض لتختار ياخد بس هاد"
+  },
   "hint_pusher": {
    "en": "Pushes the blocks in front of it when powered",
    "ar": "بيدفش البلوكات يلي قدامه لما توصله كهربا"
@@ -1871,6 +1887,8 @@
   "123": "جزرة",
   "126": "سمكة نيّة",
   "127": "سمكة مشوية",
+  "119": "سطل حليب",
+  "128": "كيكة",
   "112": "سطل",
   "113": "سطل ماء",
   "118": "سطل حمم",

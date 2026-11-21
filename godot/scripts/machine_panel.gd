@@ -73,7 +73,35 @@ func open(kind: String, id: int, delay: int, mode := "compare", choices := [], c
 			var b := _button(I18n.f("seconds", "%.1f" % (t / 10.0)), t == delay)
 			b.pressed.connect(func(): chosen.emit("delay", t))
 			row.add_child(b)
-	if kind == "crafter":
+	if kind == "collector":
+		# a filter: take everything, or only one thing
+		var row := _row(I18n.t("panel_takes"))
+		var any := _button(I18n.t("filter_any"), current == 0)
+		any.pressed.connect(func(): chosen.emit("filter", 0))
+		row.add_child(any)
+		var shown := choices.duplicate()
+		if current != 0 and not current in shown:
+			shown.push_front(current)
+		var n := 0
+		for item in shown:
+			if n == 4:
+				row = HBoxContainer.new()
+				row.add_theme_constant_override("separation", 8)
+				_list.add_child(row)
+			var b := _button(Items.name_of(int(item)), int(item) == current)
+			b.pressed.connect(func(): chosen.emit("filter", int(item)))
+			row.add_child(b)
+			n += 1
+		if shown.is_empty():
+			var none := Label.new()
+			none.text = I18n.t("filter_put_in")
+			none.add_theme_font_size_override("font_size", 16)
+			none.modulate = Color(1, 1, 1, 0.7)
+			_list.add_child(none)
+		var box := _button("📦  " + I18n.t("panel_open"), false)
+		box.pressed.connect(func(): chosen.emit("open", 0))
+		_list.add_child(box)
+	elif kind == "crafter":
 		# what it makes: by itself (food first), or one thing you pick from what is inside
 		var row := _row(I18n.t("panel_makes"))
 		var auto := _button(I18n.t("craft_auto"), current == 0)

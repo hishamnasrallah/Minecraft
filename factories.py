@@ -22,6 +22,7 @@ STICKY, OBSERVER, THROWER, COMPARATOR = 1792, 1820, 1832, 1838     # + facing
 CRAFTER, WATER, LAVA, OBSIDIAN = 1868, 10, 1880, 1890
 # items for filled chests
 COAL, RAW_MEAT, WHEAT_ITEM, BREAD, EGG, RAW_FISH, LAVA_BUCKET = 102, 103, 121, 122, 124, 126, 118
+BUCKET, MILK_BUCKET, CAKE = 112, 119, 128
 IRON_ORE, COPPER_ORE, TIN_ORE, GOLD_ORE = 25, 26, 27, 28
 IRON_BLOCK, COPPER_BLOCK, GOLD_BLOCK, TIN_BLOCK = 30, 31, 32, 908
 DOOR_BOTTOM, DOOR_TOP = 510, 511
@@ -45,6 +46,9 @@ class Clip(dict):
 
     def craft(self, x, y, z, item):
         self.extras.setdefault((x, y, z), {})["craft"] = item
+
+    def filter(self, x, y, z, item):
+        self.extras.setdefault((x, y, z), {})["filter"] = item
 
     def put(self, x, y, z, block):
         self[(x, y, z)] = block
@@ -404,13 +408,15 @@ def obsidian_factory():
 
 
 def bakery():
-    """Auto-crafters turn wheat into bread and eggs with wheat into egg bread, by themselves."""
+    """Auto-crafters turn wheat into bread, eggs with wheat into egg bread and milk, eggs and
+    wheat into cakes (the empty milk buckets come out with the cakes), by themselves."""
     c = Clip()
-    c.box(0, 0, 0, 8, 0, 4, POLISHED)
+    c.box(0, 0, 0, 10, 0, 4, POLISHED)
     for x, inputs, make in ((2, [[WHEAT_ITEM, 64]] * 3, BREAD), (4, [[WHEAT_ITEM, 64]] * 2, BREAD),
-                            (6, [[EGG, 16], [WHEAT_ITEM, 64]], BREAD)):
+                            (6, [[EGG, 16], [WHEAT_ITEM, 64]], BREAD),
+                            (8, [[MILK_BUCKET, 1]] * 8 + [[EGG, 8], [WHEAT_ITEM, 24]], CAKE)):
         maker_line(c, x, 1, 2, [CRAFTER], inputs, [make])
-    for x in (0, 8):
+    for x in (0, 10):
         c.box(x, 1, 0, x, 5, 0, PLANKS)
         c.put(x, 6, 0, LAMP)
     c.animals(3, 1, 3, "worker:2")
@@ -491,6 +497,26 @@ def animal_farm():
     c.animals(11, 1, 1, "woolly", 1)
     c.animals(11, 1, 3, "woolly", 1)
     c.animals(12, 1, 2, "woolly", 1)
+    # cow pen: a thrower with empty buckets milks the cows on a clock; a collector under it
+    # takes only the milk down into a chest
+    c.box(-1, -3, 6, 20, -1, 12, STONE_BRICKS)
+    c.box(7, 0, 6, 20, 0, 12, STONE_BRICKS)
+    c.box(11, 0, 8, 13, 0, 10, PLANKS)
+    for x in range(10, 15):
+        c.put(x, 1, 7, FENCE)
+        c.put(x, 1, 11, FENCE)
+    for z in range(7, 12):
+        c.put(10, 1, z, FENCE)
+        c.put(14, 1, z, FENCE)
+    c.put(14, 1, 9, THROWER + 3)
+    c.fill(14, 1, 9, [[BUCKET, 16]])
+    c.put(14, 0, 9, COLLECTOR)
+    c.filter(14, 0, 9, MILK_BUCKET)
+    c.put(14, -1, 9, CHEST)
+    c.put(15, 1, 9, WIRE)
+    c.put(15, 1, 10, WIRE)
+    blinker(c, 16, 1, 9, lamps=1)
+    c.animals(12, 1, 9, "cow", 2)
     c.text(0, 4, -2, "FARM", "pink")
     return c
 
@@ -513,7 +539,7 @@ SMALL = [
     ("bakery", "Bakery", "مخبز أوتوماتيكي", bakery),
     ("grill_house", "Grill house", "معمل شوي", grill_house),
     ("metal_works", "Metal works (iron, gold, copper, tin)", "مصنع المعادن (حديد، ذهب، نحاس، قصدير)", metal_works),
-    ("animal_farm", "Animal farm (eggs and lambs)", "مزرعة حيوانات (بيض وخرفان)", animal_farm),
+    ("animal_farm", "Animal farm (eggs, lambs, milk)", "مزرعة حيوانات (بيض وخرفان وحليب)", animal_farm),
 ]
 
 

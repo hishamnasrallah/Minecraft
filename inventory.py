@@ -17,9 +17,12 @@ RAW_MEAT, COOKED_MEAT, APPLE = 103, 104, 105
 IRON_INGOT, COPPER_INGOT, TIN_INGOT, GOLD_INGOT, BRONZE_INGOT, DIAMOND = 106, 107, 108, 109, 110, 111
 BUCKET, WATER_BUCKET = 112, 113
 LAVA_BUCKET = 118
+MILK_BUCKET, CAKE = 119, 128
+RETURNS = {MILK_BUCKET: BUCKET}          # crafting with these gives the container back
 CART = 140
 EGG, FEATHER, RAW_FISH, COOKED_FISH = 124, 125, 126, 127          # from animals (animals.py)
-FOOD = {RAW_MEAT: 2, COOKED_MEAT: 6, APPLE: 4, BREAD: 5, CARROT: 3, RAW_FISH: 2, COOKED_FISH: 5}      # item -> hunger points restored
+FOOD = {RAW_MEAT: 2, COOKED_MEAT: 6, APPLE: 4, BREAD: 5, CARROT: 3, RAW_FISH: 2, COOKED_FISH: 5, MILK_BUCKET: 3,
+        CAKE: 12}      # item -> hunger points restored
 
 MATERIAL_ITEMS = {
     STICK: ("stick", "stick"), COAL: ("coal", "coal"), IRON_INGOT: ("iron ingot", "iron_ingot"),
@@ -33,7 +36,8 @@ MATERIAL_ITEMS = {
 }
 FOOD_ITEMS = {RAW_MEAT: ("raw meat", "raw_meat"), COOKED_MEAT: ("cooked meat", "cooked_meat"),
               APPLE: ("apple", "apple"), BREAD: ("bread", "bread"), CARROT: ("carrot", "carrot"),
-              RAW_FISH: ("raw fish", "raw_fish"), COOKED_FISH: ("cooked fish", "cooked_fish")}
+              RAW_FISH: ("raw fish", "raw_fish"), COOKED_FISH: ("cooked fish", "cooked_fish"),
+              MILK_BUCKET: ("milk bucket", "milk_bucket"), CAKE: ("cake", "cake")}
 OTHER_ITEMS = {BUCKET: ("bucket", "bucket"), WATER_BUCKET: ("water bucket", "water_bucket"),
                LAVA_BUCKET: ("lava bucket", "lava_bucket"),
                SKY_KEY: ("sky key", "sky_key"), CART: ("cart", "cart")}
@@ -143,7 +147,7 @@ def attack_damage(item):
 
 
 def max_stack(item):
-    return 1 if item in TOOLS or item in (WATER_BUCKET, LAVA_BUCKET) else 16 if item == BUCKET else STACK_SIZE
+    return 1 if item in TOOLS or item in (WATER_BUCKET, LAVA_BUCKET, MILK_BUCKET) else 16 if item == BUCKET else STACK_SIZE
 
 
 def new_stack(item, amount):
@@ -305,6 +309,7 @@ RECIPES = [
     ({STAR_SHARD: 4, STORM_CORE: 1}, (1808, 1)),
     ({WHEAT_ITEM: 3}, (BREAD, 1)), ({WHEAT_ITEM: 9}, (950, 1)), ({950: 1}, (WHEAT_ITEM, 9)),
     ({EGG: 1, WHEAT_ITEM: 2}, (BREAD, 2)),     # egg bread
+    ({MILK_BUCKET: 1, WHEAT_ITEM: 3, EGG: 1}, (CAKE, 1)),   # the bucket comes back (RETURNS)
     ({RAW_FISH: 2, COAL: 1}, (COOKED_FISH, 2)),
     ({FEATHER: 4}, (70, 1)),                   # feathers stuffed into white wool
     ({STICK: 4, "planks": 2}, (61, 3)),        # fence
@@ -491,6 +496,10 @@ class Inventory:
         if self.add(result, count):
             self.slots = before
             return False
+        for i, n in recipe[0].items():
+            if i in RETURNS and self.add(RETURNS[i], n):
+                self.slots = before
+                return False
         return True
 
     # -- saving

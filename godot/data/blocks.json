@@ -751,7 +751,9 @@
   "observer_out_off",
   "observer_out_on",
   "thrower_face",
-  "lava_bucket"
+  "lava_bucket",
+  "milk_bucket",
+  "cake"
  ],
  "plants_need_soil": [
   51,

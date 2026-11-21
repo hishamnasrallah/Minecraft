@@ -132,18 +132,6 @@
   "blocks": 77
  },
  {
-  "file": "bakery.json",
-  "name": "Bakery",
-  "name_ar": "مخبز أوتوماتيكي",
-  "category": "small_factories",
-  "size": [
-   9,
-   9,
-   5
-  ],
-  "blocks": 78
- },
- {
   "file": "fill_meter.json",
   "name": "Chest fill meter",
   "name_ar": "عدّاد امتلاء الصندوق",
@@ -154,6 +142,18 @@
    3
   ],
   "blocks": 92
+ },
+ {
+  "file": "bakery.json",
+  "name": "Bakery",
+  "name_ar": "مخبز أوتوماتيكي",
+  "category": "small_factories",
+  "size": [
+   11,
+   9,
+   5
+  ],
+  "blocks": 93
  },
  {
   "file": "metal_works.json",
@@ -252,18 +252,6 @@
   "blocks": 382
  },
  {
-  "file": "animal_farm.json",
-  "name": "Animal farm (eggs and lambs)",
-  "name_ar": "مزرعة حيوانات (بيض وخرفان)",
-  "category": "small_factories",
-  "size": [
-   21,
-   8,
-   9
-  ],
-  "blocks": 625
- },
- {
   "file": "stone_factory.json",
   "name": "Stone factory",
   "name_ar": "مصنع حجر",
@@ -274,6 +262,18 @@
    9
   ],
   "blocks": 1034
+ },
+ {
+  "file": "animal_farm.json",
+  "name": "Animal farm (eggs, lambs, milk)",
+  "name_ar": "مزرعة حيوانات (بيض وخرفان وحليب)",
+  "category": "small_factories",
+  "size": [
+   22,
+   8,
+   15
+  ],
+  "blocks": 1161
  },
  {
   "file": "smelter_hall.json",

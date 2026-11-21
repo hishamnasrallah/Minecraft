@@ -40,6 +40,7 @@ const SEEDS := 120
 const WHEAT := 121
 const CARROT := 123
 const EGG := 124
+const BUCKET := 112
 const FEATHER := 125
 const RAW_FISH := 126
 const WOOL := 70                # + colour index (0..15)
@@ -58,6 +59,9 @@ const SPECIES := {
 	# a plump little ground bird that lays eggs now and then and flutters down from ledges
 	"hen": {"speed": 1.5, "height": 0.6, "width": 0.4, "flee_range": 1.5, "swims": false, "group": [2, 4], "health": 3,
 		"food": [SEEDS], "call": "cluck", "flutter": true},
+	# a big, calm grazer with patches; an empty bucket gets milk from a grown one
+	"cow": {"speed": 1.4, "height": 1.3, "width": 0.9, "flee_range": 0.0, "swims": false, "group": [2, 4], "health": 10,
+		"food": [WHEAT], "call": "moo"},
 	"goat": {"speed": 2.2, "height": 1.1, "width": 0.6, "flee_range": 2.5, "swims": false, "group": [1, 3], "health": 7,
 		"food": [WHEAT], "call": "bleat", "climb": 2},
 	"frog": {"speed": 2.2, "height": 0.35, "width": 0.4, "flee_range": 2.5, "swims": true, "group": [1, 3], "health": 2,
@@ -94,11 +98,11 @@ const SPECIES := {
 const DROPS := {"rabbit": [RAW_MEAT, 1, 1], "deer": [RAW_MEAT, 2, 3], "duck": [RAW_MEAT, 1, 2], "gloom": [COAL, 0, 2],
 	"woolly": [WOOL, 1, 2], "hen": [FEATHER, 1, 2], "goat": [RAW_MEAT, 1, 2], "frog": [0, 0, 0], "turtle": [0, 0, 0],
 	"lizard": [0, 0, 0], "fish": [RAW_FISH, 1, 1], "bird": [FEATHER, 0, 1], "butterfly": [0, 0, 0], "firefly": [0, 0, 0],
-	"bramble": [STICK, 1, 3], "glob": [0, 0, 0], "globlet": [SEEDS, 0, 1], "worker": [0, 0, 0]}   # item, min, max
+	"bramble": [STICK, 1, 3], "glob": [0, 0, 0], "globlet": [SEEDS, 0, 1], "worker": [0, 0, 0], "cow": [RAW_MEAT, 1, 3]}   # item, min, max
 # colour variants: woolly fleece = wool colour index (mostly naturals); see AnimalView.PALETTES
 const WOOL_COLOURS := [0, 0, 0, 0, 1, 1, 2, 3, 4, 4, 6, 7, 10, 12, 13, 14]
 const VARIANTS := {"rabbit": 2, "fish": 3, "butterfly": 4, "bird": 3, "worker": 3}
-const NIGHT_RESTERS := ["woolly", "hen", "goat", "deer"]
+const NIGHT_RESTERS := ["woolly", "hen", "goat", "deer", "cow"]
 const AROUND := [Vector2i(4, 0), Vector2i(-4, 0), Vector2i(0, 4), Vector2i(0, -4), Vector2i(3, 3), Vector2i(-3, -3)]
 
 static var held_item := 0       # what the player is holding (food makes animals follow)
@@ -665,6 +669,13 @@ func _tick_passive(a: Animal, dt: float, d2: float, daylight: float, game) -> vo
 ## it (a baby grows faster, a grown one wants to breed). 1 if one ate, -1 if one that likes it
 ## is there but cannot eat now (in love or resting after a lamb), 0 if nobody is there.
 func feed_near(at: Vector3, item: int, reach := 3.0) -> int:
+	if item == BUCKET:
+		for a: Animal in animals:                  # an empty bucket in front of a grown cow: milk (2)
+			if a.kind == "cow" and not a.dead and a.age <= 0 and Vector2(a.pos.x - at.x, a.pos.z - at.z).length() < reach \
+					and absf(a.pos.y - at.y) < 1.5:
+				_sound("moo", a.pos.distance_squared_to(_player), -6.0)
+				return 2
+		return 0
 	var best: Animal = null
 	var best_d := reach * reach
 	var full := false
@@ -1046,7 +1057,7 @@ func pick_kind(x: int, z: int) -> Array:
 		return ["frog", y, -1]
 	if trees >= 2:
 		return [["deer", "deer", "rabbit", "hen"].pick_random(), y, -1]   # forest
-	return [["woolly", "woolly", "woolly", "hen", "hen", "rabbit", "deer"].pick_random(), y, -1]   # meadow
+	return [["woolly", "woolly", "cow", "cow", "hen", "hen", "rabbit", "deer"].pick_random(), y, -1]   # meadow
 
 
 func try_spawn(player: Vector3) -> Array:

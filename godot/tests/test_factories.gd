@@ -292,6 +292,8 @@ func _world_full(clip_file: String) -> Array:
 			w.containers[at] = (e["items"] as Array).map(func(st): return [int(st[0]), int(st[1])])
 		if e.has("craft"):
 			w.settings[at] = {"craft": int(e["craft"])}
+		if e.has("filter"):
+			w.settings[at] = {"filter": int(e["filter"])}
 	return [w, p, dropped, f]
 
 
@@ -395,3 +397,33 @@ func test_metal_works_makes_blocks() -> String:
 			n += _count_in(w, ch, item)
 		made.append(n)
 	return "" if made.min() > 0 else "metal blocks made (iron, gold, copper, tin): %s" % [made]
+
+
+func test_bakery_makes_cake_and_gives_buckets_back() -> String:
+	var s := _world_full("bakery.json")
+	var w: WorldData = s[0]
+	_run_all(s[1], s[3], 40.0)
+	var cakes := 0
+	var buckets := 0
+	for ch in _find(w, 48):
+		cakes += _count_in(w, ch, 128)
+		buckets += _count_in(w, ch, 112)
+	return "" if cakes >= 2 and buckets == cakes else "cakes %d, empty buckets back %d" % [cakes, buckets]
+
+
+func test_filter_collector_takes_only_its_item() -> String:
+	var s := _world_full("animal_farm.json")
+	var w: WorldData = s[0]
+	var p: Power = s[1]
+	var col: Vector3i = Vector3i.ZERO
+	for q in _find(w, 1746):
+		if w.settings.get(q) is Dictionary:
+			col = q
+	if col == Vector3i.ZERO:
+		return "no filter collector in the cow pen"
+	var th := col + Vector3i(0, 1, 0)
+	w.containers[th] = [[112, 5], [119, 1], [119, 1]]       # the thrower: empty buckets and two milk
+	_run_all(p, s[3], 4.0)
+	var milk := _count_in(w, col + Vector3i(0, -1, 0), 119)
+	var empty := _count_in(w, th, 112)
+	return "" if milk == 2 and empty == 5 else "milk below %d of 2, empty buckets left above %d of 5" % [milk, empty]

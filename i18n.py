@@ -37,7 +37,7 @@ NAMES_AR = {
     "reeds": "قصب", "sand": "رمل", "sandstone": "حجر رملي", "sandstone bricks": "طوب رملي", "snow": "ثلج",
     "stick": "عصا", "stone": "حجر", "stone bricks": "طوب حجري", "tall grass": "عشب طويل", "tiles": "بلاط",
     "tin ingot": "سبيكة قصدير", "tin ore": "خام قصدير", "torch": "شعلة", "water": "ماء",
-    "water bucket": "سطل ماء", "lava bucket": "سطل حمم", "lava": "حمم", "flowing lava": "حمم سايلة", "flowing water": "ماء جاري", "obsidian": "حجر بركاني أسود", "white flower": "وردة بيضاء", "workbench": "طاولة صنع",
+    "water bucket": "سطل ماء", "lava bucket": "سطل حمم", "milk bucket": "سطل حليب", "cake": "كيكة", "lava": "حمم", "flowing lava": "حمم سايلة", "flowing water": "ماء جاري", "obsidian": "حجر بركاني أسود", "white flower": "وردة بيضاء", "workbench": "طاولة صنع",
     "yellow flower": "وردة صفراء",
 }
 COLORS_AR = ["أبيض", "رمادي فاتح", "رمادي", "أسود", "بني", "أحمر", "برتقالي", "أصفر", "ليموني", "أخضر",
@@ -212,6 +212,9 @@ UI = {
     "panel_makes": ("It makes:", "بيصنع:"), "craft_auto": ("By itself", "لحاله"),
     "craft_put_in": ("Put things in it to see what it can make", "حط فيه أغراض لتشوف شو بيقدر يصنع"),
     "panel_open": ("Open it", "افتحه"),
+    "got": ("Got: %s", "أخذت: %s"),
+    "panel_takes": ("It takes:", "بياخد:"), "filter_any": ("Everything", "كل شي"),
+    "filter_put_in": ("Put something in it or above it to choose only that", "حط فيه أو فوقه غرض لتختار ياخد بس هاد"),
     "hint_pusher": ("Pushes the blocks in front of it when powered", "بيدفش البلوكات يلي قدامه لما توصله كهربا"),
     "hint_breaker": ("Breaks the block in front of it when powered", "بيكسر البلوك يلي قدامه لما توصله كهربا"),
     "hint_torch": ("Gives power all round, until the block it is on gets power", "بتعطي كهربا لكل اللي حواليها، لحد ما البلوك يلي عليه توصله كهربا"),
