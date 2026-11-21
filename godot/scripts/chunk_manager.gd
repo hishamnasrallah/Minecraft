@@ -369,6 +369,7 @@ func _start_generation(key: Vector2i) -> void:
 	_generating[key] = true
 	# everything the job needs is made here, on the main thread, and only the job uses it
 	var g := WorldData.new(world.seed, world.dimension)
+	g.gen = world.gen
 	var edits: Dictionary = world.changes.get(key, {}).duplicate(true)
 	if not edits.is_empty():
 		g.changes[key] = edits

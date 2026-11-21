@@ -61,6 +61,9 @@ var TRANSPARENT: PackedByteArray                    # generation block ids (SLAT
 
 
 var dimension := "overworld"   # or "sky": floating islands (the second world)
+## Terrain generator version. 1: the original gentle land (old saves keep it, the Python
+## version matches it exactly). 2: new worlds: continents and deep seas, real mountain ranges.
+var gen := 1
 
 
 func _init(world_seed: int = -1, dim := "overworld") -> void:
@@ -236,6 +239,8 @@ func _column_climate(x: int, z: int) -> Array:
 	var m := VNoise.fbm(x / 90.0, z / 90.0, seed + 7)
 	var mountains := m * m
 	var h := int(3 + hills * 12 + mountains * 22) + SURFACE_OFFSET
+	if gen >= 2:
+		h = _big_height(x, z, hills, mountains)
 	var desert := h > WATER_LEVEL + 1 and h < SNOW_LINE - 3 and VNoise.fbm(x / 140.0, z / 140.0, seed + 31, 2) > 0.6
 	var forest := VNoise.fbm(x / 60.0, z / 60.0, seed + 41, 2)
 	var tree := not desert and h > WATER_LEVEL and VNoise.hash2(x, z, seed + 777) < TREE_CHANCE * (0.6 + 1.6 * forest)
@@ -265,6 +270,19 @@ func _tree_species(x: int, z: int, h: int, forest: float) -> String:
 	if patch < 0.4:
 		return "cherry"
 	return "oak"
+
+
+## Generator 2: wide continents and seas, and mountain ranges up to ~100 blocks high.
+func _big_height(x: int, z: int, hills: float, mountains: float) -> int:
+	var land := VNoise.fbm(x / 420.0, z / 420.0, seed + 101, 3)        # 0 deep sea .. 1 inland
+	var f := 3.0 + hills * 12.0 + mountains * 22.0 + SURFACE_OFFSET
+	if land < 0.42:
+		f -= (0.42 - land) / 0.42 * 46.0                              # the further out, the deeper
+	var ridge := VNoise.fbm(x / 230.0, z / 230.0, seed + 107, 3)
+	var peak := maxf(0.0, ridge - 0.5) * 2.0                          # 0 .. 1 where ranges rise
+	var inland := clampf((land - 0.45) / 0.15, 0.0, 1.0)
+	f += pow(peak, 1.6) * 110.0 * inland
+	return clampi(int(f), BEDROCK_TOP + 20, H - 45)
 
 
 func height_at(x: int, z: int) -> int:
@@ -714,7 +732,31 @@ func top_y(x: int, z: int) -> int:
 func spawn_point() -> Vector3:
 	if dimension == "sky":
 		return Vector3(0, top_y(0, 4) + 1.5, 4)          # on the main island, by the way home
+	if gen >= 2:
+		var land := _land_near_origin()               # the big seas can cover the middle of the map
+		return Vector3(land.x, top_y(land.x, land.y) + 1.5, land.y)
 	return Vector3(8, top_y(8, 8) + 1.5, 8)
+
+
+var _land := Vector2i(-99999, 0)
+
+
+## The nearest dry, not too steep land to the middle of the map (searched in growing rings).
+func _land_near_origin() -> Vector2i:
+	if _land.x != -99999:
+		return _land
+	_land = Vector2i(8, 8)
+	for r in range(0, 2000, 24):
+		var steps := maxi(1, r / 24 * 8)
+		for i in steps:
+			var a := TAU * i / steps
+			var x := 8 + int(cos(a) * r)
+			var z := 8 + int(sin(a) * r)
+			var h := height_at(x, z)
+			if h > WATER_LEVEL + 1 and h < SNOW_LINE and absi(height_at(x + 4, z) - h) < 3 and absi(height_at(x, z + 4) - h) < 3:
+				_land = Vector2i(x, z)
+				return _land
+	return _land
 
 
 # ---------------------------------------------------------------- the sky realm
@@ -906,7 +948,7 @@ func save(path: String, player := {}) -> void:
 	for p in containers:
 		boxes.append([[p.x, p.y, p.z], containers[p]])
 	var data := {"player": player, "version": SAVE_VERSION, "seed": seed, "time_of_day": time_of_day,
-		"containers": boxes, "changes": edits, "dimension": dimension,
+		"containers": boxes, "changes": edits, "dimension": dimension, "gen": gen,
 		"settings": settings.keys().map(func(p): return [p.x, p.y, p.z, settings[p]])}
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	f.store_string(JSON.stringify(data))
@@ -918,6 +960,7 @@ static func load_from(path: String) -> WorldData:
 		return null
 	var data := migrate(parsed)
 	var w := WorldData.new(int(data["seed"]), str(data.get("dimension", "overworld")))
+	w.gen = int(data.get("gen", 1))
 	w.time_of_day = float(data.get("time_of_day", 0.2))
 	w.player_data = data.get("player", {})
 	for c in data.get("containers", []):

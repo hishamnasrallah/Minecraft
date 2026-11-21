@@ -5,6 +5,7 @@ extends Control
 signal closed
 signal language_picked(code: String)
 signal view_distance_changed(value: int)
+signal far_distance_changed(value: int)
 signal exit_pressed
 signal tutorial_pressed
 signal touch_buttons_changed(on: bool)
@@ -16,6 +17,7 @@ var _dim: ColorRect
 var _panel: PanelContainer
 var _sens_label: Label
 var _dist_label: Label
+var _far_label: Label
 var _scroll: ScrollContainer
 var _box: VBoxContainer
 var _log_panel: PanelContainer
@@ -74,12 +76,24 @@ func _ready() -> void:
 	box.add_child(_dist_label)
 	var dist := HSlider.new()
 	dist.min_value = 2
-	dist.max_value = 8
+	dist.max_value = 12
 	dist.step = 1
 	dist.value = float(I18n.settings["view_distance"]) if int(I18n.settings["view_distance"]) > 0 else float(Main.default_view_distance())
 	dist.custom_minimum_size.y = 40
 	dist.value_changed.connect(func(v): I18n.settings["view_distance"] = int(v); _update_labels(); view_distance_changed.emit(int(v)))
 	box.add_child(dist)
+
+	# the far land: mountains and seas drawn lightly beyond the loaded chunks (0 = off)
+	_far_label = _caption("", "")
+	box.add_child(_far_label)
+	var far := HSlider.new()
+	far.min_value = 0
+	far.max_value = 1024
+	far.step = 128
+	far.value = float(I18n.settings.get("far_distance", 512))
+	far.custom_minimum_size.y = 40
+	far.value_changed.connect(func(v): I18n.settings["far_distance"] = int(v); _update_labels(); far_distance_changed.emit(int(v)))
+	box.add_child(far)
 
 	var sound_label := _caption(I18n.t("sound"), "")
 	box.add_child(sound_label)
@@ -242,6 +256,8 @@ func _update_labels() -> void:
 	_sens_label.text = "%s: %.1f" % [I18n.t("sensitivity"), float(I18n.settings["sensitivity"])]
 	var d := int(I18n.settings["view_distance"])
 	_dist_label.text = "%s: %d" % [I18n.t("view_distance"), d if d > 0 else Main.default_view_distance()]
+	var fd := int(I18n.settings.get("far_distance", 512))
+	_far_label.text = "%s: %s" % [I18n.t("far_distance"), I18n.t("off") if fd <= 0 else I18n.f("blocks_n", fd)]
 
 
 func _layout() -> void:

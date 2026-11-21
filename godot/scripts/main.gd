@@ -78,6 +78,7 @@ func _ready() -> void:
 	if not remote.is_empty():
 		# a friend's world: the seed plus everything they built; the rest is generated here
 		world = WorldData.new(int(remote["seed"]))
+		world.gen = int(remote.get("gen", 1))
 		world.changes = remote["changes"]
 		world.containers = remote["containers"]
 		world.time_of_day = float(remote["time"])
@@ -97,6 +98,7 @@ func _ready() -> void:
 		world.player_data["base_seed"] = base
 	if world == null:
 		world = WorldData.new(int(fresh.get("seed", -1)))
+		world.gen = 2                                 # new worlds: continents, seas and mountain ranges
 		if fresh.get("creative", false):
 			world.player_data["mode"] = "creative"
 	Session.new_options = {}
@@ -169,6 +171,10 @@ func _ready() -> void:
 	carts = Carts.new()
 	carts.world = world
 	add_child(carts)
+	far_land = FarTerrain.new()
+	far_land.world = world
+	far_land.distance = 0 if Boot.safe_mode else int(I18n.settings.get("far_distance", 512))
+	add_child(far_land)
 	carts.load_data(world.player_data.get("carts", []))
 
 	Boot.stage("player")
@@ -250,7 +256,7 @@ func _ready() -> void:
 			await get_tree().create_timer(3.0).timeout
 			get_tree().change_scene_to_file("res://scenes/menu.tscn"))
 	Net.get_world_data = func() -> Dictionary:
-		return {"seed": world.seed, "changes": world.changes, "containers": world.containers,
+		return {"seed": world.seed, "gen": world.gen, "changes": world.changes, "containers": world.containers,
 			"time": world.time_of_day, "weather": weather.kind, "creative": creative,
 			"spawn": [player.position.x + 3.0, player.position.y + 0.5, player.position.z]}   # next to the host
 	weather.column_top = func(x: int, z: int) -> int:
@@ -344,6 +350,7 @@ func _ready() -> void:
 	settings.touch_buttons_changed.connect(func(on): touch.set_classic(on))
 	settings.tutorial_pressed.connect(func(): close_settings(); start_tutorial())
 	settings.view_distance_changed.connect(func(v): chunks.render_distance = v; chunks.update_center(player.position, true))
+	settings.far_distance_changed.connect(func(v): far_land.distance = v)
 	settings.language_picked.connect(func(code):
 		save_game()
 		I18n.set_language(code)
@@ -1714,6 +1721,7 @@ func _machine_choice(action: String, value: int) -> void:
 # ---------------------------------------------------------------- carts and tracks
 const CART := 140
 var carts: Carts
+var far_land: FarTerrain
 var _riding = null                   # the cart you sit in
 
 
@@ -2520,8 +2528,12 @@ func _update_sky(delta: float) -> void:
 	env.background_color = sky_color
 	env.fog_light_color = sky_color
 	var reach_m := chunks.render_distance * 16.0
-	env.fog_depth_begin = reach_m * 0.68
-	env.fog_depth_end = reach_m * 0.98
+	var far_m: float = maxf(reach_m, float(far_land.distance))
+	env.fog_depth_begin = reach_m * (0.85 if far_land.distance > 0 else 0.68)
+	env.fog_depth_end = far_m * 0.98
+	player.camera.far = maxf(400.0, far_m + 64.0)
+	far_land.near_chunks = chunks.render_distance
+	far_land.update(player.position, shown_light)
 	weather.update(delta, player.position, 0.16 + 0.84 * day)
 	daylight = (0.16 + 0.84 * day) * (1.0 - weather.sky_dim())
 	var tint := Vector3(0.72, 0.8, 1.0).lerp(Vector3.ONE, day).lerp(Vector3(1.0, 0.78, 0.6), dusk * 0.5)
@@ -3401,6 +3413,13 @@ func _process_inner(delta: float) -> void:
 			var again := WorldData.load_from(SAVE_PATH)
 			print("CART saved: ", again.player_data.get("carts", []).size())
 			get_tree().quit()
+	if "--highview" in OS.get_cmdline_user_args() and spawned and not _st.has("high"):
+		_st["high"] = true                              # testing: look over the land from high up
+		set_mode(true)
+		set_flying(true)
+		player.position.y += 80
+		player.pitch = -0.3
+		player.camera.rotation.x = player.pitch
 	if "--pettest" in OS.get_cmdline_user_args() and spawned and not _st.has("pet"):
 		_st["pet"] = true                               # testing: a tamed animal survives save and load
 		var a := Wildlife.Animal.new("woolly", player.position + Vector3(3, 0, 0))

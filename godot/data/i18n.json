@@ -712,6 +712,18 @@
    "en": "%s s",
    "ar": "%s ث"
   },
+  "far_distance": {
+   "en": "Far land",
+   "ar": "الأرض البعيدة"
+  },
+  "off": {
+   "en": "off",
+   "ar": "مطفية"
+  },
+  "blocks_n": {
+   "en": "%s blocks",
+   "ar": "%s بلوك"
+  },
   "cause_void": {
    "en": "You fell off the sky islands.",
    "ar": "وقعت عن جزر السما."

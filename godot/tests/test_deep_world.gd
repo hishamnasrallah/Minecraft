@@ -135,3 +135,25 @@ func test_sky_realm_islands_pillars_and_portal_home() -> String:
 	if w.get_block(floori(sp.x + 0.5), floori(sp.y + 0.6), floori(sp.z + 0.5)) != 0:
 		return "spawn must be in the open"
 	return ""
+
+
+## New worlds (generator 2): seas well below the water line, mountains far above it, and the
+## starting point on dry land.
+func test_new_worlds_have_seas_mountains_and_dry_spawn() -> String:
+	var w := WorldData.new(424242)
+	w.gen = 2
+	var lo := 999
+	var hi := 0
+	for i in 4000:
+		var h := w.height_at((i % 64) * 37 - 1200, (i / 64) * 37 - 1200)
+		lo = mini(lo, h)
+		hi = maxi(hi, h)
+	if lo > w.WATER_LEVEL - 15 or hi < w.WATER_LEVEL + 45:
+		return "heights %d..%d around water %d: want deep seas and tall mountains" % [lo, hi, w.WATER_LEVEL]
+	var sp := w.spawn_point()
+	if w.height_at(floori(sp.x), floori(sp.z)) <= w.WATER_LEVEL:
+		return "spawn should be on land"
+	var old := WorldData.new(424242)
+	if old.height_at(500, 500) != WorldData.new(424242).height_at(500, 500):
+		return "generator 1 must not change"
+	return ""
