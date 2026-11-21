@@ -87,6 +87,7 @@ func note(pos: Vector3i, id: int) -> void:
 		level.erase(pos)
 		gate_on.erase(pos)
 		comp_out.erase(pos)
+		torch_on.erase(pos)
 		was_powered.erase(pos)
 		delay_line.erase(pos)
 		_lists_dirty = true
@@ -102,8 +103,7 @@ func note(pos: Vector3i, id: int) -> void:
 		for d in DIRS:
 			if parts.has(pos + d):
 				_wake(pos + d)
-				if Blocks.defs.get(id, {}).has("door"):
-					_lists_dirty = true             # a new door next to a circuit
+				_lists_dirty = true                 # a block or door next to a circuit can join it to another
 				break
 
 
@@ -161,6 +161,15 @@ func _rebuild_lists() -> void:
 					if not _comp_of.has(n):
 						_comp_of[n] = idx
 						queue.append(n)
+				elif _conductor(n):
+					# power goes through solid blocks: machines on its other sides are in this circuit
+					for d3 in DIRS:
+						var m3: Vector3i = n + d3
+						if parts.has(m3) and not _comp_of.has(m3):
+							_comp_of[m3] = idx
+							queue.append(m3)
+						elif Blocks.defs.get(world.get_block(m3.x, m3.y, m3.z), {}).has("door"):
+							doors[m3] = true             # a door beside a powered block opens too
 				elif Blocks.defs.get(world.get_block(n.x, n.y, n.z), {}).has("door"):
 					doors[n] = true
 					# a door joins the machines on both its sides into one circuit
@@ -261,6 +270,27 @@ func _tick(comp: Dictionary) -> bool:
 	if is_day:
 		for p in _list("sensor"):
 			_emit[p] = true
+	# 1b. blocks: a switch, button or plate strongly powers the block it sits on; a gate (and an
+	# observer, comparator) the block in front of it. A strongly powered block powers the dust
+	# and the machines around it.
+	_strong = {}
+	_weak = {}
+	for k in ["switch", "button", "plate"]:
+		for p in _list(k):
+			if not _emit.has(p):
+				continue
+			var sf: int = _info[_ids[p]][1]
+			var held: Vector3i = p + (DOWN if k == "plate" or sf >= 4 else DIRS[sf])   # floor, or the wall it is on
+			if _conductor(held):
+				_strong[held] = 15
+	for p in gate_on:
+		if gate_on[p] and parts.has(p):
+			var fb := _front(p)
+			if _conductor(fb):
+				_strong[fb] = maxi(int(_strong.get(fb, 0)), int(comp_out[p]) if comp_out.has(p) else 15)
+	for p in _list("torch"):
+		if _torch_lit(p) and _conductor(p + UP):
+			_strong[p + UP] = 15                   # a lit power torch strongly powers the block above it
 	# 2. wires: spread from everything that powers them
 	var wires := _list("wire")
 	var new_level := {}
@@ -271,6 +301,10 @@ func _tick(comp: Dictionary) -> bool:
 			var n: Vector3i = p + d
 			if _emit.has(n) or (gate_on.get(n, false) and _front(n) == p):
 				seed = maxi(seed, int(comp_out[n]) if comp_out.has(n) else 15)   # a comparator gives its own strength
+			elif _strong.has(n):
+				seed = maxi(seed, int(_strong[n]))   # dust on, under or beside a strongly powered block
+			elif _torch_lit(n):
+				seed = 15
 		if seed > 0:
 			new_level[p] = seed
 			queue.append(p)
@@ -301,8 +335,26 @@ func _tick(comp: Dictionary) -> bool:
 		var cur: int = _ids.get(p, 0)
 		if _info.has(cur) and cur != shown:
 			set_block.call(p, shown)
+	# 2b. dust weakly powers the block under it and the blocks it points into: those run the
+	# machines beside them (lamps, pushers, doors, gates) but do not power more dust
+	for p in level:
+		if not parts.has(p) or parts[p] != "wire" or int(level[p]) <= 0:
+			continue
+		if _conductor(p + DOWN):
+			_weak[p + DOWN] = true
+		for d in _points_into(p):
+			if _conductor(p + d):
+				_weak[p + d] = true
 	# 3. gates (their new output shows next tick)
 	var next_gate := {}
+	var next_torch := {}
+	for p in _list("torch"):
+		var tf: int = _info[_ids[p]][1]
+		var held: Vector3i = p + (DOWN if tf >= 4 else DIRS[tf])   # the block it stands on or hangs from
+		var lit_now := not (_strong.has(held) or _weak.has(held))
+		if lit_now != _torch_lit(p):
+			changed = true
+		next_torch[p] = lit_now
 	for p in _list("comparator"):
 		var f: int = _info[_ids[p]][1]
 		var back := _strength(p - DIRS[f], p, true)
@@ -413,6 +465,12 @@ func _tick(comp: Dictionary) -> bool:
 			"thrower":
 				if on and not before:
 					_throw(p, DIRS[_info[id][1]])
+	for p in next_torch:
+		torch_on[p] = next_torch[p]
+		var tid := world.get_block(p.x, p.y, p.z)
+		if _info.has(tid) and bool(_info[tid][2]) != bool(next_torch[p]):
+			var step: int = 1 if _info[tid][1] >= 4 else 4          # floor: 1846/1847, wall: 1848+f / 1852+f
+			set_block.call(p, tid + step if next_torch[p] else tid - step)
 	for p in next_gate:
 		gate_on[p] = next_gate[p]
 		# show it: a gate giving power swaps to its lit twin (1770+), and back
@@ -423,10 +481,52 @@ func _tick(comp: Dictionary) -> bool:
 	return changed
 
 
+const UP := Vector3i(0, 1, 0)
+const DOWN := Vector3i(0, -1, 0)
+var _strong := {}                  # this tick: opaque blocks a source or a gate powers (-> strength)
+var _weak := {}                    # this tick: opaque blocks powered dust lies on or points into
+var torch_on := {}                 # power torch Vector3i -> lit
+
+
+func _torch_lit(p: Vector3i) -> bool:
+	if parts.get(p, "") != "torch":
+		return false
+	if torch_on.has(p):
+		return torch_on[p]
+	return _info.has(_ids.get(p, -1)) and bool(_info[_ids[p]][2])
+
+
+## A full, opaque block that carries power (stone, planks...): not glass, not a machine.
+func _conductor(p: Vector3i) -> bool:
+	if parts.has(p):
+		return false
+	var id := world.get_block(p.x, p.y, p.z)
+	return id != 0 and Blocks.solid[id] == 1 and Blocks.transparent[id] == 0
+
+
+## The sides a piece of dust points into: towards what it connects to; a lone dot points all
+## round, a dust with one link runs straight through both ways.
+func _points_into(p: Vector3i) -> Array:
+	var arms := []
+	for d in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]:
+		var n: Vector3i = p + d
+		if parts.has(n) or parts.get(n + UP, "") == "wire" or parts.get(n + DOWN, "") == "wire":
+			arms.append(d)
+	if arms.is_empty():
+		return [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]
+	if arms.size() == 1:
+		arms.append(-arms[0])
+	return arms
+
+
 ## Does the block at `from` give power into `to`?
 func _feeds(from: Vector3i, to: Vector3i) -> bool:
 	if _emit.has(from) or level.get(from, 0) > 0:
 		return true
+	if _strong.has(from) or _weak.has(from):
+		return true                              # a powered block runs the machines touching it
+	if _torch_lit(from):
+		return true                              # a lit torch powers the machines all round it
 	return gate_on.get(from, false) and _front(from) == to
 
 

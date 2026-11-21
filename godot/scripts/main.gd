@@ -936,10 +936,10 @@ func _drop_attached(pos: Vector3i) -> void:
 		var shape: String = d.get("shape", "cube")
 		var falls := false
 		if c[1] == -1:
-			falls = (shape == "cross" and not d.has("door")) or (shape == "torch" and id < WALL_TORCH)
+			falls = (shape == "cross" and not d.has("door")) or (shape == "torch" and id < WALL_TORCH) or (shape in ["ptorch", "lever", "button"] and Blocks.facing[id] >= 4)
 		else:
-			var hangs := shape == "ladder" or (shape == "torch" and id >= WALL_TORCH)
-			falls = hangs and int(d.get("facing", -1)) == c[1]
+			var hangs := shape == "ladder" or (shape == "torch" and id >= WALL_TORCH) or (shape in ["ptorch", "lever", "button"] and Blocks.facing[id] < 4)
+			falls = hangs and Blocks.facing[id] == c[1]
 		if not falls or not edit(p, 0):
 			continue
 		if not creative:
@@ -1039,8 +1039,10 @@ func use_block(pos: Vector3i) -> bool:
 		return true
 	match power.kind_of(id):
 		"switch":
-			edit(pos, 1703 if id == 1702 else 1702, true, false)
-			Sfx.play("click", -2.0, 0.8 if id == 1703 else 1.1)
+			var on: bool = Blocks.lit[id] == 1
+			var step := 1 if Blocks.facing[id] >= 4 else 4                 # floor 1702/1703, wall 1860+f / 1864+f
+			edit(pos, id - step if on else id + step, true, false)
+			Sfx.play("click", -2.0, 0.8 if on else 1.1)
 			buzz(20)
 			return true
 		"button":
@@ -1639,13 +1641,14 @@ func place_block(allow_use := true) -> void:
 	if item == 1750 or item == 1756:
 		id = _track_piece(pos, item == 1756)          # tracks join the ones around them
 	var n0: Vector3i = hit["normal"]
-	if d["shape"] == "torch" and n0.y == 0 and _solid_at(pos - n0):
-		# tapped the side of a block: the torch hangs on that wall
+	if d["shape"] in ["torch", "ptorch", "lever", "button"] and n0.y == 0 and _solid_at(pos - n0):
+		# tapped the side of a block: a torch, switch or button goes on that wall
 		var by_n := {Vector2i(0, -1): 0, Vector2i(-1, 0): 1, Vector2i(0, 1): 2, Vector2i(1, 0): 3}
-		id = WALL_TORCH + int(by_n[Vector2i(n0.x, n0.z)])
-	elif d["shape"] in ["cross", "torch", "lever", "button", "wire", "track"] and (below == 0 or not Blocks.solid[below]):
+		var wall_base := {1846: 1848, 1702: 1860, 1704: 1856}
+		id = int(wall_base.get(item, WALL_TORCH)) + int(by_n[Vector2i(n0.x, n0.z)])
+	elif d["shape"] in ["cross", "torch", "lever", "button", "wire", "track", "ptorch"] and (below == 0 or not Blocks.solid[below]):
 		return                                 # plants and torches need ground
-	if d.get("logic") is Dictionary and d["logic"].has("facing"):
+	if d.get("logic") is Dictionary and d["logic"].has("facing") and not d["shape"] in ["ptorch", "lever", "button"]:
 		# machines face away from you; pushers and breakers can also face up or down
 		var f := _facing()
 		var fy := player.forward().y
@@ -3420,6 +3423,72 @@ func _process_inner(delta: float) -> void:
 		player.position.y += 80
 		player.pitch = -0.3
 		player.camera.rotation.x = player.pitch
+	if "--handtest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: circuits built by hand, item by item
+		if _st_frame == 3:
+			set_mode(true)
+			player.yaw = 0.0                              # facing -z: machines placed face away (-z)
+			player.rotation.y = 0.0
+			var o := Vector3i(floori(player.position.x + 0.5) + 3, floori(player.position.y) + 10, floori(player.position.z + 0.5) - 6)
+			_st["o"] = o
+			for x in range(-2, 14):
+				for z in range(-2, 8):
+					edit(o + Vector3i(x, -1, z), 3, true, false)
+					for y in range(0, 4):
+						edit(o + Vector3i(x, y, z), 0, true, false)
+			var put := func(item: int, on: Vector3i, n: Vector3i) -> void:
+				inv.slots[selected] = [item, 64]
+				_place_on(on, n)
+			var up := Vector3i(0, 1, 0)
+			# A: a stone block, a switch on top, a lamp beside the stone
+			put.call(3, o + Vector3i(0, -1, 0), up)
+			put.call(1702, o, up)
+			put.call(1708, o + Vector3i(1, -1, 0), up)
+			# B: a switch on the floor, 5 dust, a lamp at the end
+			put.call(1702, o + Vector3i(0, -1, 3), up)
+			for x in range(1, 6):
+				put.call(1700, o + Vector3i(x, -1, 3), up)
+			put.call(1708, o + Vector3i(6, -1, 3), up)
+			# C: a stone with a switch on top, a power torch on its side, a lamp next to the torch
+			put.call(3, o + Vector3i(9, -1, 0), up)
+			put.call(1702, o + Vector3i(9, 0, 0), up)
+			put.call(1846, o + Vector3i(9, 0, 0), Vector3i(1, 0, 0))     # tap the stone's +x side
+			put.call(1708, o + Vector3i(11, -1, 0), up)
+			# D: a pusher placed facing away, a block in front, a switch beside it
+			put.call(1730, o + Vector3i(9, -1, 5), up)
+			put.call(7, o + Vector3i(9, -1, 4), up)
+			put.call(1702, o + Vector3i(10, -1, 5), up)
+			# E: a stone with a button on its side, a door beside the stone
+			put.call(3, o + Vector3i(3, -1, 6), up)
+			put.call(1704, o + Vector3i(3, 0, 6), Vector3i(0, 0, -1))    # on the stone's -z face
+			put.call(510, o + Vector3i(4, -1, 6), up)
+			_st["btn"] = o + Vector3i(3, 0, 5)
+		if _st_frame == 10:
+			use_block(_st["btn"])
+			if _shot_path:
+				var o2: Vector3i = _st["o"]
+				player.position = Vector3(o2.x + 2.2, o2.y + 0.2, o2.z + 3.2)
+				player.yaw = deg_to_rad(200.0)
+				player.rotation.y = player.yaw
+				player.pitch = -0.25
+				player.camera.rotation.x = player.pitch
+				set_flying(true)
+		if _st_frame == 15 and _shot_path:
+			get_viewport().get_texture().get_image().save_png(_shot_path)
+			var o: Vector3i = _st["o"]
+			_st["c_before"] = world.get_block(o.x + 11, o.y, o.z)
+			for sw in [o + Vector3i(0, 1, 0), o + Vector3i(0, 0, 3), o + Vector3i(9, 1, 0), o + Vector3i(10, 0, 5)]:
+				use_block(sw)                              # flip every switch on
+		if _st_frame == 16:
+			var o: Vector3i = _st["o"]
+			var g := func(v: Vector3i) -> int: return world.get_block(o.x + v.x, o.y + v.y, o.z + v.z)
+			print("HAND A switch on a block lights the lamp beside it: ", g.call(Vector3i(1, 0, 0)) == 1709)
+			print("HAND B switch -> 5 dust -> lamp: ", g.call(Vector3i(6, 0, 3)) == 1709, " (dust ", [g.call(Vector3i(1, 0, 3)), g.call(Vector3i(5, 0, 3))], ")")
+			print("HAND C torch lamp before %s, after the switch %s (torch %d)" % [_st["c_before"] == 1709, g.call(Vector3i(11, 0, 0)) == 1708, g.call(Vector3i(10, 0, 0))])
+			print("HAND D pusher pushed the planks: ", g.call(Vector3i(9, 0, 3)) == 7, " (pusher %d, head %d)" % [g.call(Vector3i(9, 0, 5)), g.call(Vector3i(9, 0, 4))])
+			var dr: int = g.call(Vector3i(4, 0, 6))
+			print("HAND E button on a wall opens the door beside it: ", Blocks.defs.get(dr, {}).get("door", {}).get("open", false), " (button %d, door %d)" % [g.call(Vector3i(3, 0, 5)), dr])
+			get_tree().quit()
 	if "--pettest" in OS.get_cmdline_user_args() and spawned and not _st.has("pet"):
 		_st["pet"] = true                               # testing: a tamed animal survives save and load
 		var a := Wildlife.Animal.new("woolly", player.position + Vector3(3, 0, 0))

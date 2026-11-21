@@ -814,7 +814,9 @@
   1758,
   1759,
   1790,
-  1791
+  1791,
+  1846,
+  1847
  ],
  "dyes": [
   [
@@ -13192,6 +13194,7 @@
    "creative": true,
    "logic": {
     "kind": "switch",
+    "facing": 4,
     "on": false
    },
    "family": "power_sources",
@@ -13216,6 +13219,7 @@
    "creative": false,
    "logic": {
     "kind": "switch",
+    "facing": 4,
     "on": true
    },
    "tiles": [
@@ -13238,13 +13242,298 @@
    "emit": 0,
    "creative": true,
    "logic": {
-    "kind": "button"
+    "kind": "button",
+    "facing": 4
    },
    "family": "power_sources",
    "tiles": [
     327,
     328,
     328
+   ]
+  },
+  "1856": {
+   "name": "push button",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1704,
+   "shape": "button",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "button",
+    "facing": 0
+   },
+   "tiles": [
+    327,
+    328,
+    328
+   ]
+  },
+  "1860": {
+   "name": "switch",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1702,
+   "shape": "lever",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "switch",
+    "facing": 0,
+    "on": false
+   },
+   "tiles": [
+    324,
+    325,
+    325
+   ]
+  },
+  "1864": {
+   "name": "switch",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1702,
+   "shape": "lever",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "switch",
+    "facing": 0,
+    "on": true
+   },
+   "tiles": [
+    326,
+    325,
+    325
+   ]
+  },
+  "1857": {
+   "name": "push button",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1704,
+   "shape": "button",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "button",
+    "facing": 1
+   },
+   "tiles": [
+    327,
+    328,
+    328
+   ]
+  },
+  "1861": {
+   "name": "switch",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1702,
+   "shape": "lever",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "switch",
+    "facing": 1,
+    "on": false
+   },
+   "tiles": [
+    324,
+    325,
+    325
+   ]
+  },
+  "1865": {
+   "name": "switch",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1702,
+   "shape": "lever",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "switch",
+    "facing": 1,
+    "on": true
+   },
+   "tiles": [
+    326,
+    325,
+    325
+   ]
+  },
+  "1858": {
+   "name": "push button",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1704,
+   "shape": "button",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "button",
+    "facing": 2
+   },
+   "tiles": [
+    327,
+    328,
+    328
+   ]
+  },
+  "1862": {
+   "name": "switch",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1702,
+   "shape": "lever",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "switch",
+    "facing": 2,
+    "on": false
+   },
+   "tiles": [
+    324,
+    325,
+    325
+   ]
+  },
+  "1866": {
+   "name": "switch",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1702,
+   "shape": "lever",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "switch",
+    "facing": 2,
+    "on": true
+   },
+   "tiles": [
+    326,
+    325,
+    325
+   ]
+  },
+  "1859": {
+   "name": "push button",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1704,
+   "shape": "button",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "button",
+    "facing": 3
+   },
+   "tiles": [
+    327,
+    328,
+    328
+   ]
+  },
+  "1863": {
+   "name": "switch",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1702,
+   "shape": "lever",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "switch",
+    "facing": 3,
+    "on": false
+   },
+   "tiles": [
+    324,
+    325,
+    325
+   ]
+  },
+  "1867": {
+   "name": "switch",
+   "tab": "machines",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 0,
+   "drop": 1702,
+   "shape": "lever",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "switch",
+    "facing": 3,
+    "on": true
+   },
+   "tiles": [
+    326,
+    325,
+    325
    ]
   },
   "1705": {
@@ -14581,6 +14870,241 @@
     390,
     391,
     392
+   ]
+  },
+  "1846": {
+   "name": "power torch",
+   "tab": "machines",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 1846,
+   "shape": "ptorch",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": true,
+   "logic": {
+    "kind": "torch",
+    "facing": 4
+   },
+   "tiles": [
+    320,
+    320,
+    320
+   ]
+  },
+  "1847": {
+   "name": "power torch",
+   "tab": "machines",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 1846,
+   "shape": "ptorch",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 7,
+   "creative": false,
+   "logic": {
+    "kind": "torch",
+    "facing": 4,
+    "on": true
+   },
+   "tiles": [
+    321,
+    321,
+    321
+   ]
+  },
+  "1848": {
+   "name": "power torch",
+   "tab": "machines",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 1846,
+   "shape": "ptorch",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "torch",
+    "facing": 0
+   },
+   "tiles": [
+    320,
+    320,
+    320
+   ]
+  },
+  "1852": {
+   "name": "power torch",
+   "tab": "machines",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 1846,
+   "shape": "ptorch",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 7,
+   "creative": false,
+   "logic": {
+    "kind": "torch",
+    "facing": 0,
+    "on": true
+   },
+   "tiles": [
+    321,
+    321,
+    321
+   ]
+  },
+  "1849": {
+   "name": "power torch",
+   "tab": "machines",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 1846,
+   "shape": "ptorch",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "torch",
+    "facing": 1
+   },
+   "tiles": [
+    320,
+    320,
+    320
+   ]
+  },
+  "1853": {
+   "name": "power torch",
+   "tab": "machines",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 1846,
+   "shape": "ptorch",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 7,
+   "creative": false,
+   "logic": {
+    "kind": "torch",
+    "facing": 1,
+    "on": true
+   },
+   "tiles": [
+    321,
+    321,
+    321
+   ]
+  },
+  "1850": {
+   "name": "power torch",
+   "tab": "machines",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 1846,
+   "shape": "ptorch",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "torch",
+    "facing": 2
+   },
+   "tiles": [
+    320,
+    320,
+    320
+   ]
+  },
+  "1854": {
+   "name": "power torch",
+   "tab": "machines",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 1846,
+   "shape": "ptorch",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 7,
+   "creative": false,
+   "logic": {
+    "kind": "torch",
+    "facing": 2,
+    "on": true
+   },
+   "tiles": [
+    321,
+    321,
+    321
+   ]
+  },
+  "1851": {
+   "name": "power torch",
+   "tab": "machines",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 1846,
+   "shape": "ptorch",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 0,
+   "creative": false,
+   "logic": {
+    "kind": "torch",
+    "facing": 3
+   },
+   "tiles": [
+    320,
+    320,
+    320
+   ]
+  },
+  "1855": {
+   "name": "power torch",
+   "tab": "machines",
+   "hardness": 0.0,
+   "tool": null,
+   "level": 0,
+   "drop": 1846,
+   "shape": "ptorch",
+   "transparent": true,
+   "translucent": false,
+   "solid": false,
+   "emit": 7,
+   "creative": false,
+   "logic": {
+    "kind": "torch",
+    "facing": 3,
+    "on": true
+   },
+   "tiles": [
+    321,
+    321,
+    321
    ]
   },
   "1838": {

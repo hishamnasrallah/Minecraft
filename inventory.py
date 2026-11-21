@@ -292,6 +292,7 @@ RECIPES = [
     ({47: 1, COPPER_INGOT: 4, IRON_INGOT: 2}, (1747, 1)),
     ({"rock": 6, COPPER_INGOT: 2, QUARTZ: 1}, (1820, 1)),  # observer
     ({"rock": 7, COPPER_INGOT: 1}, (1832, 1)),            # thrower
+    ({STICK: 1, COPPER_INGOT: 1}, (1846, 2)),              # power torch
     ({"rock": 3, COPPER_INGOT: 3, QUARTZ: 1}, (1838, 1)),  # comparator
     ({1730: 1, WHEAT_ITEM: 3}, (1792, 1)),                # sticky pusher: a pusher with a gluey face
     ({IRON_INGOT: 1, STICK: 2}, (1750, 8)),               # track

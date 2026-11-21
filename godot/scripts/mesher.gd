@@ -438,8 +438,9 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 				boxes.append([Vector3(minf(a.x, b.x), -.5, minf(a.z, b.z)) - w, Vector3(maxf(a.x, b.x), -.48, maxf(a.z, b.z)) + w])
 			return boxes
 		"lever":
-			# a wooden stick on a small stone base, leaning back when off and forward when on
-			var lean := 1.0 if id == SWITCH_ON else -1.0
+			# a wooden stick on a small stone base, leaning back when off and forward when on;
+			# on a wall the base is against the wall and the stick leans down or up
+			var lean := 1.0 if lit[id] == 1 else -1.0
 			var stone: int = tile_side[22]
 			var wood: int = tile_side[7]
 			var parts := [[Vector3(-.19, -.5, -.25), Vector3(.19, -.37, .25), stone]]
@@ -447,10 +448,10 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 				var y0 := -.37 + k * .08
 				var zc: float = (.015 + k * .042) * lean
 				parts.append([Vector3(-.035, y0, zc - .035), Vector3(.035, y0 + .08, zc + .035), wood])
-			return parts
+			return _on_wall(parts, facing[id])
 		"button":
 			var stone2: int = tile_side[22]
-			return [[Vector3(-.16, -.5, -.11), Vector3(.16, -.4, .11), stone2]]
+			return _on_wall([[Vector3(-.16, -.5, -.11), Vector3(.16, -.4, .11), stone2]], facing[id])
 		"gate":
 			# a thin chip (its symbol and arrow on top), a stone nub at the back where the
 			# input comes in, and a little light at the front that is lit while it gives power
@@ -511,6 +512,14 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 					t_lo[a] = -.47
 					m_hi[a] = -.47
 			return [[t_lo, t_hi], [m_lo, m_hi, thrower_face]]
+		"ptorch":
+			# a stick with a red tip (glowing while lit), standing or leaning on a wall
+			var pf: int = facing[id]
+			var at: Vector3 = Vector3.ZERO if pf >= 4 else [Vector3(0, 0, 1), Vector3(1, 0, 0), Vector3(0, 0, -1), Vector3(-1, 0, 0)][pf] * .34
+			var y0 := -.5 if pf >= 4 else -.28
+			var tip: int = tile_side[1701 if lit[id] == 1 else 1700]
+			return [[at + Vector3(-.0625, y0, -.0625), at + Vector3(.0625, y0 + .55, .0625), tile_side[7]],
+				[at + Vector3(-.085, y0 + .55, -.085), at + Vector3(.085, y0 + .72, .085), tip]]
 		"observer":
 			# a stone body, the eye face on the watched side (behind) and the output light in front
 			var ov: Vector3 = [Vector3(0, 0, 1), Vector3(1, 0, 0), Vector3(0, 0, -1), Vector3(-1, 0, 0),
@@ -577,6 +586,37 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 	return [[Vector3(-.5, -.5, -.5), Vector3(.5, .5, .5)]]
 
 
+## Boxes drawn for a floor piece, turned onto a wall: facing 0-3 = the wall's side (+z, +x,
+## -z, -x); 4 = on the floor, unchanged. The floor (-y) becomes the wall side.
+func _on_wall(parts: Array, f: int) -> Array:
+	if f >= 4:
+		return parts
+	var out := []
+	for b in parts:
+		var a: Vector3 = b[0]
+		var c: Vector3 = b[1]
+		var lo := Vector3.ZERO
+		var hi := Vector3.ZERO
+		match f:
+			0:   # wall at +z: floor y -> +z, floor z -> y
+				lo = Vector3(a.x, a.z, -c.y)
+				hi = Vector3(c.x, c.z, -a.y)
+			2:   # wall at -z
+				lo = Vector3(a.x, a.z, a.y)
+				hi = Vector3(c.x, c.z, c.y)
+			1:   # wall at +x
+				lo = Vector3(-c.y, a.z, a.x)
+				hi = Vector3(-a.y, c.z, c.x)
+			3:   # wall at -x
+				lo = Vector3(a.y, a.z, a.x)
+				hi = Vector3(c.y, c.z, c.x)
+		var e := [lo, hi]
+		if b.size() > 2:
+			e.append(b[2])
+		out.append(e)
+	return out
+
+
 func _shape(out: Dictionary, id: int, x: int, y: int, z: int) -> void:
 	var l := light_at(x, y, z)
 	var lmp := 15 if emit[id] else l.y
@@ -597,7 +637,7 @@ func _shape(out: Dictionary, id: int, x: int, y: int, z: int) -> void:
 					g.colors.append(col)
 					g.uvs.append(_uv(tile, quv[i].x, quv[i].y))
 		return
-	var g: Group = out["plants"] if shape in ["ladder", "torch", "carpet", "wire", "lever", "button", "track", "plate"] else out["solid"]   # plants: no collision
+	var g: Group = out["plants"] if shape in ["ladder", "torch", "carpet", "wire", "lever", "button", "track", "plate", "ptorch"] else out["solid"]   # plants: no collision
 	for box in shape_boxes(id, x, y, z):
 		var lo: Vector3 = box[0]
 		var hi: Vector3 = box[1]

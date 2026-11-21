@@ -369,11 +369,19 @@ _logic(1790, "copper wire", "wire_dim", "wire", shape="wire", solid=False, hardn
 _logic(1791, "copper wire", "wire_mid", "wire", shape="wire", solid=False, hardness=0.0, tool=None, on=True,
        creative=False, drop=1700, emit=2)
 _logic(1702, "switch", ("switch_off", "switch_side", "switch_side"), "switch", shape="lever", solid=False, on=False,
-       hardness=0.6)
+       facing=4, hardness=0.6)
 _logic(1703, "switch", ("switch_on", "switch_side", "switch_side"), "switch", shape="lever", solid=False, on=True,
-       creative=False, drop=1702, hardness=0.6)
+       facing=4, creative=False, drop=1702, hardness=0.6)
 _logic(1704, "push button", ("button_top", "button_side", "button_side"), "button", shape="button", solid=False,
-       hardness=0.6)
+       facing=4, hardness=0.6)
+# on a wall (facing = the wall they are on, like ladders): buttons 1856+f, switches 1860+f / on 1864+f
+for _f in range(4):
+    _logic(1856 + _f, "push button", ("button_top", "button_side", "button_side"), "button", shape="button",
+           solid=False, facing=_f, creative=False, drop=1704, hardness=0.6)
+    _logic(1860 + _f, "switch", ("switch_off", "switch_side", "switch_side"), "switch", shape="lever", solid=False,
+           on=False, facing=_f, creative=False, drop=1702, hardness=0.6)
+    _logic(1864 + _f, "switch", ("switch_on", "switch_side", "switch_side"), "switch", shape="lever", solid=False,
+           on=True, facing=_f, creative=False, drop=1702, hardness=0.6)
 _logic(1705, "power cell", ("power_cell_top", "power_cell", "power_cell_top"), "cell", hardness=1.5, emit=6)
 _logic(1706, "pressure plate", "pressure_plate", "plate", shape="plate", solid=False, hardness=0.5)
 _logic(1707, "light sensor", ("light_sensor", "machine_side", "machine_side"), "sensor", shape=SLAB, hardness=0.8)
@@ -391,6 +399,19 @@ for _f in range(6):
     for _base, _m in ((1730, "pusher"), (1736, "breaker")):
         _logic(_base + _f, _m, (f"{_m}_top_{_f}", f"{_m}_side_{_f}", f"{_m}_bottom_{_f}"), _m, facing=_f,
                creative=_f == 0, drop=_base, hardness=1.5, shape="pusher" if _m == "pusher" else CUBE)
+# the power torch: lit (giving power all round, and strongly into the block above) unless the
+# block it is attached to is powered: the simplest NOT. 1846 / 1847 on the floor (off / lit),
+# 1848+f on a wall (facing: the wall it hangs on, like ladders), 1852+f the same lit.
+_logic(1846, "power torch", ("wire_off", "wire_off", "wire_off"), "torch", shape="ptorch", solid=False,
+       facing=4, hardness=0.0, tool=None)
+_logic(1847, "power torch", ("wire_on", "wire_on", "wire_on"), "torch", shape="ptorch", solid=False,
+       facing=4, on=True, creative=False, drop=1846, hardness=0.0, tool=None, emit=7)
+for _f in range(4):
+    _logic(1848 + _f, "power torch", ("wire_off", "wire_off", "wire_off"), "torch", shape="ptorch",
+           solid=False, facing=_f, creative=False, drop=1846, hardness=0.0, tool=None)
+    _logic(1852 + _f, "power torch", ("wire_on", "wire_on", "wire_on"), "torch", shape="ptorch",
+           solid=False, facing=_f, on=True, creative=False, drop=1846, hardness=0.0, tool=None, emit=7)
+
 # the comparator: measures how full the container behind it is (or passes on the strength of
 # the signal behind), and compares with, or subtracts, the strongest signal at its sides.
 # 1838-1841 by facing, 1842-1845 the same while it gives power.
@@ -477,7 +498,8 @@ NON_SOLID = {0} | {i for i, d in BLOCK_DEFS.items() if not d["solid"]}
 LIGHT_EMIT = {i: d["emit"] for i, d in BLOCK_DEFS.items() if d["emit"]}
 UNBREAKABLE = {i for i, d in BLOCK_DEFS.items() if d["hardness"] < 0}
 LEAVES = {i for i, d in BLOCK_DEFS.items() if d.get("leaves")}
-PLANTS_NEED_SOIL = {i for i, d in BLOCK_DEFS.items() if d["shape"] in (CROSS, CARPET, "wire", "lever", "button", "track", "plate")}   # fall without ground
+PLANTS_NEED_SOIL = {i for i, d in BLOCK_DEFS.items() if d["shape"] in (CROSS, CARPET, "wire", "track", "plate")
+                    or (d["shape"] in ("ptorch", "lever", "button") and d.get("logic", {}).get("facing", 4) == 4)}   # fall without ground
 SHAPED = {i for i, d in BLOCK_DEFS.items() if d["shape"] != CUBE}
 
 

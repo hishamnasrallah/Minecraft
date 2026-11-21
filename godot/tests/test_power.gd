@@ -14,9 +14,9 @@ func _setup() -> Array:
 	p.spawn_drop = func(st: Array, _pos: Vector3) -> void: dropped.append(st)
 	p.break_drops = func(id: int) -> Array: return [[id, 1]]
 	# a clear, flat work area at y 40
-	for x in range(-2, 12):
-		for z in range(-4, 5):
-			for y in range(40, 46):
+	for x in range(-3, 12):
+		for z in range(-4, 9):
+			for y in range(40, 64):
 				w.set_block(x, y, z, 0, true, false)
 			w.set_block(x, 39, z, 3, true, false)
 	return [w, p, dropped]
@@ -261,4 +261,94 @@ func test_comparator_measures_a_chest() -> String:
 	var lv: int = p.level.get(Vector3i(2, 48, 0), 0)
 	if lv < 6 or lv > 10 or _id(w, 2, 48, 0) != 1791:
 		return "half full should give a medium signal: level %d, wire %d" % [lv, _id(w, 2, 48, 0)]
+	return ""
+
+
+# ---------------------------------------------------------------- power through blocks
+## A switch on a stone block powers the block: the lamp beside the stone lights.
+func test_switch_on_a_block_lights_the_lamp_beside_it() -> String:
+	var s := _setup()
+	var w: WorldData = s[0]
+	var p: Power = s[1]
+	w.set_block(0, 50, 0, 3, true, false)         # stone
+	w.set_block(0, 51, 0, 1702, true, false)      # switch on top of it
+	w.set_block(1, 50, 0, 1708, true, false)      # lamp beside the stone
+	_run(p)
+	if _id(w, 1, 50, 0) != 1708:
+		return "off: the lamp should be dark"
+	w.set_block(0, 51, 0, 1703, true, false)
+	_run(p)
+	return "" if _id(w, 1, 50, 0) == 1709 else "the switch powers its block, the lamp beside it should light"
+
+
+## Dust running into a block powers it (weakly): a lamp on the other side lights, but dust on
+## the other side does not.
+func test_dust_into_a_block_powers_the_lamp_behind_not_more_dust() -> String:
+	var s := _setup()
+	var w: WorldData = s[0]
+	var p: Power = s[1]
+	w.set_block(0, 52, 0, 1705, true, false)      # power cell
+	for x in range(1, 4):
+		w.set_block(x, 52, 0, 1700, true, false)  # dust towards the stone
+	w.set_block(4, 52, 0, 3, true, false)         # stone
+	w.set_block(5, 52, 0, 1708, true, false)      # lamp behind it
+	w.set_block(4, 52, 1, 1700, true, false)      # dust beside the stone (not in line)
+	w.set_block(4, 52, 2, 1708, true, false)
+	_run(p)
+	if _id(w, 5, 52, 0) != 1709:
+		return "the lamp behind the block should light"
+	if _id(w, 4, 52, 1) != 1700:
+		return "a weakly powered block must not power dust: %d" % _id(w, 4, 52, 1)
+	return ""
+
+
+## The power torch on the side of a block is a NOT: lit until the block is powered.
+func test_power_torch_inverts() -> String:
+	var s := _setup()
+	var w: WorldData = s[0]
+	var p: Power = s[1]
+	w.set_block(0, 54, 0, 3, true, false)         # stone
+	w.set_block(0, 55, 0, 1702, true, false)      # switch on top (off)
+	w.set_block(1, 54, 0, 1851, true, false)      # power torch on the stone's +x side (hangs on -x: facing 3)
+	w.set_block(2, 54, 0, 1708, true, false)      # lamp next to the torch
+	_run(p)
+	if _id(w, 2, 54, 0) != 1709 or _id(w, 1, 54, 0) != 1855:
+		return "switch off: torch lit (%d) and lamp on (%d)" % [_id(w, 1, 54, 0), _id(w, 2, 54, 0)]
+	w.set_block(0, 55, 0, 1703, true, false)
+	_run(p)
+	if _id(w, 2, 54, 0) != 1708 or _id(w, 1, 54, 0) != 1851:
+		return "switch on: torch out (%d) and lamp off (%d)" % [_id(w, 1, 54, 0), _id(w, 2, 54, 0)]
+	return ""
+
+
+## A lit torch under a block powers it strongly: dust on top of that block carries power.
+func test_power_torch_powers_the_block_above_and_its_dust() -> String:
+	var s := _setup()
+	var w: WorldData = s[0]
+	var p: Power = s[1]
+	w.set_block(0, 56, 4, 3, true, false)         # ground
+	w.set_block(0, 57, 4, 1846, true, false)      # torch standing on it
+	w.set_block(0, 58, 4, 3, true, false)         # stone above the torch
+	w.set_block(0, 59, 4, 1700, true, false)      # dust on top of that stone
+	w.set_block(1, 59, 4, 1708, true, false)      # lamp at the end of the dust
+	_run(p)
+	return "" if _id(w, 1, 59, 4) == 1709 else "torch -> block above -> dust -> lamp: lamp %d, dust %d" % [_id(w, 1, 59, 4), _id(w, 0, 59, 4)]
+
+
+## A pusher and a door next to a powered block work too.
+func test_powered_block_runs_pusher_and_door() -> String:
+	var s := _setup()
+	var w: WorldData = s[0]
+	var p: Power = s[1]
+	w.set_block(0, 60, 0, 3, true, false)         # stone with a switch on it
+	w.set_block(0, 61, 0, 1703, true, false)
+	w.set_block(1, 60, 0, 1731, true, false)      # pusher facing +x beside the stone
+	w.set_block(2, 60, 0, 7, true, false)
+	w.set_block(0, 60, -1, 510, true, false)      # a door on another side (not touching the switch)
+	w.set_block(0, 61, -1, 511, true, false)
+	_run(p)
+	if _id(w, 3, 60, 0) != 7:
+		return "the pusher should push: row %d %d %d" % [_id(w, 1, 60, 0), _id(w, 2, 60, 0), _id(w, 3, 60, 0)]
+	if not Blocks.defs[_id(w, 0, 60, -1)]["door"]["open"]:
+		return "the door should open"
 	return ""

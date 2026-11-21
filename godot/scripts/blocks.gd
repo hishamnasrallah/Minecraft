@@ -66,7 +66,9 @@ func _init() -> void:
 		emit[id] = int(d["emit"])
 		hardness[id] = float(d["hardness"])
 		shapes[id] = d["shape"]
-		facing[id] = int(d.get("facing", 0))
+		var lg = d.get("logic")
+		# machines keep their direction in "logic" (0-3 sides, 4 up / on the floor, 5 down)
+		facing[id] = int(d.get("facing", lg.get("facing", 0) if lg is Dictionary else 0))
 		machine[id] = 1 if (d.get("logic") is Dictionary or d.has("door")) else 0
 		lit[id] = 1 if (d.get("logic") is Dictionary and bool(d["logic"].get("on", false))) else 0
 		if d.get("door") is Dictionary:
