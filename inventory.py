@@ -22,6 +22,7 @@ RETURNS = {MILK_BUCKET: BUCKET}          # crafting with these gives the contain
 CART = 140
 CHEST_CART = 141
 GLASS_BOTTLE, WATER_BOTTLE = 133, 134
+EMBER_SHARD, FIRE_STRIKER = 143, 129
 # potions: item -> (name, icon, effect, seconds); drunk from the hand, the bottle comes back
 POTIONS = {135: ("swiftness potion", "potion_swift", "swift", 90), 136: ("healing potion", "potion_heal", "heal", 0),
            137: ("night vision potion", "potion_night", "night", 120), 138: ("leaping potion", "potion_leap", "leap", 90),
@@ -49,6 +50,7 @@ OTHER_ITEMS = {BUCKET: ("bucket", "bucket"), WATER_BUCKET: ("water bucket", "wat
                LAVA_BUCKET: ("lava bucket", "lava_bucket"),
                SKY_KEY: ("sky key", "sky_key"), CART: ("cart", "cart"),
                CHEST_CART: ("chest cart", "chest_cart"),
+               EMBER_SHARD: ("ember shard", "ember_shard"), FIRE_STRIKER: ("fire striker", "fire_striker"),
                GLASS_BOTTLE: ("glass bottle", "glass_bottle"), WATER_BOTTLE: ("water bottle", "water_bottle"),
                **{p: (v[0], v[1]) for p, v in POTIONS.items()}}
 
@@ -157,7 +159,7 @@ def attack_damage(item):
 
 
 def max_stack(item):
-    return 1 if item in TOOLS or item in (WATER_BUCKET, LAVA_BUCKET, MILK_BUCKET) else 16 if item == BUCKET else STACK_SIZE
+    return 1 if item in TOOLS or item in (WATER_BUCKET, LAVA_BUCKET, MILK_BUCKET, FIRE_STRIKER) else 16 if item == BUCKET else STACK_SIZE
 
 
 def new_stack(item, amount):
@@ -316,6 +318,9 @@ RECIPES = [
     ({IRON_INGOT: 5}, (CART, 1)),
     ({CART: 1, 48: 1}, (CHEST_CART, 1)),
     ({GLASS: 3}, (GLASS_BOTTLE, 3)),
+    ({IRON_INGOT: 1, COAL: 1}, (FIRE_STRIKER, 1)),       # lights an obsidian frame: the way to the fire realm
+    ({EMBER_SHARD: 4}, (910, 1)),                        # ember shards make a glow crystal
+    ({1900: 4}, (1901, 4)),                              # ember bricks
     ({1868: 1, GLASS_BOTTLE: 1}, (1884, 1)),            # a brewing stand: from an auto-crafter
     ({COBBLED_SLATE: 3, IRON_INGOT: 1, GLASS_BOTTLE: 1}, (1884, 1)),     # a cart with a chest: carries things along the track
     ({116: 4, 910: 1, DIAMOND: 1}, (SKY_KEY, 1)),            # amethyst x4, glow crystal, diamond
@@ -366,6 +371,7 @@ BREWING = [
     ({WATER_BOTTLE: 1, CARROT: 1}, (137, 1)),            # carrot: night vision
     ({WATER_BOTTLE: 1, FEATHER: 1}, (138, 1)),           # feather: leaping
     ({WATER_BOTTLE: 1, 1890: 1}, (139, 1)),              # obsidian: fire resistance
+    ({WATER_BOTTLE: 1, EMBER_SHARD: 1}, (139, 2)),       # ember shard: fire resistance, twice
     ({WATER_BOTTLE: 1, RAW_FISH: 1}, (142, 1)),          # fish: water breathing
 ]
 

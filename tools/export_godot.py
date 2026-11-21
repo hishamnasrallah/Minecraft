@@ -92,7 +92,7 @@ def export_items():
                                                  "IDLE_PER_SECOND", "WALK_PER_BLOCK", "JUMP", "MINE", "ATTACK",
                                                  "REGEN", "REGEN_EVERY", "STARVE_EVERY", "DROWN_EVERY", "SAFE_FALL")},
         "special": {"STICK": inv.STICK, "COAL": inv.COAL, "RAW_MEAT": inv.RAW_MEAT, "COOKED_MEAT": inv.COOKED_MEAT,
-                    "APPLE": inv.APPLE, "SEEDS": inv.SEEDS, "BUCKET": inv.BUCKET, "WATER_BUCKET": inv.WATER_BUCKET, "LAVA_BUCKET": inv.LAVA_BUCKET, "MILK_BUCKET": inv.MILK_BUCKET, "GLASS_BOTTLE": inv.GLASS_BOTTLE, "WATER_BOTTLE": inv.WATER_BOTTLE, "CAKE": inv.CAKE,
+                    "APPLE": inv.APPLE, "SEEDS": inv.SEEDS, "BUCKET": inv.BUCKET, "WATER_BUCKET": inv.WATER_BUCKET, "LAVA_BUCKET": inv.LAVA_BUCKET, "MILK_BUCKET": inv.MILK_BUCKET, "GLASS_BOTTLE": inv.GLASS_BOTTLE, "FIRE_STRIKER": inv.FIRE_STRIKER, "EMBER_SHARD": inv.EMBER_SHARD, "WATER_BOTTLE": inv.WATER_BOTTLE, "CAKE": inv.CAKE,
                     "STACK_SIZE": inv.STACK_SIZE, "HOTBAR_SIZE": inv.HOTBAR_SIZE, "INVENTORY_SIZE": inv.INVENTORY_SIZE},
     }
 

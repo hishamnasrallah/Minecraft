@@ -708,6 +708,12 @@
   "storm_crystal",
   "pillar_stone",
   "storm_heart",
+  "ember_rock",
+  "ember_bricks",
+  "fire_portal",
+  "ember_ore",
+  "ash_sand",
+  "magma",
   "lava",
   "obsidian",
   "iron_ingot",
@@ -765,7 +771,9 @@
   "potion_night",
   "potion_leap",
   "potion_fire",
-  "potion_water"
+  "potion_water",
+  "ember_shard",
+  "fire_striker"
  ],
  "plants_need_soil": [
   51,
@@ -16759,6 +16767,120 @@
     437
    ]
   },
+  "1900": {
+   "name": "ember rock",
+   "tab": "natural",
+   "hardness": 0.6,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 1900,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    438,
+    438,
+    438
+   ]
+  },
+  "1901": {
+   "name": "ember bricks",
+   "tab": "building",
+   "hardness": 2.0,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 1901,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    439,
+    439,
+    439
+   ]
+  },
+  "1902": {
+   "name": "fire portal",
+   "tab": "functional",
+   "hardness": -1,
+   "tool": null,
+   "level": 0,
+   "drop": null,
+   "shape": "cube",
+   "transparent": true,
+   "translucent": true,
+   "solid": false,
+   "emit": 12,
+   "creative": false,
+   "tiles": [
+    440,
+    440,
+    440
+   ]
+  },
+  "1903": {
+   "name": "ember ore",
+   "tab": "natural",
+   "hardness": 2.0,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 143,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 5,
+   "creative": true,
+   "tiles": [
+    441,
+    441,
+    441
+   ]
+  },
+  "1904": {
+   "name": "ash sand",
+   "tab": "natural",
+   "hardness": 0.5,
+   "tool": "shovel",
+   "level": 0,
+   "drop": 1904,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 0,
+   "creative": true,
+   "tiles": [
+    442,
+    442,
+    442
+   ]
+  },
+  "1905": {
+   "name": "magma block",
+   "tab": "natural",
+   "hardness": 0.8,
+   "tool": "pickaxe",
+   "level": 1,
+   "drop": 1905,
+   "shape": "cube",
+   "transparent": false,
+   "translucent": false,
+   "solid": true,
+   "emit": 9,
+   "creative": true,
+   "tiles": [
+    443,
+    443,
+    443
+   ]
+  },
   "1870": {
    "name": "flowing water",
    "tab": "natural",
@@ -16922,9 +17044,9 @@
    "fluid": "lava",
    "flow": 0,
    "tiles": [
-    438,
-    438,
-    438
+    444,
+    444,
+    444
    ]
   },
   "1881": {
@@ -16943,9 +17065,9 @@
    "fluid": "lava",
    "flow": 1,
    "tiles": [
-    438,
-    438,
-    438
+    444,
+    444,
+    444
    ]
   },
   "1882": {
@@ -16964,9 +17086,9 @@
    "fluid": "lava",
    "flow": 2,
    "tiles": [
-    438,
-    438,
-    438
+    444,
+    444,
+    444
    ]
   },
   "1883": {
@@ -16985,9 +17107,9 @@
    "fluid": "lava",
    "flow": 3,
    "tiles": [
-    438,
-    438,
-    438
+    444,
+    444,
+    444
    ]
   },
   "1890": {
@@ -17004,9 +17126,9 @@
    "emit": 0,
    "creative": true,
    "tiles": [
-    439,
-    439,
-    439
+    445,
+    445,
+    445
    ]
   }
  }

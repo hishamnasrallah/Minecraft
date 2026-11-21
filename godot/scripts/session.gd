@@ -29,7 +29,7 @@ func _migrate_old_save() -> void:
 
 
 func save_path() -> String:
-	var file := "sky.json" if dimension == "sky" else "save.json"
+	var file := "sky.json" if dimension == "sky" else ("fire.json" if dimension == "fire" else "save.json")
 	return world_dir + "/" + file if world_dir != "" else "user://" + file
 
 

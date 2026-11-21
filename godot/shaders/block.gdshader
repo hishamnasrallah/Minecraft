@@ -5,6 +5,7 @@ render_mode unshaded, cull_back;
 
 uniform sampler2D atlas : source_color, filter_nearest;
 uniform float daylight = 1.0;
+uniform vec3 ambient : source_color = vec3(0.27);   // the least light anywhere (the fire realm glows red)
 uniform vec3 sky_tint : source_color = vec3(1.0);
 uniform float alpha_cut = 0.5;
 
@@ -21,5 +22,5 @@ void fragment() {
 	if (tex.a < alpha_cut) discard;
 	vec3 sky = vec3(curve(light.r) * daylight) * sky_tint;
 	vec3 lamp = vec3(curve(light.g)) * vec3(1.0, 0.86, 0.62);
-	ALBEDO = tex.rgb * max(max(sky, lamp), vec3(0.27)) * light.b;   // a faint glow so caves are never pitch black
+	ALBEDO = tex.rgb * max(max(sky, lamp), ambient) * light.b;   // a faint glow so caves are never pitch black
 }

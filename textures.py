@@ -191,6 +191,65 @@ def brewer_side(rng, lit=False):
     return img
 
 
+def ember_rock(rng):
+    img = _noise(rng, (112, 40, 36), 0.14)
+    return _speckle(img, rng, (150, 60, 48), 22)
+
+
+def ember_bricks(rng):
+    return bricks((96, 34, 34), (52, 20, 22))(rng)
+
+
+def ember_ore(rng):
+    img = ember_rock(rng)
+    for _ in range(6):
+        x, y = rng.randrange(1, TILE - 2), rng.randrange(1, TILE - 2)
+        for dx, dy in ((0, 0), (1, 0), (0, 1), (1, 1)):
+            img.putpixel((x + dx, y + dy), (255, 190, 70) if (dx + dy) % 2 else (240, 120, 40))
+    return img
+
+
+def ash_sand(rng):
+    img = _noise(rng, (88, 76, 70), 0.12)
+    return _speckle(img, rng, (60, 50, 48), 30)
+
+
+def magma(rng):
+    img = _noise(rng, (70, 28, 20), 0.15)
+    for _ in range(9):
+        x, y = rng.randrange(TILE), rng.randrange(TILE)
+        for dx in range(rng.randint(2, 5)):
+            img.putpixel(((x + dx) % TILE, y), (255, 130, 30))
+    return img
+
+
+def fire_portal(rng):
+    img = Image.new("RGBA", (TILE, TILE))
+    for x in range(TILE):
+        for y in range(TILE):
+            v = 0.5 + 0.5 * math.sin((x - y) * 0.8 + rng.uniform(-0.6, 0.6))
+            img.putpixel((x, y), (int(220 + 30 * v), int(80 + 90 * v), int(20 + 30 * v), 180))
+    return img
+
+
+def ember_shard(rng):
+    img = _blank()
+    for x, y in ((7, 3), (8, 4), (6, 5), (7, 5), (8, 5), (9, 6), (6, 7), (7, 7), (8, 7), (7, 9), (8, 9), (7, 11)):
+        _px(img, x, y, (255, 150 + rng.randrange(60), 40))
+    return img
+
+
+def fire_striker(rng):
+    img = _blank()
+    for i in range(7):
+        _px(img, 4 + i, 11 - i, (170, 172, 180))              # the steel
+    for x, y in ((10, 4), (11, 3), (12, 4), (11, 5)):
+        _px(img, x, y, (255, 180, 50))                        # the spark
+    for i in range(4):
+        _px(img, 3 + i, 12 + (i % 2), (60, 60, 66))
+    return img
+
+
 def lava(rng):
     img = _noise(rng, (222, 92, 18), 0.08)
     for _ in range(7):                       # bright molten streaks
@@ -1991,6 +2050,8 @@ EXTRA_GENERATORS.update({
     "boost_x_off": _track(((1, 0), (-1, 0)), False), "boost_z_off": _track(((0, 1), (0, -1)), False),
     "boost_x_on": _track(((1, 0), (-1, 0)), True), "boost_z_on": _track(((0, 1), (0, -1)), True),
     "cart": cart_icon, "chest_cart": chest_cart_icon,
+    "ember_rock": ember_rock, "ember_bricks": ember_bricks, "ember_ore": ember_ore, "ash_sand": ash_sand,
+    "magma": magma, "fire_portal": fire_portal, "ember_shard": ember_shard, "fire_striker": fire_striker,
     "glass_bottle": potion((215, 230, 240)), "water_bottle": potion((60, 110, 210)),
     "potion_swift": potion((120, 200, 250)), "potion_heal": potion((240, 60, 80)),
     "potion_night": potion((40, 50, 160)), "potion_leap": potion((120, 230, 90)),

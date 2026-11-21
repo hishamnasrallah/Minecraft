@@ -303,6 +303,8 @@ func ensure_chunk(key: Vector2i) -> bool:
 		return false
 	if dimension == "sky":
 		return _ensure_sky(key)
+	if dimension == "fire":
+		return _ensure_fire(key)
 	var x0 := key.x * CS
 	var z0 := key.y * CS
 	var blk := PackedInt32Array()
@@ -732,6 +734,8 @@ func top_y(x: int, z: int) -> int:
 func spawn_point() -> Vector3:
 	if dimension == "sky":
 		return Vector3(0, top_y(0, 4) + 1.5, 4)          # on the main island, by the way home
+	if dimension == "fire":
+		return Vector3(0, FIRE_HALL + 1.5, 3)            # in the hall by the portal home
 	if gen >= 2:
 		var land := _land_near_origin()               # the big seas can cover the middle of the map
 		return Vector3(land.x, top_y(land.x, land.y) + 1.5, land.y)
@@ -757,6 +761,92 @@ func _land_near_origin() -> Vector2i:
 				_land = Vector2i(x, z)
 				return _land
 	return _land
+
+
+# ---------------------------------------------------------------- the fire realm
+const FIRE := {"ROCK": 1900, "PORTAL": 1902, "ORE": 1903, "ASH": 1904, "MAGMA": 1905, "FRAME": 1890,
+	"CRYSTAL": 910}
+const FIRE_SEA := 48                  # the lava sea's surface
+const FIRE_HALL := 60                 # the floor of the hall you arrive in
+const FIRE_ROOF := 150                # solid rock above this
+
+
+## The cavern at a column: [floor, ceiling]. Rock below the floor and above the ceiling;
+## where they meet there is a pillar. Lava fills the low places up to FIRE_SEA.
+func fire_cave(x: int, z: int) -> Vector2i:
+	var f := 36.0 + VNoise.fbm(x / 60.0, z / 60.0, seed + 600, 3) * 44.0
+	var c := 104.0 + VNoise.fbm(x / 50.0, z / 50.0, seed + 601, 3) * 40.0
+	var pillar := VNoise.fbm(x / 18.0, z / 18.0, seed + 602, 2)
+	if pillar > 0.72:
+		f = c                                      # a column from floor to roof
+	var d := sqrt(float(x * x + z * z))
+	if d < 10.0:                                   # the arrival hall: flat, dry, with room
+		f = FIRE_HALL
+		c = maxf(c, FIRE_HALL + 12.0)
+	elif d < 18.0:
+		f = lerpf(FIRE_HALL, f, (d - 10.0) / 8.0)
+	return Vector2i(int(f), int(c))
+
+
+func _ensure_fire(key: Vector2i) -> bool:
+	var x0 := key.x * CS
+	var z0 := key.y * CS
+	var blk := PackedInt32Array()
+	blk.resize(CS * H * CS)
+	var e := {}
+	var rock: int = FIRE["ROCK"]
+	for lx in CS:
+		for lz in CS:
+			var x := x0 + lx
+			var z := z0 + lz
+			var cv := fire_cave(x, z)
+			var fl := cv.x
+			var ce := cv.y
+			var base := (lx * H) * CS + lz
+			blk[base] = 9                                          # bedrock at the bottom
+			for y in range(1, FIRE_ROOF + 1):
+				var i := base + y * CS
+				if y <= fl or y >= ce:
+					var id := rock
+					var near := mini(absi(y - fl), absi(y - ce))
+					if near <= 2 and VNoise.hash3(x, y, z, seed + 603) < 0.03:
+						id = FIRE["ORE"]
+						e[Vector3i(x, y, z)] = true
+					blk[i] = id
+				elif y <= FIRE_SEA:
+					blk[i] = 1880                                  # the lava sea
+					if y == FIRE_SEA:
+						e[Vector3i(x, y, z)] = true
+			blk[base + (FIRE_ROOF + 1) * CS] = 9                   # a bedrock lid
+			if fl < ce and fl > FIRE_SEA:
+				var top := base + fl * CS
+				var h := VNoise.hash2(x, z, seed + 604)
+				if h < 0.04:
+					blk[top] = FIRE["MAGMA"]
+					e[Vector3i(x, fl, z)] = true
+				elif VNoise.fbm(x / 20.0, z / 20.0, seed + 605, 2) > 0.6:
+					blk[top] = FIRE["ASH"]
+			if fl < ce and VNoise.hash2(x, z, seed + 606) < 0.012 and ce - 1 > fl + 3:
+				blk[base + (ce - 1) * CS] = FIRE["CRYSTAL"]            # glowing crystals hang from the roof
+				e[Vector3i(x, ce - 1, z)] = true
+	# the portal home: an obsidian frame across x at z = -6, on the hall floor
+	for i in 4:
+		for j in 5:
+			var x := -2 + i
+			var z := -6
+			if (x >> 4) != key.x or (z >> 4) != key.y:
+				continue
+			var y := FIRE_HALL + 1 + j
+			var frame := i == 0 or i == 3 or j == 0 or j == 4
+			blk[((x - x0) * H + y) * CS + (z - z0)] = FIRE["FRAME"] if frame else FIRE["PORTAL"]
+			if not frame:
+				e[Vector3i(x, y, z)] = true
+	var chunk := Chunk.new(false)
+	chunk.b = blk
+	chunks[key] = chunk
+	if not e.is_empty():
+		emitters[key] = e
+	return true
 
 
 # ---------------------------------------------------------------- the sky realm

@@ -502,6 +502,18 @@ block(STORM_CRYSTAL, "storm crystal", "storm_crystal", FUNCTIONAL, 1.0, "pickaxe
 block(PILLAR_STONE, "pillar stone", "pillar_stone", BUILDING, 12.0, "pickaxe", 3)
 block(STORM_HEART, "storm heart", "storm_heart", FUNCTIONAL, 3.0, "pickaxe", emit=13)
 
+# ---------------------------------------------------------------- the fire realm (third world)
+# Huge hot caverns over a lava sea, reached through an obsidian frame lit with a fire striker.
+EMBER_ROCK, EMBER_BRICKS, FIRE_PORTAL, EMBER_ORE, ASH_SAND, MAGMA = 1900, 1901, 1902, 1903, 1904, 1905
+EMBER_SHARD, FIRE_STRIKER = 143, 129                          # items (registered in inventory.py)
+block(EMBER_ROCK, "ember rock", "ember_rock", NATURAL, 0.6, "pickaxe", 1)
+block(EMBER_BRICKS, "ember bricks", "ember_bricks", BUILDING, 2.0, "pickaxe", 1)
+block(FIRE_PORTAL, "fire portal", "fire_portal", FUNCTIONAL, -1, translucent=True, solid=False, emit=12, creative=False,
+      drop=None)
+block(EMBER_ORE, "ember ore", "ember_ore", NATURAL, 2.0, "pickaxe", 1, drop=EMBER_SHARD, emit=5)
+block(ASH_SAND, "ash sand", "ash_sand", NATURAL, 0.5, "shovel")
+block(MAGMA, "magma block", "magma", NATURAL, 0.8, "pickaxe", 1, emit=9)
+
 
 # ---------------------------------------------------------------- fluids
 # Flowing water and lava: a source (level 0) spreads to the cells around it one level weaker

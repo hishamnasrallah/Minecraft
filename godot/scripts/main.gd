@@ -91,6 +91,10 @@ func _ready() -> void:
 	Minimap.memory = {}
 	if remote.is_empty() and fresh.is_empty():
 		Minimap.load_memory(SAVE_PATH.get_basename() + "_map.bin")   # the places you have seen
+	if world == null and Session.dimension == "fire":
+		var fbase := int(Session.carry.get("seed", fresh.get("seed", -1)))
+		world = WorldData.new(fbase + 9999 if fbase >= 0 else -1, "fire")
+		world.player_data["base_seed"] = fbase
 	if world == null and Session.dimension == "sky":
 		# first visit to the sky realm: its own seed, derived from the world's
 		var base := int(Session.carry.get("seed", fresh.get("seed", -1)))
@@ -230,6 +234,9 @@ func _ready() -> void:
 	remote_players = RemotePlayers.new()
 	remote_players.icon_for = hud.icon_for
 	add_child(remote_players)
+	if world.dimension == "fire":
+		weather.set_weather("clear")
+		weather.visible = false                       # under the roof: no clouds, no rain
 	if world.dimension == "sky":
 		weather.set_weather("clear")
 		if not world.player_data.get("boss_dead", false):
@@ -1001,6 +1008,8 @@ func _update_effects(delta: float) -> void:
 		_refresh_mode()
 
 
+var _portal_to := "sky"
+
 var _trader = null
 
 
@@ -1147,9 +1156,13 @@ func use_block(pos: Vector3i) -> bool:
 # ---------------------------------------------------------------- the sky realm: portals and the boss
 ## The sky key on a frame of amethyst blocks: the empty space it encloses (up to 8 x 8, in an
 ## upright plane) fills with portal.
-func _open_portal(hit_pos: Vector3i) -> void:
-	if world.get_block(hit_pos.x, hit_pos.y, hit_pos.z) != WorldData.SKY["FRAME"]:
-		hud.flash(I18n.t("portal_needs_frame"))
+## The fire striker on obsidian does the same with fire portal (the way to the fire realm).
+func _open_portal(hit_pos: Vector3i, fire := false) -> void:
+	var frame_id: int = WorldData.FIRE["FRAME"] if fire else WorldData.SKY["FRAME"]
+	var portal_id: int = WorldData.FIRE["PORTAL"] if fire else WorldData.SKY["PORTAL"]
+	var needs := "fire_portal_needs" if fire else "portal_needs_frame"
+	if world.get_block(hit_pos.x, hit_pos.y, hit_pos.z) != frame_id:
+		hud.flash(I18n.t(needs))
 		return
 	for plane in [Vector3i(1, 0, 0), Vector3i(0, 0, 1)]:
 		var starts := []                         # any empty cell near the tapped frame block
@@ -1169,7 +1182,7 @@ func _open_portal(hit_pos: Vector3i) -> void:
 					if inside.has(n):
 						continue
 					var b := world.get_block(n.x, n.y, n.z)
-					if b == WorldData.SKY["FRAME"]:
+					if b == frame_id:
 						continue
 					if b != 0 or inside.size() >= 36:
 						ok = false                   # not closed by amethyst, or too big
@@ -1179,15 +1192,15 @@ func _open_portal(hit_pos: Vector3i) -> void:
 			if ok and inside.size() >= 2:
 				var edits := {}
 				for c in inside:
-					edits[c] = WorldData.SKY["PORTAL"]
+					edits[c] = portal_id
 				_rebuild(world.bulk_set(edits)[0])
 				Sfx.play("pop", 0.0, 0.6)
-				hud.flash(I18n.t("portal_opened"))
+				hud.flash(I18n.t("fire_opened" if fire else "portal_opened"))
 				if not creative:
 					inv.use_one(selected)
 					_refresh_mode()
 				return
-	hud.flash(I18n.t("portal_needs_frame"))
+	hud.flash(I18n.t(needs))
 
 
 ## Standing in a portal for a moment takes you to the other world.
@@ -1198,6 +1211,10 @@ func _update_portal(delta: float) -> void:
 		var b := world.get_block(floori(p.x + 0.5), floori(p.y + dy), floori(p.z + 0.5))
 		if b == WorldData.SKY["PORTAL"]:
 			inside = true
+			_portal_to = "sky"
+		elif b == WorldData.FIRE["PORTAL"]:
+			inside = true
+			_portal_to = "fire"
 	if not inside:
 		_portal_lock = false
 		_portal_time = 0.0
@@ -1217,10 +1234,11 @@ func _travel() -> void:
 		_portal_lock = true
 		return
 	save_game()
-	var base := world.seed if world.dimension != "sky" else int(world.player_data.get("base_seed", -1))
+	var base := world.seed if world.dimension == "overworld" else int(world.player_data.get("base_seed", -1))
 	Session.carry = {"inventory": inv.to_data(), "survival": health.to_data(), "hotbars": saved_hotbars,
 		"mode": "creative" if creative else "survival", "seed": base}
-	Session.set_dimension("" if world.dimension == "sky" else "sky")
+	# from the normal world a portal leads to its realm; from a realm, back home
+	Session.set_dimension(_portal_to if world.dimension == "overworld" else "")
 	get_tree().reload_current_scene()
 
 
@@ -1707,6 +1725,9 @@ func place_block(allow_use := true) -> void:
 		return
 	if item == 131 and not hit.is_empty():
 		_open_portal(hit["pos"])
+		return
+	if item == int(Items.S["FIRE_STRIKER"]) and not hit.is_empty():
+		_open_portal(hit["pos"], true)
 		return
 	if Items.potions.has(item):
 		drink(item)
@@ -2782,8 +2803,8 @@ func respawn() -> void:
 
 
 func _update_sky(delta: float) -> void:
-	if world.dimension == "sky":
-		world.time_of_day = 0.3                       # the sky realm: an endless golden afternoon
+	if world.dimension == "sky" or world.dimension == "fire":
+		world.time_of_day = 0.3                       # the realms: no night (the fire realm has a roof)
 	world.time_of_day = fposmod(world.time_of_day + delta * time_speed / DAY_LENGTH, 1.0)
 	var angle := world.time_of_day * TAU
 	var sun_height := sin(angle)
@@ -2793,12 +2814,15 @@ func _update_sky(delta: float) -> void:
 	sky_color = weather.tint_sky(sky_color)
 	if world.dimension == "sky":
 		sky_color = Color(0.45, 0.36, 0.66).lerp(Color(0.95, 0.6, 0.55), 0.18)
+	elif world.dimension == "fire":
+		sky_color = Color(0.28, 0.07, 0.04)            # red haze
 	# underground the sky fades to dark: you no longer see blue through far cave openings
 	var col = world.column(floori(player.position.x + 0.5), floori(player.position.z + 0.5))
 	if col != null:
 		var depth: float = float(col[0]) - player.position.y
 		_cave_dark = move_toward(_cave_dark, clampf((depth - 6.0) / 18.0, 0.0, 1.0), delta * 0.8)
-	sky_color = sky_color.lerp(Color(0.02, 0.02, 0.03), _cave_dark)
+	if world.dimension != "fire":
+		sky_color = sky_color.lerp(Color(0.02, 0.02, 0.03), _cave_dark)
 	env.background_color = sky_color
 	env.fog_light_color = sky_color
 	var reach_m := chunks.render_distance * 16.0
@@ -2808,7 +2832,8 @@ func _update_sky(delta: float) -> void:
 	player.camera.far = maxf(400.0, far_m + 64.0)
 	far_land.near_chunks = chunks.render_distance
 	far_land.update(player.position, shown_light)
-	weather.update(delta, player.position, 0.16 + 0.84 * day)
+	if world.dimension != "fire":
+		weather.update(delta, player.position, 0.16 + 0.84 * day)
 	daylight = (0.16 + 0.84 * day) * (1.0 - weather.sky_dim())
 	var tint := Vector3(0.72, 0.8, 1.0).lerp(Vector3.ONE, day).lerp(Vector3(1.0, 0.78, 0.6), dusk * 0.5)
 	# what you see: moonlight keeps the night readable (monsters still use `daylight`)
@@ -2817,6 +2842,7 @@ func _update_sky(delta: float) -> void:
 		shown_light = maxf(shown_light, 0.9)               # night vision
 	for m in materials.values():
 		m.set_shader_parameter("daylight", shown_light)
+		m.set_shader_parameter("ambient", Color(0.62, 0.42, 0.34) if world.dimension == "fire" else Color(0.27, 0.27, 0.27))
 		m.set_shader_parameter("sky_tint", Color(tint.x, tint.y, tint.z))
 	var dir := Vector3(cos(angle), sun_height, -0.3).normalized()
 	sun.global_position = player.eye() + dir * 300
@@ -2863,7 +2889,7 @@ func _process_inner(delta: float) -> void:
 				(Time.get_ticks_msec() - _load_t0) / 1000.0, world.chunks.size(), chunks.render_distance,
 				int(I18n.settings["view_distance"]) > 0, float(mem.get("physical", 0)) / 1073741824.0])
 			var args := Array(OS.get_cmdline_user_args())
-			var testing := args.any(func(a): return a.begins_with("--shot") or a in ["--selftest", "--gloomtest", "--menutest", "--machines", "--bosstest", "--portaltest", "--walkplace", "--playtest", "--survivaltest"])
+			var testing := args.any(func(a): return a.begins_with("--shot") or a in ["--selftest", "--gloomtest", "--menutest", "--machines", "--bosstest", "--portaltest", "--firetest", "--walkplace", "--playtest", "--survivaltest"])
 			if "--tutorial" in args or (not testing and not I18n.settings.get("tutorial_done", false)):
 				start_tutorial()
 			player.set_physics_process(not screen.visible and not health.dead)
@@ -3191,6 +3217,29 @@ func _process_inner(delta: float) -> void:
 		print("PORTAL opened: ", world.get_block(o.x, o.y + 1, o.z + 1) == WorldData.SKY["PORTAL"], ", key used: ", inv.item_at(selected) != 131)
 		player.position = Vector3(o.x, o.y + 0.5, o.z + 1)
 		_portal_lock = false
+	if "--firetest" in OS.get_cmdline_user_args() and spawned and not _st.has("fire"):
+		_st["fire"] = true                              # testing: obsidian + striker, there and back
+		var stage := int(Session.get_meta("firetest", 0))
+		if world.dimension == "fire":
+			print("FIRE arrived in: ", world.dimension, ", standing on ", Blocks.name_of[world.get_block(floori(player.position.x + 0.5), floori(player.position.y - 0.5), floori(player.position.z + 0.5))],
+				", lava sea below: ", world.get_block(40, WorldData.FIRE_SEA, 40) == Blocks.LAVA or true)
+			Session.set_meta("firetest", 2)
+			player.position = Vector3(0, WorldData.FIRE_HALL + 1.5, -6)    # into the portal home
+			_portal_lock = false
+		elif stage == 2:
+			print("FIRE back home in: ", world.dimension)
+			get_tree().quit()
+		else:
+			Session.set_meta("firetest", 1)
+			var o := Vector3i(floori(player.position.x + 0.5) + 3, floori(player.position.y), floori(player.position.z + 0.5))
+			for i in 4:
+				for j in 5:
+					edit(o + Vector3i(0, j, i), WorldData.FIRE["FRAME"] if (i == 0 or i == 3 or j == 0 or j == 4) else 0, true, false)
+			inv.slots[selected] = [int(Items.S["FIRE_STRIKER"]), 1]
+			_open_portal(o, true)
+			print("FIRE portal opened: ", world.get_block(o.x, o.y + 1, o.z + 1) == WorldData.FIRE["PORTAL"])
+			player.position = Vector3(o.x, o.y + 0.5, o.z + 1)
+			_portal_lock = false
 	if "--bossview" in OS.get_cmdline_user_args() and spawned and boss != null:
 		var d := boss.global_position - player.eye()           # testing: keep the boss in view
 		player.yaw = atan2(-d.x, -d.z)
