@@ -39,6 +39,15 @@ var _mode := "compare"
 
 
 func open(kind: String, id: int, delay: int, mode := "compare", choices := [], current := 0) -> void:
+	# built after the tap that asked for it is fully handled: removing a button while its press
+	# is still being delivered makes Godot complain ("can_process ... !is_inside_tree")
+	visible = true
+	_open_now.call_deferred(kind, id, delay, mode, choices, current)
+
+
+func _open_now(kind: String, id: int, delay: int, mode: String, choices: Array, current: int) -> void:
+	if not visible:
+		return                                      # closed again before it was built
 	_mode = mode
 	for c in _list.get_children():
 		_list.remove_child(c)                       # gone now, not at the end of the frame

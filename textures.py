@@ -1890,6 +1890,18 @@ def cart_icon(rng):
     return img
 
 
+def chest_cart_icon(rng):
+    """The cart with a chest sitting in it."""
+    img = cart_icon(rng)
+    for x in range(4, 12):
+        for y in range(1, 7):
+            edge = x in (4, 11) or y in (1, 6)
+            _px(img, x, y, (92, 60, 30) if edge else (176, 122, 60))
+    _px(img, 7, 4, (200, 200, 210))
+    _px(img, 8, 4, (200, 200, 210))
+    return img
+
+
 def sticky_face(rng):
     """Green glue, shiny in spots."""
     img = _noise(rng, (96, 170, 72), 0.1).convert("RGBA")
@@ -1948,7 +1960,7 @@ EXTRA_GENERATORS.update({
     "track_c2": _track(((-1, 0), (0, -1))), "track_c3": _track(((1, 0), (0, -1))),
     "boost_x_off": _track(((1, 0), (-1, 0)), False), "boost_z_off": _track(((0, 1), (0, -1)), False),
     "boost_x_on": _track(((1, 0), (-1, 0)), True), "boost_z_on": _track(((0, 1), (0, -1)), True),
-    "cart": cart_icon,
+    "cart": cart_icon, "chest_cart": chest_cart_icon,
 })
 EXTRA_GENERATORS.update({
     "wire_off": wire(False), "wire_on": wire(True), "wire_dim": wire(True, 1), "wire_mid": wire(True, 2), "switch_off": switch(False), "switch_on": switch(True),

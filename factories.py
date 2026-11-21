@@ -47,6 +47,9 @@ class Clip(dict):
     def craft(self, x, y, z, item):
         self.extras.setdefault((x, y, z), {})["craft"] = item
 
+    def cart(self, x, y, z, kind="chest"):
+        self.extras.setdefault((x, y, z), {})["cart"] = kind
+
     def filter(self, x, y, z, item):
         self.extras.setdefault((x, y, z), {})["filter"] = item
 
@@ -521,6 +524,55 @@ def animal_farm():
     return c
 
 
+TRACK_X, TRACK_Z, BOOST_X, BOOST_Z = 1750, 1751, 1756, 1757
+TURN = {(1, 1): 1752, (-1, 1): 1753, (-1, -1): 1754, (1, -1): 1755}   # (dx, dz) it links to
+
+
+def track_loop(c, x0, y, z0, x1, z1, boosts=()):
+    """A closed rectangle of track; `boosts`: straight cells (x, z) that get a boost track with
+    a power cell beside it (outside the loop), so carts keep going round."""
+    for x in range(x0, x1 + 1):
+        for z in (z0, z1):
+            c.put(x, y, z, TRACK_X)
+    for z in range(z0, z1 + 1):
+        for x in (x0, x1):
+            c.put(x, y, z, TRACK_Z)
+    c.put(x0, y, z0, TURN[(1, 1)])
+    c.put(x1, y, z0, TURN[(-1, 1)])
+    c.put(x1, y, z1, TURN[(-1, -1)])
+    c.put(x0, y, z1, TURN[(1, -1)])
+    for x, z in boosts:
+        along_x = z in (z0, z1)
+        c.put(x, y, z, BOOST_X if along_x else BOOST_Z)
+        if along_x:
+            c.put(x, y, z - 1 if z == z0 else z + 1, CELL)
+        else:
+            c.put(x - 1 if x == x0 else x + 1, y, z, CELL)
+
+
+def cargo_line():
+    """Goods by rail: a chest cart goes round a loop by itself. Under the collector hanging over
+    the track it loads from the chest above; over the collector in the floor it unloads into the
+    chest below. Boost tracks keep it moving."""
+    c = Clip()
+    W, D = 14, 6
+    c.box(-2, -3, -2, W + 2, -1, D + 2, STONE_BRICKS)
+    c.box(-2, 0, -2, W + 2, 0, D + 2, POLISHED)
+    track_loop(c, 0, 1, 0, W, D, boosts=((2, 0), (W - 3, D)))
+    c.cart(2, 1, 0)
+    # loading station: chest -> collector, hanging over the track on two posts
+    c.put(6, 3, 0, CHEST)
+    c.fill(6, 3, 0, [[22, 64]] * 4 + [[WHEAT_ITEM, 64]] * 2)
+    c.put(6, 2, 0, COLLECTOR)
+    for z in (-1, 1):
+        c.box(6, 1, z, 6, 3, z, IRON)
+    # unloading station: a collector in the floor under the track, a chest under it
+    c.put(8, 0, D, COLLECTOR)
+    c.put(8, -1, D, CHEST)
+    c.text(2, 5, -1, "CARGO", "blue")
+    return c
+
+
 SMALL = [
     ("auto_smelter", "Auto smelting line", "خط صهر أوتوماتيكي", auto_smelter),
     ("lamp_clock", "Blinking lamp clock", "ساعة ضو بتغمّز", lamp_clock),
@@ -539,6 +591,7 @@ SMALL = [
     ("bakery", "Bakery", "مخبز أوتوماتيكي", bakery),
     ("grill_house", "Grill house", "معمل شوي", grill_house),
     ("metal_works", "Metal works (iron, gold, copper, tin)", "مصنع المعادن (حديد، ذهب، نحاس، قصدير)", metal_works),
+    ("cargo_line", "Cargo railway", "سكة شحن", cargo_line),
     ("animal_farm", "Animal farm (eggs, lambs, milk)", "مزرعة حيوانات (بيض وخرفان وحليب)", animal_farm),
 ]
 

@@ -823,7 +823,7 @@ func tap_world(pos: Vector2) -> void:
 	elif not hit.is_empty() and use_block(hit["pos"]):
 		pass
 	elif Items.placeable.has(item) or Items.food.has(item) or Items.plant.has(item) or _is_hoe(item) \
-			or item in [int(Items.S["BUCKET"]), int(Items.S["WATER_BUCKET"]), CART]:
+			or item in [int(Items.S["BUCKET"]), int(Items.S["WATER_BUCKET"]), int(Items.S["LAVA_BUCKET"]), CART, CHEST_CART]:
 		place_block()
 	elif not hit.is_empty():
 		var id := world.get_block(hit["pos"].x, hit["pos"].y, hit["pos"].z)
@@ -1418,6 +1418,8 @@ func _apply_extras() -> void:
 			world.settings[q] = {"craft": int(e["craft"])}
 		if e.has("filter"):
 			world.settings[q] = {"filter": int(e["filter"])}
+		if e.has("cart") and carts.is_track(world.get_block(q.x, q.y, q.z)):
+			carts.add(q, carts.links_of(world.get_block(q.x, q.y, q.z))[0], str(e["cart"]) == "chest")
 		for entry in e.get("animals", []):
 			var kind := str(entry).get_slice(":", 0)      # "worker:0" = a farmer (1 smith, 2 baker)
 			if Wildlife.SPECIES.has(kind):
@@ -1675,14 +1677,14 @@ func place_block(allow_use := true) -> void:
 	if hit.is_empty():
 		return
 	var pos: Vector3i = hit["pos"] + hit["normal"]
-	if item == CART:
+	if item == CART or item == CHEST_CART:
 		var on: Vector3i = hit["pos"]
 		if not carts.is_track(world.get_block(on.x, on.y, on.z)):
 			on = pos
 		if carts.is_track(world.get_block(on.x, on.y, on.z)):
 			var f := player.forward()
 			var head := Vector2i(signi(f.x), 0) if absf(f.x) > absf(f.z) else Vector2i(0, signi(f.z))
-			carts.add(on, head)
+			carts.add(on, head, item == CHEST_CART)
 			Sfx.play("place")
 			hud.flash(I18n.t("cart_hint"))
 			if not creative:
@@ -1811,6 +1813,7 @@ func _open_crafter_panel(pos: Vector3i, id: int) -> void:
 
 # ---------------------------------------------------------------- carts and tracks
 const CART := 140
+const CHEST_CART := 141
 var carts: Carts
 var far_land: FarTerrain
 var _riding = null                   # the cart you sit in
@@ -1830,8 +1833,23 @@ func _cart_action() -> bool:
 			_get_out()
 		carts.remove(c)
 		Sfx.play("dig_wood")
+		if c.chest != null:
+			for st in Inventory.from_data(c.chest, 27).slots:
+				if st != null:
+					drops.spawn(st, c.pos + Vector3(0, 0.3, 0))   # what it carried spills out
 		if not creative:
-			drops.spawn([CART, 1], c.pos + Vector3(0, 0.3, 0))
+			drops.spawn([CHEST_CART if c.chest != null else CART, 1], c.pos + Vector3(0, 0.3, 0))
+		return true
+	if c.chest != null:
+		# a chest cart: say what it carries (you ride ordinary carts)
+		var got := {}
+		for st in Inventory.from_data(c.chest, 27).slots:
+			if st != null:
+				got[Items.name_of(int(st[0]))] = int(got.get(Items.name_of(int(st[0])), 0)) + int(st[1])
+		var parts := []
+		for k in got:
+			parts.append("%s %d" % [k, got[k]])
+		hud.flash(I18n.f("cart_holds", "، ".join(parts)) if not parts.is_empty() else I18n.t("cart_empty"))
 		return true
 	if c == _riding:
 		_get_out()
@@ -1869,6 +1887,39 @@ func _get_out() -> void:
 	player.velocity = Vector3.ZERO
 
 
+## Chest carts load under a collector hanging over the track and unload into a collector set
+## in the track's floor, a few things every frame while they pass.
+func _cargo() -> void:
+	for c in carts.carts:
+		if c.chest == null:
+			continue
+		var cell := Vector3i(roundi(c.pos.x), roundi(c.pos.y), roundi(c.pos.z))
+		var up := cell + Vector3i(0, 1, 0)
+		var down := cell + Vector3i(0, -1, 0)
+		var loading: bool = power.parts.get(up, "") == "collector"
+		var unloading: bool = power.parts.get(down, "") == "collector"
+		if not loading and not unloading:
+			continue
+		var mine := Inventory.from_data(c.chest, 27)
+		var other: Vector3i = up if loading else down
+		var box := Inventory.from_data(world.containers.get(other), 27)
+		var moved := 0
+		for i in 27:
+			if moved >= 8:
+				break
+			var src: Inventory = box if loading else mine
+			var dst: Inventory = mine if loading else box
+			while moved < 8 and src.slots[i] != null and (loading or power.passes(other, int(src.slots[i][0]))):
+				if dst.add(int(src.slots[i][0]), 1) > 0:
+					break
+				src.use_one(i)
+				moved += 1
+		if moved > 0:
+			c.chest = mine.to_data()
+			world.containers[other] = box.to_data()
+			power.changed_containers[other] = true
+
+
 func _update_carts(delta: float) -> void:
 	if carts.carts.is_empty():
 		return
@@ -1879,6 +1930,7 @@ func _update_carts(delta: float) -> void:
 			player.jump_held = false
 			_get_out()
 	carts.update(delta, player.forward(), drive)
+	_cargo()
 	if _riding != null:
 		player.position = _riding.pos + Vector3(0, -0.35, 0)
 	else:
@@ -2079,6 +2131,8 @@ func _factory_test(name: String) -> void:
 				_st["ft_wait"] = 1500
 			"cobble_generator", "stone_factory", "obsidian_factory", "bakery", "grill_house", "metal_works":
 				_st["ft_wait"] = 1800
+			"cargo_line":
+				_st["ft_wait"] = 1800
 			"animal_farm":
 				for a in wildlife.animals:
 					if a.kind == "hen":
@@ -2188,7 +2242,7 @@ func _factory_test(name: String) -> void:
 	if t == int(_st.get("ft_wait", 600)):
 		var out := ""
 		match name:
-			"cobble_generator", "stone_factory", "obsidian_factory", "bakery", "grill_house", "metal_works", "animal_farm":
+			"cobble_generator", "stone_factory", "obsidian_factory", "bakery", "grill_house", "metal_works", "animal_farm", "cargo_line":
 				var got := {}
 				for ch in found.get("chest", []):
 					for st in Inventory.from_data(world.containers.get(ch), 27).slots:
@@ -2200,7 +2254,9 @@ func _factory_test(name: String) -> void:
 				var lit_n := 0
 				for q in found.get("smelter", []) + found.get("crafter", []):
 					lit_n += int(Blocks.lit[world.get_block(q.x, q.y, q.z)] == 1)
-				out = "after %d s the chests hold %s; animals %s; machines lit %d; on the ground %d" % [int(_st.get("ft_wait", 600)) / 60, got, kinds, lit_n, drops.drops.size()]
+				for c in carts.carts:
+					out += "cart at %s speed %.1f carries %s; " % [Vector3i(c.pos), c.speed, c.chest]
+				out += "after %d s the chests hold %s; animals %s; machines lit %d; on the ground %d" % [int(_st.get("ft_wait", 600)) / 60, got, kinds, lit_n, drops.drops.size()]
 				for th in found.get("thrower", []):
 					var fq: Vector3i = th + Power.DIRS[power.facing_of(world.get_block(th.x, th.y, th.z))]
 					out += "; thrower holds %s, in front %s" % [world.containers.get(th), Blocks.name_of[world.get_block(fq.x, fq.y, fq.z)]]

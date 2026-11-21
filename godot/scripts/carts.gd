@@ -20,6 +20,7 @@ class Cart:
 	var decided := Vector3i(0, -999, 0) # the cell whose way out is already chosen
 	var node: Node3D
 	var rider := false
+	var chest = null                    # a chest cart: its 27 slots (container data), else null
 
 var world: WorldData
 var carts: Array = []
@@ -42,12 +43,14 @@ func links_of(id: int) -> Array:
 	return _links.get(id, [])
 
 
-func add(cell: Vector3i, heading := Vector2i(1, 0)) -> Cart:
+func add(cell: Vector3i, heading := Vector2i(1, 0), chest := false) -> Cart:
 	var c := Cart.new()
+	if chest:
+		c.chest = []
 	c.pos = Vector3(cell)
 	var l := links_of(world.get_block(cell.x, cell.y, cell.z))
 	c.dir = heading if (heading in l or -heading in l or l.is_empty()) else l[0]
-	c.node = _make_node()
+	c.node = _make_node(c.chest != null)
 	add_child(c.node)
 	carts.append(c)
 	_place_node(c)
@@ -186,7 +189,7 @@ func _place_node(c: Cart) -> void:
 	c.node.rotation.y = lerp_angle(c.node.rotation.y, target, 0.35)
 
 
-func _make_node() -> Node3D:
+func _make_node(chest := false) -> Node3D:
 	var n := Node3D.new()
 	var wood := _mat(Color(0.55, 0.38, 0.22))
 	var dark := _mat(Color(0.32, 0.22, 0.13))
@@ -199,6 +202,11 @@ func _make_node() -> Node3D:
 		_box(n, Vector3(0.9, 0.06, 0.06), Vector3(0, 0.2, 0.46 * s), metal)   # bands
 		for f in [-1, 1]:
 			_box(n, Vector3(0.1, 0.2, 0.2), Vector3(0.43 * s, -0.24, 0.3 * f), wheel)
+	if chest:
+		var lid := _mat(Color(0.69, 0.48, 0.24))
+		_box(n, Vector3(0.66, 0.5, 0.66), Vector3(0, 0.2, 0), lid)           # the chest inside
+		_box(n, Vector3(0.68, 0.06, 0.68), Vector3(0, 0.34, 0), dark)        # its rim
+		_box(n, Vector3(0.12, 0.12, 0.04), Vector3(0, 0.26, 0.34), metal)    # the latch
 	return n
 
 
@@ -228,7 +236,7 @@ func _box(parent: Node3D, size: Vector3, pos: Vector3, mat: Material) -> void:
 
 
 func save_data() -> Array:
-	return carts.map(func(c): return [c.pos.x, c.pos.y, c.pos.z, c.dir.x, c.dir.y])
+	return carts.map(func(c): return [c.pos.x, c.pos.y, c.pos.z, c.dir.x, c.dir.y, c.chest])
 
 
 func load_data(list) -> void:
@@ -236,5 +244,8 @@ func load_data(list) -> void:
 		return
 	for e in list:
 		if e is Array and e.size() >= 5:
-			var c := add(Vector3i(roundi(float(e[0])), roundi(float(e[1])), roundi(float(e[2]))), Vector2i(int(e[3]), int(e[4])))
+			var c := add(Vector3i(roundi(float(e[0])), roundi(float(e[1])), roundi(float(e[2]))), Vector2i(int(e[3]), int(e[4])),
+				e.size() >= 6 and e[5] is Array)
+			if c.chest != null:
+				c.chest = e[5]
 			c.pos = Vector3(float(e[0]), float(e[1]), float(e[2]))

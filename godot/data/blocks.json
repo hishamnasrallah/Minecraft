@@ -753,7 +753,8 @@
   "thrower_face",
   "lava_bucket",
   "milk_bucket",
-  "cake"
+  "cake",
+  "chest_cart"
  ],
  "plants_need_soil": [
   51,

@@ -53,7 +53,7 @@ ITEM_TILES = [
     "ruby", "sapphire", "amethyst", "quartz",
     "wood_hoe", "stone_hoe", "iron_hoe", "diamond_hoe", "seeds", "wheat", "bread", "carrot",
     "star_shard", "sky_key", "storm_core",
-    "egg", "feather", "raw_fish", "cooked_fish", "cart", "observer_face", "observer_out_off", "observer_out_on", "thrower_face", "lava_bucket", "milk_bucket", "cake",
+    "egg", "feather", "raw_fish", "cooked_fish", "cart", "observer_face", "observer_out_off", "observer_out_on", "thrower_face", "lava_bucket", "milk_bucket", "cake", "chest_cart",
 ]
 TILES = list(_BASE_TILES)
 for _tiles in BLOCK_TILES.values():

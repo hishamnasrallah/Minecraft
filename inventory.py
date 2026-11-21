@@ -20,6 +20,7 @@ LAVA_BUCKET = 118
 MILK_BUCKET, CAKE = 119, 128
 RETURNS = {MILK_BUCKET: BUCKET}          # crafting with these gives the container back
 CART = 140
+CHEST_CART = 141
 EGG, FEATHER, RAW_FISH, COOKED_FISH = 124, 125, 126, 127          # from animals (animals.py)
 FOOD = {RAW_MEAT: 2, COOKED_MEAT: 6, APPLE: 4, BREAD: 5, CARROT: 3, RAW_FISH: 2, COOKED_FISH: 5, MILK_BUCKET: 3,
         CAKE: 12}      # item -> hunger points restored
@@ -40,7 +41,8 @@ FOOD_ITEMS = {RAW_MEAT: ("raw meat", "raw_meat"), COOKED_MEAT: ("cooked meat", "
               MILK_BUCKET: ("milk bucket", "milk_bucket"), CAKE: ("cake", "cake")}
 OTHER_ITEMS = {BUCKET: ("bucket", "bucket"), WATER_BUCKET: ("water bucket", "water_bucket"),
                LAVA_BUCKET: ("lava bucket", "lava_bucket"),
-               SKY_KEY: ("sky key", "sky_key"), CART: ("cart", "cart")}
+               SKY_KEY: ("sky key", "sky_key"), CART: ("cart", "cart"),
+               CHEST_CART: ("chest cart", "chest_cart")}
 
 # ---------------------------------------------------------------- tools
 WOOD_PICKAXE, STONE_PICKAXE, WOOD_AXE, STONE_AXE = 201, 202, 203, 204
@@ -304,6 +306,7 @@ RECIPES = [
     ({IRON_INGOT: 1, STICK: 2}, (1750, 8)),               # track
     ({IRON_INGOT: 1, GOLD_INGOT: 1, COPPER_INGOT: 1, STICK: 1}, (1756, 4)),   # boost track
     ({IRON_INGOT: 5}, (CART, 1)),
+    ({CART: 1, 48: 1}, (CHEST_CART, 1)),     # a cart with a chest: carries things along the track
     ({116: 4, 910: 1, DIAMOND: 1}, (SKY_KEY, 1)),            # amethyst x4, glow crystal, diamond
     ({STAR_SHARD: 9}, (1804, 1)), ({1804: 1}, (STAR_SHARD, 9)),
     ({STAR_SHARD: 4, STORM_CORE: 1}, (1808, 1)),

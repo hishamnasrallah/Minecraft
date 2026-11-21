@@ -252,6 +252,18 @@
   "blocks": 382
  },
  {
+  "file": "cargo_line.json",
+  "name": "Cargo railway",
+  "name_ar": "سكة شحن",
+  "category": "small_factories",
+  "size": [
+   19,
+   9,
+   11
+  ],
+  "blocks": 891
+ },
+ {
   "file": "stone_factory.json",
   "name": "Stone factory",
   "name_ar": "مصنع حجر",
