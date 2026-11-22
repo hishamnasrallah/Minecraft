@@ -20,6 +20,12 @@ var _built_for := []                    # [center, distance, near] of what is sh
 var covered := {}                       # chunk keys drawn by the real chunks (the far land skips them)
 var _covered_built := {}
 var _since := 0.0
+# what you built, seen from afar: per chunk with edits, one coloured column per (x, z) up to its
+# highest built block, so whole buildings and cities stay visible beyond the real chunks
+var color_of: Callable                  # block id -> Color (the minimap's colours)
+var _builds := {}                       # chunk key -> {"n": edits counted, "cols": [[x, z, top, bottom, color]]}
+var _builds_changed := false
+var _scan_keys: Array = []
 
 
 func _ready() -> void:
@@ -60,9 +66,11 @@ func update(player_pos: Vector3, light: float) -> void:
 	var c := Vector2i(floori(player_pos.x + 0.5) >> 4, floori(player_pos.z + 0.5) >> 4)
 	var want := [c, distance, near_chunks]
 	_since += get_process_delta_time()
+	_scan_builds()
 	if _task != -1:
 		return
 	var holes_changed := covered.size() != _covered_built.size() or not covered.keys().all(func(k): return _covered_built.has(k))
+	holes_changed = holes_changed or _builds_changed
 	if want == _built_for and not (holes_changed and _since > 1.0):
 		return
 	if _built_for.size() == 3 and _built_for[1] == distance and _built_for[2] == near_chunks and not (holes_changed and _since > 1.0):
@@ -74,7 +82,59 @@ func update(player_pos: Vector3, light: float) -> void:
 	# a private copy of the generator, so the worker shares nothing with the game
 	var g := WorldData.new(world.seed, world.dimension)
 	g.gen = world.gen
-	_task = WorkerThreadPool.add_task(_build.bind(g, want, _covered_built.duplicate()))
+	_builds_changed = false
+	var near_builds := {}
+	var reach := distance / 16 + 1
+	for k in _builds:
+		if maxi(absi(k.x - c.x), absi(k.y - c.y)) <= reach and not _covered_built.has(k):
+			near_builds[k] = _builds[k]["cols"]
+	_task = WorkerThreadPool.add_task(_build.bind(g, want, _covered_built.duplicate(), near_builds))
+
+
+## A few chunks per frame: is what was built there still the same? (Re-worked out if not.)
+func _scan_builds() -> void:
+	if not color_of.is_valid():
+		return
+	if _scan_keys.is_empty():
+		_scan_keys = world.changes.keys()
+		for k in _builds.keys():
+			if not world.changes.has(k):
+				_builds.erase(k)
+				_builds_changed = true
+	for i in mini(4, _scan_keys.size()):
+		var k: Vector2i = _scan_keys.pop_back()
+		var edits = world.changes.get(k)
+		if edits == null:
+			continue
+		var n: int = edits.size()
+		if _builds.has(k) and int(_builds[k]["n"]) == n:
+			continue
+		_builds[k] = {"n": n, "cols": _columns_of(edits)}
+		_builds_changed = true
+
+
+## The built columns of one chunk's edits: [x, z, highest block, lowest block, colour].
+func _columns_of(edits: Dictionary) -> Array:
+	var tops := {}
+	for p in edits:
+		var id: int = edits[p]
+		if id == 0 or (Blocks.solid[id] == 0 and Blocks.fluid[id] != 1):
+			continue                                 # air, plants, wires, torches: too small to see
+		var cc := Vector2i(p.x, p.z)
+		var t = tops.get(cc)
+		if t == null:
+			tops[cc] = [p.y, p.y, id]
+		else:
+			if p.y > int(t[0]):
+				t[0] = p.y
+				t[2] = id
+			if p.y < int(t[1]):
+				t[1] = p.y
+	var out := []
+	for cc in tops:
+		var t: Array = tops[cc]
+		out.append([cc.x, cc.y, int(t[0]), int(t[1]), color_of.call(int(t[2]))])
+	return out
 
 
 func _exit_tree() -> void:
@@ -83,7 +143,7 @@ func _exit_tree() -> void:
 		_task = -1
 
 
-func _build(g: WorldData, want: Array, cov: Dictionary) -> void:
+func _build(g: WorldData, want: Array, cov: Dictionary, builds: Dictionary = {}) -> void:
 	var c: Vector2i = want[0]
 	var dist: int = want[1]
 	var near: int = want[2]
@@ -186,6 +246,58 @@ func _build(g: WorldData, want: Array, cov: Dictionary) -> void:
 					for v in [a0, b0, b1, a0, b1, a1, a0, b1, b0, a0, a1, b1]:     # both sides
 						verts.append(v)
 						cols.append(col)
+	_add_builds(g, builds, verts, cols)
 	_lock.lock()
 	_result = [verts, cols, want]
 	_lock.unlock()
+
+
+## Buildings far away: a coloured top on every built column and walls where it stands above
+## its neighbour (another built column, or the ground).
+func _add_builds(g: WorldData, builds: Dictionary, verts: PackedVector3Array, cols: PackedColorArray) -> void:
+	var topmap := {}
+	for k in builds:
+		for col in builds[k]:
+			topmap[Vector2i(col[0], col[1])] = int(col[2])
+	var dirs := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	for k in builds:
+		for col in builds[k]:
+			var x: int = col[0]
+			var z: int = col[1]
+			var y: float = float(col[2]) + 0.5
+			var bottom: float = float(col[3]) - 0.5
+			var c: Color = col[4]
+			c.a = 1.0
+			var a := Vector3(x - 0.5, y, z - 0.5)
+			var b := Vector3(x + 0.5, y, z - 0.5)
+			var cc := Vector3(x + 0.5, y, z + 0.5)
+			var d := Vector3(x - 0.5, y, z + 0.5)
+			for v in [a, b, cc, a, cc, d]:
+				verts.append(v)
+				cols.append(c)
+			for dd in dirs:
+				var nb: Vector2i = Vector2i(x, z) + dd
+				var low: float
+				if topmap.has(nb):
+					low = float(topmap[nb]) + 0.5
+				else:
+					low = minf(bottom, float(g._column_climate(nb.x, nb.y)[0]) + 0.5)
+				if low >= y:
+					continue
+				var side: Color = c * (0.82 if dd.x != 0 else 0.68)
+				side.a = 1.0
+				var ex: float = 0.5 * dd.x
+				var ez: float = 0.5 * dd.y
+				# the edge of the column top on this side
+				var p0 := Vector3(x + ex + (0.0 if dd.x != 0 else -0.5), 0, z + ez + (0.0 if dd.y != 0 else -0.5))
+				var p1 := Vector3(x + ex + (0.0 if dd.x != 0 else 0.5), 0, z + ez + (0.0 if dd.y != 0 else 0.5))
+				if dd.x != 0:
+					p0.z = z - 0.5
+					p1.z = z + 0.5
+				var q0 := Vector3(p0.x, low, p0.z)
+				var q1 := Vector3(p1.x, low, p1.z)
+				var r0 := Vector3(p0.x, y, p0.z)
+				var r1 := Vector3(p1.x, y, p1.z)
+				for v in [q0, q1, r1, q0, r1, r0]:
+					verts.append(v)
+					cols.append(side)

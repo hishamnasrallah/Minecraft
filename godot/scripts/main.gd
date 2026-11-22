@@ -177,6 +177,7 @@ func _ready() -> void:
 	add_child(carts)
 	far_land = FarTerrain.new()
 	far_land.world = world
+	far_land.color_of = func(id: int) -> Color: return hud.minimap._color_of(id)
 	far_land.distance = 0 if Boot.safe_mode else int(I18n.settings.get("far_distance", 512))
 	add_child(far_land)
 	carts.load_data(world.player_data.get("carts", []))
@@ -4128,8 +4129,23 @@ func _process_inner(delta: float) -> void:
 		if _st_frame > 5 and not _st.has("pasted") and _paste_batches.is_empty():
 			_st["pasted"] = _st_frame
 			_st["box"] = _paste_box
-			player.position += Vector3(600, 0, 0)           # fly far away
-		if _st.has("pasted") and _st_frame == int(_st["pasted"]) + 400:
+			if not "--farview" in OS.get_cmdline_user_args():
+				player.position += Vector3(600, 0, 0)       # fly far away
+		if _st.has("pasted") and _st_frame == int(_st["pasted"]) + 30 and "--farview" in OS.get_cmdline_user_args():
+			var bx: AABB = _st["box"]
+			player.position = bx.get_center() + Vector3(0, 45, bx.size.z / 2 + 200)    # far away, looking back at it
+			player.yaw = 0.0
+			player.pitch = -0.2
+			player.look(Vector2.ZERO)
+		if _st.has("pasted") and _st_frame == int(_st["pasted"]) + 600 and "--farview" in OS.get_cmdline_user_args():
+			var nb := 0
+			for k in far_land._builds:
+				nb += (far_land._builds[k]["cols"] as Array).size()
+			print("FARVIEW built columns known far away: %d in %d chunks; player %s box %s pitch %.2f" % [nb, far_land._builds.size(), Vector3i(player.position), _st["box"], player.pitch])
+			if _shot_path:
+				get_viewport().get_texture().get_image().save_png(_shot_path)
+			get_tree().quit()
+		if _st.has("pasted") and _st_frame == int(_st["pasted"]) + 400 and not "--farview" in OS.get_cmdline_user_args():
 			player.position = _st["home"] + Vector3(0, 40, 30)    # and come back, high up
 			player.yaw = 0.0
 			player.look(Vector2(0, 0.7))
