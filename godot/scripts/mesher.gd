@@ -653,6 +653,12 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 				1: return [[Vector3(.44, -.5, -.5), Vector3(.5, .5, .5)]]
 				2: return [[Vector3(-.5, -.5, -.5), Vector3(.5, .5, -.44)]]
 			return [[Vector3(-.5, -.5, -.5), Vector3(-.44, .5, .5)]]
+		"scaffold":
+			var sc := [[Vector3(-.5, .38, -.5), Vector3(.5, .5, .5)]]           # the deck
+			for cx in [-1, 1]:
+				for cz in [-1, 1]:
+					sc.append([Vector3(.44 * cx - .06, -.5, .44 * cz - .06), Vector3(.44 * cx + .06, .38, .44 * cz + .06)])
+			return sc
 		"pot":
 			return [[Vector3(-.19, -.5, -.19), Vector3(.19, -.12, .19)]]
 		"campfire":

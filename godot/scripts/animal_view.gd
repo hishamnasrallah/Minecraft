@@ -279,6 +279,28 @@ const MODELS := {
 		["leg", Vector3(0.13, 0.4, -0.3), Vector3(0.11, 0.4, 0.11), Color8(150, 150, 150)],
 		["leg", Vector3(-0.13, 0.4, -0.3), Vector3(0.11, 0.4, 0.11), Color8(150, 150, 150)],
 	],
+	"guard": [
+		["body", Vector3(0.0, 1.5, 0.0), Vector3(0.9, 0.9, 0.5), Color8(176, 178, 184)],
+		["belly", Vector3(0.0, 1.0, 0.0), Vector3(0.6, 0.3, 0.4), Color8(120, 122, 130)],
+		["head", Vector3(0.0, 2.2, 0.0), Vector3(0.45, 0.45, 0.45), Color8(176, 178, 184)],
+		["glow", Vector3(0.0, 2.22, 0.231), Vector3(0.36, 0.08, 0.02), Color8(120, 230, 255)],
+		["moss", Vector3(0.3, 1.75, 0.255), Vector3(0.2, 0.12, 0.02), Color8(80, 140, 60)],
+		["bolt", Vector3(-0.3, 1.3, 0.255), Vector3(0.08, 0.08, 0.02), Color8(120, 122, 130)],
+		["leg", Vector3(0.6, 1.9, 0.0), Vector3(0.25, 1.3, 0.25), Color8(176, 178, 184)],
+		["leg", Vector3(-0.6, 1.9, 0.0), Vector3(0.25, 1.3, 0.25), Color8(176, 178, 184)],
+		["leg", Vector3(0.2, 0.85, 0.0), Vector3(0.3, 0.85, 0.3), Color8(120, 122, 130)],
+		["leg", Vector3(-0.2, 0.85, 0.0), Vector3(0.3, 0.85, 0.3), Color8(120, 122, 130)],
+	],
+	"bee": [
+		["body", Vector3(0.0, 0.0, 0.0), Vector3(0.24, 0.22, 0.32), Color8(240, 200, 40)],
+		["stripe", Vector3(0.0, 0.0, -0.04), Vector3(0.25, 0.23, 0.06), Color8(40, 30, 20)],
+		["stripe", Vector3(0.0, 0.0, 0.08), Vector3(0.25, 0.23, 0.05), Color8(40, 30, 20)],
+		["eye", Vector3(0.06, 0.04, 0.161), Vector3(0.05, 0.05, 0.02), Color8(40, 30, 20)],
+		["eye", Vector3(-0.06, 0.04, 0.161), Vector3(0.05, 0.05, 0.02), Color8(40, 30, 20)],
+		["sting", Vector3(0.0, 0.0, -0.18), Vector3(0.03, 0.03, 0.05), Color8(40, 30, 20)],
+		["wing", Vector3(0.06, 0.13, 0.0), Vector3(0.16, 0.02, 0.12), Color8(230, 240, 250)],
+		["wing", Vector3(-0.06, 0.13, 0.0), Vector3(0.16, 0.02, 0.12), Color8(230, 240, 250)],
+	],
 	# a worker: a person in a shirt of their trade's colour, overalls and a cap
 	"worker": [
 		["body", Vector3(0, 1.08, 0), Vector3(.5, .72, .28), VAR], ["bib", Vector3(0, .98, .145), Vector3(.34, .5, .02), PANTS],

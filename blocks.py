@@ -362,6 +362,9 @@ for _f in range(4):
     block(1986 + _f, "item frame", "item_frame", FUNCTIONAL, 0.5, "axe", shape="painting", solid=False, facing=_f,
           creative=_f == 0, drop=1986, display=True)
 block(1990, "flower pot", "flower_pot", FUNCTIONAL, 0.3, shape="pot", solid=False, display=True)
+# a beehive: its bees fill it with honey while flowers grow near it; scaffolding you climb
+block(1991, "beehive", ("beehive_top", "beehive_side", "beehive_top"), FUNCTIONAL, 0.6, "axe")
+block(1992, "scaffolding", "scaffolding", BUILDING, 0.0, shape="scaffold", solid=False, climbable=True)
 block(1948, "glass pane", "glass", BUILDING, 0.3, drop=None, shape="pane")
 block(1949, "lantern", "lantern", FUNCTIONAL, 1.0, "pickaxe", shape="lantern", emit=15, solid=False)
 block(1950, "barrel", ("barrel_top", "barrel_side", "barrel_top"), FUNCTIONAL, 2.5, "axe", container=True)

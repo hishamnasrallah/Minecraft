@@ -18,7 +18,7 @@ IRON_INGOT, COPPER_INGOT, TIN_INGOT, GOLD_INGOT, BRONZE_INGOT, DIAMOND = 106, 10
 BUCKET, WATER_BUCKET = 112, 113
 LAVA_BUCKET = 118
 MILK_BUCKET, CAKE = 119, 128
-RETURNS = {MILK_BUCKET: BUCKET}          # crafting with these gives the container back
+RETURNS = {MILK_BUCKET: BUCKET, 175: 133}                # crafting with these gives the container back
 CART = 140
 CHEST_CART = 141
 GLASS_BOTTLE, WATER_BOTTLE = 133, 134
@@ -30,6 +30,7 @@ BOW, ARROW, BOAT, FISHING_ROD, SADDLE = 154, 155, 156, 157, 158
 COMPASS, MAP_ITEM, PAPER = 168, 169, 170
 BONE_MEAL, SLIMEBALL = 171, 172
 SHIELD = 173
+FIREWORK, HONEY_BOTTLE = 174, 175
 # armour: item -> (slot, points); every point takes away 4% of the damage (at most 80%)
 ARMOR = {160: ("head", 2), 161: ("chest", 6), 162: ("legs", 5), 163: ("feet", 2),
          164: ("head", 3), 165: ("chest", 8), 166: ("legs", 6), 167: ("feet", 3)}
@@ -44,7 +45,7 @@ POTIONS = {135: ("swiftness potion", "potion_swift", "swift", 90), 136: ("healin
            142: ("water breathing potion", "potion_water", "water", 120)}
 EGG, FEATHER, RAW_FISH, COOKED_FISH = 124, 125, 126, 127          # from animals (animals.py)
 FOOD = {RAW_MEAT: 2, COOKED_MEAT: 6, APPLE: 4, BREAD: 5, CARROT: 3, RAW_FISH: 2, COOKED_FISH: 5, MILK_BUCKET: 3,
-        CAKE: 12, POTATO: 1, BAKED_POTATO: 5, BEETROOT: 2, MELON_SLICE: 2, PUMPKIN_PIE: 8}      # item -> hunger points restored
+        CAKE: 12, HONEY_BOTTLE: 6, POTATO: 1, BAKED_POTATO: 5, BEETROOT: 2, MELON_SLICE: 2, PUMPKIN_PIE: 8}      # item -> hunger points restored
 
 MATERIAL_ITEMS = {
     STICK: ("stick", "stick"), COAL: ("coal", "coal"), IRON_INGOT: ("iron ingot", "iron_ingot"),
@@ -62,7 +63,7 @@ FOOD_ITEMS = {RAW_MEAT: ("raw meat", "raw_meat"), COOKED_MEAT: ("cooked meat", "
               MILK_BUCKET: ("milk bucket", "milk_bucket"), CAKE: ("cake", "cake"),
               POTATO: ("potato", "potato"), BAKED_POTATO: ("baked potato", "baked_potato"),
               BEETROOT: ("beetroot", "beetroot"), MELON_SLICE: ("melon slice", "melon_slice"),
-              PUMPKIN_PIE: ("pumpkin pie", "pumpkin_pie")}
+              PUMPKIN_PIE: ("pumpkin pie", "pumpkin_pie"), HONEY_BOTTLE: ("honey bottle", "honey_bottle")}
 OTHER_ITEMS = {BUCKET: ("bucket", "bucket"), WATER_BUCKET: ("water bucket", "water_bucket"),
                LAVA_BUCKET: ("lava bucket", "lava_bucket"),
                SKY_KEY: ("sky key", "sky_key"), CART: ("cart", "cart"),
@@ -72,7 +73,7 @@ OTHER_ITEMS = {BUCKET: ("bucket", "bucket"), WATER_BUCKET: ("water bucket", "wat
                PUMPKIN: ("pumpkin", "pumpkin"), SHEARS: ("shears", "shears"),
                BOW: ("bow", "bow"), ARROW: ("arrow", "arrow"), BOAT: ("boat", "boat"),
                FISHING_ROD: ("fishing rod", "fishing_rod"), SADDLE: ("saddle", "saddle"), **ARMOR_NAMES,
-               SHIELD: ("shield", "shield"), BONE_MEAL: ("bone meal", "bone_meal"), SLIMEBALL: ("slimeball", "slimeball"),
+               SHIELD: ("shield", "shield"), FIREWORK: ("firework", "firework"), BONE_MEAL: ("bone meal", "bone_meal"), SLIMEBALL: ("slimeball", "slimeball"),
                COMPASS: ("compass", "compass"), MAP_ITEM: ("map", "map_item"), PAPER: ("paper", "paper"), FIRE_STRIKER: ("fire striker", "fire_striker"),
                GLASS_BOTTLE: ("glass bottle", "glass_bottle"), WATER_BOTTLE: ("water bottle", "water_bottle"),
                **{p: (v[0], v[1]) for p, v in POTIONS.items()}}
@@ -356,6 +357,9 @@ RECIPES = [
     ({"planks": 6, STICK: 1}, (1953, 3)),                # signs
     ({"planks": 7}, (1962, 1)),                            # composter
     ({"planks": 6, IRON_INGOT: 1}, (SHIELD, 1)),
+    ({"planks": 6, "flowers": 3}, (1991, 1)),              # beehive
+    ({59: 6, "wool": 1}, (1992, 6)),                        # scaffolding: reeds tied with wool
+    ({PAPER: 1, COAL: 1, "wool": 1}, (FIREWORK, 3)),
     ({STICK: 8, "wool": 1}, (1970, 1)), ({STICK: 8, "flowers": 1}, (1974, 1)),   # paintings
     ({STICK: 8, 121: 1}, (1978, 1)), ({STICK: 8, 123: 1}, (1982, 1)),
     ({STICK: 8, 48: 1}, (1986, 1)),                        # item frame

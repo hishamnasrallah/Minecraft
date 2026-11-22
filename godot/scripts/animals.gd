@@ -110,13 +110,19 @@ const SPECIES := {
 	# the wolf: lives in forests; tame it with raw meat and it fights the night creatures for you
 	"wolf": {"speed": 3.2, "height": 0.85, "width": 0.6, "flee_range": 0.0, "swims": false, "group": [2, 3], "health": 10,
 		"food": [RAW_MEAT, 104], "call": ""},
+	# the iron guard: built from iron blocks and a pumpkin; it fights the night creatures
+	"guard": {"speed": 1.6, "height": 2.6, "width": 1.0, "flee_range": 0.0, "swims": false, "group": [1, 1], "health": 50,
+		"call": ""},
+	# a bee: flies round its hive and the flowers near it
+	"bee": {"speed": 2.0, "height": 0.3, "width": 0.3, "flee_range": 0.0, "swims": false, "group": [1, 1], "health": 3,
+		"move": "fly", "alt": [0.5, 2.5], "roam": 5.0},
 	"globlet": {"speed": 3.0, "height": 0.45, "width": 0.45, "flee_range": 0.0, "swims": true, "group": [1, 1], "health": 3,
 		"hostile": true, "cap": "hostile", "move": "hop", "hop": 6.0, "damage": 1, "reach": 1.1},
 }
 const DROPS := {"rabbit": [RAW_MEAT, 1, 1], "deer": [RAW_MEAT, 2, 3], "duck": [RAW_MEAT, 1, 2], "gloom": [COAL, 0, 2],
 	"woolly": [WOOL, 1, 2], "hen": [FEATHER, 1, 2], "goat": [RAW_MEAT, 1, 2], "frog": [0, 0, 0], "turtle": [0, 0, 0],
 	"lizard": [0, 0, 0], "fish": [RAW_FISH, 1, 1], "bird": [FEATHER, 0, 1], "butterfly": [0, 0, 0], "firefly": [0, 0, 0],
-	"bramble": [STICK, 1, 3], "glob": [172, 1, 2], "globlet": [SEEDS, 0, 1], "worker": [0, 0, 0], "cow": [RAW_MEAT, 1, 3], "cinder": [143, 0, 2], "pig": [RAW_MEAT, 1, 3], "horse": [0, 0, 0], "archer": [155, 0, 2], "beetle": [1951, 0, 1], "wolf": [0, 0, 0]}   # item, min, max
+	"bramble": [STICK, 1, 3], "glob": [172, 1, 2], "globlet": [SEEDS, 0, 1], "worker": [0, 0, 0], "cow": [RAW_MEAT, 1, 3], "cinder": [143, 0, 2], "pig": [RAW_MEAT, 1, 3], "horse": [0, 0, 0], "archer": [155, 0, 2], "guard": [30, 1, 2], "bee": [0, 0, 0], "beetle": [1951, 0, 1], "wolf": [0, 0, 0]}   # item, min, max
 # colour variants: woolly fleece = wool colour index (mostly naturals); see AnimalView.PALETTES
 const WOOL_COLOURS := [0, 0, 0, 0, 1, 1, 2, 3, 4, 4, 6, 7, 10, 12, 13, 14]
 const VARIANTS := {"rabbit": 2, "fish": 3, "butterfly": 4, "bird": 3, "worker": 3, "horse": 4}
@@ -619,7 +625,7 @@ func update(dt: float, player: Vector3, daylight := 1.0, hostile := true, can_ta
 			elif a.fuse <= 0:
 				a.dead = true
 				booms.append(a.pos + Vector3(0, 0.4, 0))
-		if a.kind == "wolf" and a.tame and not a.dead:
+		if (a.kind == "wolf" or a.kind == "guard") and a.tame and not a.dead:
 			_wolf(a, dt)
 		if a.wants_attack:
 			if target_peer == 0:
@@ -776,7 +782,7 @@ const TRADES := [
 func _wolf(w: Animal, dt: float) -> void:
 	w.bite_cd -= dt
 	var best: Animal = null
-	var best_d := 100.0
+	var best_d := 100.0 if w.kind == "wolf" else 196.0     # a guard watches further
 	for a: Animal in animals:
 		if a.hostile and not a.dead:
 			var d := a.pos.distance_squared_to(w.pos)
@@ -790,8 +796,8 @@ func _wolf(w: Animal, dt: float) -> void:
 	w.timer = 1.0
 	w.yaw = rad_to_deg(atan2(best.pos.x - w.pos.x, best.pos.z - w.pos.z))
 	if best_d < 1.6 * 1.6 and w.bite_cd <= 0:
-		w.bite_cd = 0.8
-		best.hit(w.pos, 4)
+		w.bite_cd = 0.8 if w.kind == "wolf" else 1.2
+		best.hit(w.pos, 4 if w.kind == "wolf" else 9)
 		bites += 1
 		_sound("hurt" if false else "pop", best.pos.distance_squared_to(_player), -6.0, 0.7)
 

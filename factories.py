@@ -960,6 +960,7 @@ def village():
         street_lamp(c, x, 1, z, height=3)
     for x, z in ((38, 38), (41, 30), (2, 2), (16, 40)):
         tree(c, x, z)
+    c.animals(22, 1, 18, "guard")                         # an iron guard keeps watch
     c.text(16, 8, 21, "VILLAGE", "pink")
     return c
 
@@ -1016,6 +1017,7 @@ def old_town():
             street_lamp(c, x, 1, z, height=4)
     for x, z in ((16, 16), (44, 16), (16, 44), (44, 44)):
         tree(c, x, z, 5)
+    c.animals(30, 1, 33, "guard")
     c.text(22, 12, 22, "OLD TOWN", "pink")
     return c
 

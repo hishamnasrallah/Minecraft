@@ -633,6 +633,34 @@ def shield_icon(rng):
     return img
 
 
+def beehive_side(rng):
+    img = boards((200, 160, 90))(rng)
+    for x in range(5, 11):
+        for y in range(8, 12):
+            img.putpixel((x, y), (60, 40, 20))
+    return img
+
+
+def scaffolding(rng):
+    img = _blank()
+    for i in range(TILE):
+        for j in (0, 1, 14, 15):
+            _px(img, i, j, (200, 170, 100))
+            _px(img, j, i, (200, 170, 100))
+        _px(img, i, i, (180, 150, 86))
+    return img
+
+
+def firework(rng):
+    img = _blank()
+    for y in range(4, 14):
+        for x in range(6, 10):
+            _px(img, x, y, (200, 40, 40) if y % 3 else (240, 240, 240))
+    for x, y in ((7, 3), (8, 2), (7, 14), (8, 15)):
+        _px(img, x, y, (230, 200, 90))
+    return img
+
+
 def lava(rng):
     img = _noise(rng, (222, 92, 18), 0.08)
     for _ in range(7):                       # bright molten streaks
@@ -2508,7 +2536,8 @@ EXTRA_GENERATORS.update({
     "anvil_side": noise_tile((56, 56, 62), 0.1), "slime_block": slime_block, "bone_meal": bone_meal,
     "slimeball": _round_item((110, 210, 90)),
     **{f"painting_{n}": painting(n) for n in range(4)}, "item_frame": item_frame, "flower_pot": flower_pot,
-    "shield": shield_icon,
+    "shield": shield_icon, "beehive_side": beehive_side, "beehive_top": noise_tile((220, 180, 100), 0.1),
+    "scaffolding": scaffolding, "firework": firework, "honey_bottle": potion((240, 170, 30)),
     "compass": compass_icon, "map_item": map_icon, "paper": paper_icon, "enchant_top": enchant_top,
     "enchant_side": enchant_side,
     "bow": bow_icon, "arrow": arrow_icon, "boat": boat_icon, "fishing_rod": rod_icon, "saddle": saddle_icon,

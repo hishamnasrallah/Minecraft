@@ -843,7 +843,7 @@ func tap_world(pos: Vector2) -> void:
 	elif Items.placeable.has(item) or Items.food.has(item) or Items.plant.has(item) or _is_hoe(item) \
 			or item in [int(Items.S["BUCKET"]), int(Items.S["WATER_BUCKET"]), int(Items.S["LAVA_BUCKET"]), CART, CHEST_CART] \
 			or Items.potions.has(item) or item == int(Items.S["GLASS_BOTTLE"]) or Items.armor.has(item) \
-			or item in [int(Items.S["BOW"]), int(Items.S["FISHING_ROD"]), int(Items.S["BOAT"]), int(Items.S["MAP_ITEM"]),
+			or item in [int(Items.S["BOW"]), int(Items.S["FISHING_ROD"]), int(Items.S["BOAT"]), int(Items.S["MAP_ITEM"]), int(Items.S["FIREWORK"]),
 				int(Items.S["BONE_MEAL"])]:
 		place_block()
 	elif not hit.is_empty():
@@ -1284,6 +1284,126 @@ var _test_move := Vector2.ZERO
 var _sign_labels := {}               # Vector3i -> Label3D
 var _compass_on := false
 var _shown := {}                     # item frame / flower pot -> Sprite3D of what is in it
+var _hive_t := 0.0
+var _rockets := []                   # fireworks: [{node, vel, age, colour}]
+
+
+## A pumpkin on a T of four iron blocks comes alive as an iron guard.
+func _try_guard(top: Vector3i) -> void:
+	var body := top + Vector3i(0, -1, 0)
+	var legs := top + Vector3i(0, -2, 0)
+	if world.get_block(body.x, body.y, body.z) != 30 or world.get_block(legs.x, legs.y, legs.z) != 30:
+		return
+	for arm in [Vector3i(1, 0, 0), Vector3i(0, 0, 1)]:
+		var a: Vector3i = body + arm
+		var b: Vector3i = body - arm
+		if world.get_block(a.x, a.y, a.z) == 30 and world.get_block(b.x, b.y, b.z) == 30:
+			var e := {top: 0, body: 0, legs: 0, a: 0, b: 0}
+			_rebuild(world.bulk_set(e)[0])
+			var g := Wildlife.Animal.new("guard", Vector3(legs) + Vector3(0, -0.4, 0))
+			g.tame = true
+			g.farm = true                                 # it keeps watch where it was made
+			wildlife.animals.append(g)
+			debris.burst(Vector3(body), 30, 1.0)
+			Sfx.play("dig_stone", 0.0, 0.6)
+			hud.flash(I18n.t("guard_made"))
+			return
+
+
+func _new_hive(pos: Vector3i) -> void:
+	world.settings[pos] = {"honey": 0}
+	for i in 2:
+		var b := Wildlife.Animal.new("bee", Vector3(pos) + Vector3(randf_range(-1, 1), 1.0, randf_range(-1, 1)))
+		b.home = Vector3(pos)
+		b.tame = true
+		b.farm = true
+		wildlife.animals.append(b)
+
+
+## Every 20 s a hive with flowers within 5 blocks gets a little more honey (full at 5).
+func _update_hives(delta: float) -> void:
+	_hive_t += delta
+	if _hive_t < 20.0:
+		return
+	_hive_t = 0.0
+	for p in world.settings:
+		var st = world.settings[p]
+		if not (st is Dictionary and st.has("honey")) or world.get_block(p.x, p.y, p.z) != 1991:
+			continue
+		if int(st["honey"]) >= 5:
+			continue
+		var flowers := 0
+		for dx in range(-5, 6):
+			for dz in range(-5, 6):
+				for dy in range(-2, 3):
+					var b := world.get_block(p.x + dx, p.y + dy, p.z + dz)
+					if b >= 53 and b <= 56 or (b >= 1000 and b < 1010):
+						flowers += 1
+		if flowers > 0:
+			st["honey"] = int(st["honey"]) + 1
+
+
+func _use_hive(pos: Vector3i) -> void:
+	var st = world.settings.get(pos, {})
+	var level := int(st.get("honey", 0)) if st is Dictionary else 0
+	if level >= 5 and inv.item_at(selected) == int(Items.S["GLASS_BOTTLE"]):
+		inv.use_one(selected)
+		inv.add(175, 1)
+		world.settings[pos] = {"honey": 0}
+		Sfx.play("splash", -2.0, 1.4)
+		hud.flash(I18n.f("got", Items.name_of(175)))
+		_refresh_mode()
+		return
+	hud.flash(I18n.f("hive_level", level))
+
+
+func _firework() -> void:
+	var node := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.12, 0.3, 0.12)
+	node.mesh = bm
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = Color(1, 0.8, 0.4)
+	node.material_override = m
+	add_child(node)
+	var colour := Color.from_hsv(randf(), 0.8, 1.0)
+	node.position = player.eye() + aim_dir() * 1.5
+	_rockets.append({"node": node, "vel": Vector3(randf_range(-1, 1), 16.0, randf_range(-1, 1)), "age": 0.0, "colour": colour, "sparks": []})
+	Sfx.play("click", 0.0, 1.6)
+
+
+func _update_rockets(delta: float) -> void:
+	for r in _rockets.duplicate():
+		r["age"] += delta
+		var node: MeshInstance3D = r["node"]
+		if r["age"] < 1.3:
+			node.position += r["vel"] * delta
+		elif r["sparks"].is_empty() and node.visible:
+			node.visible = false                       # the burst: a ball of coloured sparks
+			Sfx.play("pop", 4.0, 0.6, 0.0)
+			for i in 40:
+				var sp := MeshInstance3D.new()
+				var sbm := BoxMesh.new()
+				sbm.size = Vector3(0.18, 0.18, 0.18)
+				sp.mesh = sbm
+				var sm := StandardMaterial3D.new()
+				sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+				sm.albedo_color = r["colour"] if i % 3 else Color.WHITE
+				sp.material_override = sm
+				sp.position = node.position
+				add_child(sp)
+				r["sparks"].append([sp, Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)).normalized() * randf_range(5, 9)])
+		for s in r["sparks"]:
+			var spn: MeshInstance3D = s[0]
+			s[1] += Vector3(0, -6.0, 0) * delta
+			spn.position += s[1] * delta
+			spn.scale = Vector3.ONE * maxf(0.05, 1.0 - (r["age"] - 1.3) / 1.6)
+		if r["age"] > 3.0:
+			for s in r["sparks"]:
+				s[0].queue_free()
+			node.queue_free()
+			_rockets.erase(r)
 var _campfires := {}                 # campfire -> [[raw item, seconds left], ...]
 
 
@@ -1723,7 +1843,7 @@ func _overlaps_player(p: Vector3i, id: int) -> bool:
 func _usable(id: int) -> bool:
 	var d: Dictionary = Blocks.defs.get(id, {})
 	return d.has("door") or d.get("container", false) or id == 62 or id == 47 or d.has("sign") or id in [1961, 1963, 1964] \
-		or d.get("display", false) \
+		or d.get("display", false) or id == 1991 \
 		or power.kind_of(id) in ["switch", "button", "not", "and", "or", "xor", "delay", "comparator", "crafter", "collector", "timer", "counter", "note"]
 
 
@@ -1751,6 +1871,9 @@ func use_block(pos: Vector3i) -> bool:
 		return true
 	if d.get("display", false):
 		_display(pos)
+		return true
+	if id == 1991:
+		_use_hive(pos)
 		return true
 	if id == 1961:
 		_open_enchant()
@@ -2434,6 +2557,12 @@ func place_block(allow_use := true) -> void:
 	if item == int(Items.S["MAP_ITEM"]):
 		open_map()
 		return
+	if item == int(Items.S["FIREWORK"]):
+		_firework()
+		if not creative:
+			inv.use_one(selected)
+			_refresh_mode()
+		return
 	if item == int(Items.S["BONE_MEAL"]) and not hit.is_empty():
 		if fertilize(hit["pos"]) and not creative:
 			inv.use_one(selected)
@@ -2566,6 +2695,10 @@ func place_block(allow_use := true) -> void:
 			_refresh_mode()
 			return
 	if edit(pos, id):
+		if id == 951:
+			_try_guard(pos)
+		if id == 1991:
+			_new_hive(pos)
 		if Blocks.defs[id].has("sign"):
 			_edit_sign.call_deferred(pos)                  # write on it
 		Sfx.play(Sfx.dig_sound(id) if Blocks.defs[id].get("shape") == "cross" else "place")
@@ -2813,6 +2946,9 @@ func _update_carts(delta: float) -> void:
 	_update_gear(delta)
 	if not _campfires.is_empty():
 		_update_campfires(delta)
+	_update_hives(delta)
+	if not _rockets.is_empty():
+		_update_rockets(delta)
 	_update_signs(delta)
 	if carts.carts.is_empty():
 		return
@@ -4284,6 +4420,27 @@ func _process_inner(delta: float) -> void:
 			inv.add(106, 2)
 			_repair()
 			_st["repair"] = inv.slots[selected][2]
+			# an iron guard from four iron blocks and a pumpkin
+			var gb := o + Vector3i(-3, 0, 3)
+			for q in [gb, gb + Vector3i(0, 1, 0), gb + Vector3i(1, 1, 0), gb + Vector3i(-1, 1, 0)]:
+				edit(q, 30, true, false)
+			edit(gb + Vector3i(0, 2, 0), 951, true, false)
+			_try_guard(gb + Vector3i(0, 2, 0))
+			_st["guard"] = wildlife.animals.any(func(a): return a.kind == "guard") and world.get_block(gb.x, gb.y + 1, gb.z) == 0
+			# a beehive with flowers near it
+			var hv := o + Vector3i(-3, 0, -3)
+			edit(hv, 1991, true, false)
+			_new_hive(hv)
+			edit(hv + Vector3i(2, 0, 0), 53, true, false)
+			for i in 5:
+				_hive_t = 30.0
+				_update_hives(0.0)
+			inv.slots[selected] = [int(Items.S["GLASS_BOTTLE"]), 1]
+			_use_hive(hv)
+			_st["honey"] = inv.count(175)
+			_st["bees"] = wildlife.animals.filter(func(a): return a.kind == "bee").size()
+			_firework()
+			_st["rocket"] = _rockets.size()
 			player.position = Vector3(o.x, o.y + 9.0, o.z + 5)  # fall onto the slime
 			player.velocity = Vector3.ZERO
 			_st["maxv"] = 0.0
@@ -4291,6 +4448,7 @@ func _process_inner(delta: float) -> void:
 		if _st_frame > 5 and _st_frame < 400:
 			_st["maxv"] = maxf(_st["maxv"], player.velocity.y)
 		if _st_frame == 400:
+			print("TOOLS guard made %s, bees %d, honey bottles %d, firework launched %d and gone %s; " % [_st["guard"], _st["bees"], _st["honey"], _st["rocket"], _rockets.is_empty()])
 			print("TOOLS bone meal grew the crop to %d (ripe 974); campfire took meat %s and gave cooked meat %s; anvil mended the pickaxe 100 -> %d; bounced up at %.1f, health %d -> %d" % [
 				_st["crop"], _st["cooking"], drops.drops.any(func(d): return int(d["stack"][0]) == 104), _st["repair"], _st["maxv"], _st["hp"], health.health])
 			get_tree().quit()
