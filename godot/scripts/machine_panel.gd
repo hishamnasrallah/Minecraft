@@ -54,11 +54,13 @@ func _open_now(kind: String, id: int, delay: int, mode: String, choices: Array, 
 		c.queue_free()
 	var title := Label.new()
 	title.text = I18n.t(["job_farmer", "job_smith", "job_baker"][clampi(id, 0, 2)]) if kind == "trade" else Items.name_of(id)
+	if kind == "enchant":
+		title.text = I18n.t("enchant_title")
 	title.add_theme_font_size_override("font_size", 24)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_list.add_child(title)
 	var hint := Label.new()
-	hint.text = I18n.t("hint_" + kind)
+	hint.text = I18n.t("enchant_hint" if kind == "enchant" else "hint_" + kind)
 	hint.add_theme_font_size_override("font_size", 17)
 	hint.modulate = Color(1, 1, 1, 0.75)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -110,6 +112,18 @@ func _open_now(kind: String, id: int, delay: int, mode: String, choices: Array, 
 		var done_s := _button(I18n.t("done"), false)
 		done_s.pressed.connect(close)
 		_list.add_child(done_s)
+		visible = true
+		_place.call_deferred()
+		return
+	if kind == "enchant":
+		for i in choices.size():
+			var b := _button(I18n.t("ench_" + str(choices[i])), false)
+			b.custom_minimum_size = Vector2(380, 52)
+			b.pressed.connect(func(): chosen.emit("enchant", i))
+			_list.add_child(b)
+		var done_e := _button(I18n.t("done"), false)
+		done_e.pressed.connect(close)
+		_list.add_child(done_e)
 		visible = true
 		_place.call_deferred()
 		return

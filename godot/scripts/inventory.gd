@@ -74,11 +74,19 @@ func wear(i: int) -> bool:
 	var s = slots[i]
 	if s == null or s.size() < 3:
 		return false
+	if s.size() > 3 and str(s[3]) == "unbreaking" and randf() < 0.5:
+		return false                                   # enchanted: wears out half as fast
 	if s[2] <= 1:
 		slots[i] = null
 		return true
-	slots[i] = [s[0], 1, s[2] - 1]
+	slots[i] = [s[0], 1, s[2] - 1] + (s.slice(3) if s.size() > 3 else [])
 	return false
+
+
+## The enchantment on a slot's tool or armour ("" if none).
+func enchant_of(i: int) -> String:
+	var s = slots[i]
+	return str(s[3]) if s != null and s.size() > 3 else ""
 
 
 ## Tap a slot while holding `cursor` (a stack or null). Returns the new cursor.

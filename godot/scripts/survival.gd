@@ -41,13 +41,14 @@ func exert(amount: float) -> void:
 
 
 var armor := {}                  # slot ("head", "chest", "legs", "feet") -> the piece worn
+var armor_bonus := {}            # slot -> true: that piece has the protection enchantment
 
 
 ## Armour points: every point takes away 4% of a hit (at most 80%).
 func armor_points() -> int:
 	var n := 0
 	for slot in armor:
-		n += int(Items.armor.get(int(armor[slot]), {}).get("points", 0))
+		n += int(Items.armor.get(int(armor[slot]), {}).get("points", 0)) + 2 * int(armor_bonus.has(slot))
 	return n
 
 
@@ -122,7 +123,7 @@ func track_fall(y: float, on_ground: bool, in_water: bool) -> int:
 
 
 func to_data() -> Dictionary:
-	return {"health": health, "hunger": hunger, "exhaustion": exhaustion, "armor": armor}
+	return {"health": health, "hunger": hunger, "exhaustion": exhaustion, "armor": armor, "armor_bonus": armor_bonus}
 
 
 static func from_data(data) -> Survival:
@@ -135,6 +136,10 @@ static func from_data(data) -> Survival:
 		if ar is Dictionary:
 			for slot in ar:
 				s.armor[str(slot)] = int(ar[slot])
+		var ab = data.get("armor_bonus", {})
+		if ab is Dictionary:
+			for slot in ab:
+				s.armor_bonus[str(slot)] = true
 	return s
 
 

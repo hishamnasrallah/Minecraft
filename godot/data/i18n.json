@@ -648,6 +648,50 @@
    "en": "You drank: %s",
    "ar": "شربت: %s"
   },
+  "sign_write": {
+   "en": "Write on the sign",
+   "ar": "اكتب على اللوحة"
+  },
+  "home_dir": {
+   "en": "Home: %d m %s",
+   "ar": "البيت: %d م %s"
+  },
+  "enchant_title": {
+   "en": "Enchanting table",
+   "ar": "طاولة التعويذ"
+  },
+  "enchant_hint": {
+   "en": "Hold a tool, weapon or armour; each costs 3 rubies",
+   "ar": "امسك أداة أو سلاح أو درع؛ كل تعويذة بـ3 ياقوت"
+  },
+  "enchant_need": {
+   "en": "Hold a tool, weapon or armour first",
+   "ar": "امسك أداة أو سلاح أو درع أول"
+  },
+  "enchant_cost": {
+   "en": "You need 3 rubies",
+   "ar": "بدك 3 ياقوت"
+  },
+  "ench_efficiency": {
+   "en": "Efficiency: digs faster",
+   "ar": "الكفاءة: بتحفر أسرع"
+  },
+  "ench_sharpness": {
+   "en": "Sharpness: hits harder",
+   "ar": "الحدّة: بتضرب أقوى"
+  },
+  "ench_unbreaking": {
+   "en": "Unbreaking: wears out slower",
+   "ar": "المتانة: بتستهلك أبطأ"
+  },
+  "ench_protection": {
+   "en": "Protection: more armour",
+   "ar": "الحماية: درع أقوى"
+  },
+  "enchanted": {
+   "en": "Enchanted: %s",
+   "ar": "انسحرت: %s"
+  },
   "armor_on": {
    "en": "Wearing: %s (armour %d)",
    "ar": "لبست: %s (الحماية %d)"
@@ -1808,6 +1852,15 @@
   "1946": "بوابة سياج",
   "1939": "باب أرضي",
   "1947": "بوابة سياج",
+  "1953": "لوحة كتابة",
+  "1957": "لوحة كتابة",
+  "1954": "لوحة كتابة",
+  "1958": "لوحة كتابة",
+  "1955": "لوحة كتابة",
+  "1959": "لوحة كتابة",
+  "1956": "لوحة كتابة",
+  "1960": "لوحة كتابة",
+  "1961": "طاولة التعويذ",
   "1948": "لوح زجاج",
   "1949": "فانوس",
   "1950": "برميل",
@@ -2137,6 +2190,9 @@
   "165": "درع صدر ألماس",
   "166": "بنطلون ألماس",
   "167": "جزمة ألماس",
+  "168": "بوصلة",
+  "169": "خريطة",
+  "170": "ورق",
   "129": "قدّاحة",
   "133": "قنينة زجاج",
   "134": "قنينة مي",

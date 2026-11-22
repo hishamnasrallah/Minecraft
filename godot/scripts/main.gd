@@ -842,7 +842,7 @@ func tap_world(pos: Vector2) -> void:
 	elif Items.placeable.has(item) or Items.food.has(item) or Items.plant.has(item) or _is_hoe(item) \
 			or item in [int(Items.S["BUCKET"]), int(Items.S["WATER_BUCKET"]), int(Items.S["LAVA_BUCKET"]), CART, CHEST_CART] \
 			or Items.potions.has(item) or item == int(Items.S["GLASS_BOTTLE"]) or Items.armor.has(item) \
-			or item in [int(Items.S["BOW"]), int(Items.S["FISHING_ROD"]), int(Items.S["BOAT"])]:
+			or item in [int(Items.S["BOW"]), int(Items.S["FISHING_ROD"]), int(Items.S["BOAT"]), int(Items.S["MAP_ITEM"])]:
 		place_block()
 	elif not hit.is_empty():
 		var id := world.get_block(hit["pos"].x, hit["pos"].y, hit["pos"].z)
@@ -1045,10 +1045,17 @@ var _rod := {}                       # fishing: {"at": Vector3, "bite": seconds 
 func _wear(item: int) -> void:
 	var slot := str(Items.armor[item]["slot"])
 	var old = health.armor.get(slot)
+	var old_bonus: bool = health.armor_bonus.has(slot)
+	var protected := inv.enchant_of(selected) == "protection"
 	health.armor[slot] = item
-	inv.use_one(selected)
+	if protected:
+		health.armor_bonus[slot] = true
+	else:
+		health.armor_bonus.erase(slot)
+	inv.slots[selected] = null
 	if old != null:
-		inv.add(int(old), 1)                          # the piece you had on comes back to you
+		# the piece you had on comes back to you (with its enchantment)
+		inv.slots[selected] = [int(old), 1, 0, "protection"] if old_bonus else [int(old), 1]
 	Sfx.play("place", 0.0, 0.8)
 	hud.flash(I18n.f("armor_on", [Items.name_of(item), health.armor_points()]))
 	_refresh_mode()
@@ -1261,6 +1268,160 @@ func _update_gear(delta: float) -> void:
 
 var _test_move := Vector2.ZERO
 
+# ---------------------------------------------------------------- signs, compass, enchanting
+var _sign_labels := {}               # Vector3i -> Label3D
+var _compass_on := false
+var _sign_t := 0.0
+var _sign_edit: Control
+var _sign_line: LineEdit
+var _sign_pos := Vector3i.ZERO
+
+
+func _edit_sign(pos: Vector3i) -> void:
+	if _sign_edit == null:
+		_sign_edit = PanelContainer.new()
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.08, 0.09, 0.12, 0.95)
+		sb.set_corner_radius_all(14)
+		sb.set_content_margin_all(14)
+		_sign_edit.add_theme_stylebox_override("panel", sb)
+		var box := VBoxContainer.new()
+		box.add_theme_constant_override("separation", 10)
+		_sign_edit.add_child(box)
+		var title := Label.new()
+		title.text = I18n.t("sign_write")
+		title.add_theme_font_size_override("font_size", 22)
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(title)
+		_sign_line = LineEdit.new()
+		_sign_line.max_length = 40
+		_sign_line.custom_minimum_size = Vector2(420, 56)
+		_sign_line.add_theme_font_size_override("font_size", 22)
+		_sign_line.text_submitted.connect(func(_t): _sign_done())
+		box.add_child(_sign_line)
+		var ok := Button.new()
+		ok.text = I18n.t("done")
+		ok.custom_minimum_size = Vector2(160, 52)
+		ok.add_theme_font_size_override("font_size", 20)
+		ok.pressed.connect(_sign_done)
+		box.add_child(ok)
+		hud.add_child(_sign_edit)
+	_sign_pos = pos
+	var st = world.settings.get(pos, {})
+	_sign_line.text = str(st.get("text", "")) if st is Dictionary else ""
+	_sign_edit.visible = true
+	_sign_edit.size = _sign_edit.get_combined_minimum_size()
+	var vs := get_viewport().get_visible_rect().size
+	_sign_edit.position = Vector2((vs.x - _sign_edit.size.x) / 2, vs.y * 0.18)
+	touch.blocked = true
+	_sign_line.grab_focus()
+	if use_touch:
+		DisplayServer.virtual_keyboard_show(_sign_line.text)
+
+
+func _sign_done() -> void:
+	if _sign_edit == null or not _sign_edit.visible:
+		return
+	world.settings[_sign_pos] = {"text": _sign_line.text.strip_edges()}
+	_sign_edit.visible = false
+	touch.blocked = false
+	if use_touch:
+		DisplayServer.virtual_keyboard_hide()
+	_sign_t = 1.0                                     # show it now
+
+
+## The writing on signs near you floats on their boards (Label3D); refreshed twice a second.
+func _update_signs(delta: float) -> void:
+	_sign_t += delta
+	if _sign_t < 0.5:
+		return
+	_sign_t = 0.0
+	var seen := {}
+	for p in world.settings:
+		var st = world.settings[p]
+		if not (st is Dictionary and st.has("text")):
+			continue
+		var id := world.get_block(p.x, p.y, p.z)
+		if not Blocks.defs.get(id, {}).has("sign"):
+			continue
+		if Vector3(p).distance_to(player.position) > 48.0:
+			continue
+		seen[p] = true
+		var l: Label3D = _sign_labels.get(p)
+		if l == null:
+			l = Label3D.new()
+			l.font_size = 48
+			l.pixel_size = 0.004
+			l.outline_size = 8
+			l.modulate = Color(0.12, 0.08, 0.04)
+			l.outline_modulate = Color(0.95, 0.88, 0.7)
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD
+			l.width = 220
+			add_child(l)
+			_sign_labels[p] = l
+		l.text = str(st["text"])
+		var f := int(Blocks.facing[id])
+		var wall: bool = id >= 1957
+		var face: Vector3i = -Power.DIRS[f] if wall else Power.DIRS[f]   # the way the writing faces
+		var c := Vector3(p) + (Vector3(0, 0.04, 0) if wall else Vector3(0, 0.25, 0))
+		l.position = c + (Vector3(Power.DIRS[f]) * 0.40 if wall else Vector3(face) * 0.06)
+		l.rotation = Vector3(0, atan2(float(face.x), float(face.z)), 0)
+	for p in _sign_labels.keys():
+		if not seen.has(p):
+			_sign_labels[p].queue_free()
+			_sign_labels.erase(p)
+	# the compass in your hand points home
+	if inv.item_at(selected) == int(Items.S["COMPASS"]):
+		var to := spawn_point - player.position
+		var ang := wrapf(atan2(to.x, to.z) - atan2(player.forward().x, player.forward().z), -PI, PI)
+		var arrows := ["↑", "↖", "←", "↙", "↓", "↘", "→", "↗"]
+		var k := posmod(roundi(ang / (PI / 4)), 8)
+		hud.mode_label.text = I18n.f("home_dir", [int(Vector2(to.x, to.z).length()), arrows[k]])
+		_compass_on = true
+	elif _compass_on:
+		_compass_on = false
+		_refresh_mode()
+
+
+func _open_enchant() -> void:
+	var item := inv.item_at(selected)
+	var options := []
+	if Items.armor.has(item):
+		options = ["protection"]
+	elif Items.tools.has(item):
+		var kind := str(Items.tools[item]["kind"])
+		options = ["sharpness", "unbreaking"] if kind in ["sword", "axe"] else ["efficiency", "unbreaking"]
+		if kind == "axe":
+			options = ["efficiency", "sharpness", "unbreaking"]
+	if options.is_empty():
+		hud.flash(I18n.t("enchant_need"))
+		return
+	_ench_options = options
+	machine_panel.open("enchant", 1961, 0, "", options, 0)
+	touch.blocked = true
+
+
+var _ench_options := []
+
+
+func _enchant(index: int) -> void:
+	var item := inv.item_at(selected)
+	if item == 0 or index >= _ench_options.size():
+		return
+	var ruby := 114
+	if not creative and inv.count(ruby) < 3:
+		hud.flash(I18n.t("enchant_cost"))
+		return
+	if not creative:
+		inv.remove(ruby, 3)
+	var s: Array = inv.slots[selected]
+	var dur: int = int(s[2]) if s.size() > 2 else 0
+	inv.slots[selected] = [s[0], 1, dur, _ench_options[index]]
+	Sfx.play("pop", 0.0, 1.5)
+	hud.flash(I18n.f("enchanted", I18n.t("ench_" + _ench_options[index]).get_slice(":", 0)))
+	hud.show_hotbar(inv, selected, creative)
+	machine_panel.close()
+
 var _trader = null
 
 
@@ -1376,7 +1537,8 @@ func attack(animal) -> void:
 			if Items.tools.has(item) and inv.wear(selected):
 				hud.flash(I18n.f("tool_broke", Items.name_of(item)))
 		return
-	var drop: Array = animal.hit(player.position, Items.attack_damage(item) if not creative else 100)
+	var sharp := 3 if inv.enchant_of(selected) == "sharpness" else 0
+	var drop: Array = animal.hit(player.position, Items.attack_damage(item) + sharp if not creative else 100)
 	if feeding:
 		return                                    # fed, not hit: the animal plays its own sound
 	Sfx.play("hurt", -4.0, 1.7)
@@ -1411,7 +1573,7 @@ func _overlaps_player(p: Vector3i, id: int) -> bool:
 
 func _usable(id: int) -> bool:
 	var d: Dictionary = Blocks.defs.get(id, {})
-	return d.has("door") or d.get("container", false) or id == 62 or id == 47 \
+	return d.has("door") or d.get("container", false) or id == 62 or id == 47 or d.has("sign") or id == 1961 \
 		or power.kind_of(id) in ["switch", "button", "not", "and", "or", "xor", "delay", "comparator", "crafter", "collector", "timer", "counter", "note"]
 
 
@@ -1433,6 +1595,12 @@ func use_block(pos: Vector3i) -> bool:
 	if mk == "crafter" or mk == "collector":
 		_panel_pos = pos
 		_open_crafter_panel(pos, id)
+		return true
+	if d.has("sign"):
+		_edit_sign(pos)
+		return true
+	if id == 1961:
+		_open_enchant()
 		return true
 	if d.has("door") and d["door"].get("iron", false):
 		hud.flash(I18n.t("iron_door_hint"))             # opens only by power, like the original
@@ -2073,6 +2241,9 @@ func place_block(allow_use := true) -> void:
 	if item == int(Items.S["BOW"]):
 		_shoot()
 		return
+	if item == int(Items.S["MAP_ITEM"]):
+		open_map()
+		return
 	if item == int(Items.S["FISHING_ROD"]):
 		_fish()
 		return
@@ -2156,10 +2327,12 @@ func place_block(allow_use := true) -> void:
 	if item == 1750 or item == 1756:
 		id = _track_piece(pos, item == 1756)          # tracks join the ones around them
 	var n0: Vector3i = hit["normal"]
-	if d["shape"] in ["torch", "ptorch", "lever", "button"] and n0.y == 0 and _solid_at(pos - n0):
+	if d["shape"] == "sign" and not (n0.y == 0 and _solid_at(pos - n0)):
+		id = 1953 + (_facing() + 2) % 4                 # standing: the writing faces you
+	elif d["shape"] in ["torch", "ptorch", "lever", "button", "sign"] and n0.y == 0 and _solid_at(pos - n0):
 		# tapped the side of a block: a torch, switch or button goes on that wall
 		var by_n := {Vector2i(0, -1): 0, Vector2i(-1, 0): 1, Vector2i(0, 1): 2, Vector2i(1, 0): 3}
-		var wall_base := {1846: 1848, 1702: 1860, 1704: 1856}
+		var wall_base := {1846: 1848, 1702: 1860, 1704: 1856, 1953: 1957}
 		id = int(wall_base.get(item, WALL_TORCH)) + int(by_n[Vector2i(n0.x, n0.z)])
 	elif d["shape"] in ["cross", "torch", "lever", "button", "wire", "track", "ptorch"] and (below == 0 or not Blocks.solid[below]):
 		return                                 # plants and torches need ground
@@ -2193,6 +2366,8 @@ func place_block(allow_use := true) -> void:
 			_refresh_mode()
 			return
 	if edit(pos, id):
+		if Blocks.defs[id].has("sign"):
+			_edit_sign.call_deferred(pos)                  # write on it
 		Sfx.play(Sfx.dig_sound(id) if Blocks.defs[id].get("shape") == "cross" else "place")
 		InventoryScreen.note_recent(item)
 		buzz(15)
@@ -2232,6 +2407,9 @@ func _machine_choice(action: String, value: int) -> void:
 		"turn":
 			var n := 6 if kind in ["pusher", "sticky", "breaker", "observer", "thrower", "fan"] else 4
 			id = base + (f + 1) % n
+		"enchant":
+			_enchant(value)
+			return
 		"timer", "counter", "note":
 			var key: String = {"timer": "period", "counter": "count", "note": "pitch"}[action]
 			world.settings[p] = {key: value / 10.0 if action == "timer" else value}
@@ -2433,6 +2611,7 @@ func _cargo() -> void:
 
 func _update_carts(delta: float) -> void:
 	_update_gear(delta)
+	_update_signs(delta)
 	if carts.carts.is_empty():
 		return
 	var drive := 0.0
@@ -2961,7 +3140,7 @@ func _update_mining(delta: float) -> void:
 		if mine_pos != pos:
 			mine_pos = pos
 			mine_progress = 0.0
-		mine_progress += delta / maxf(Items.mining(id, inv.item_at(selected))[0], 0.05)
+		mine_progress += delta / maxf(Items.mining(id, inv.item_at(selected))[0] / (1.6 if inv.enchant_of(selected) == "efficiency" else 1.0), 0.05)
 		_dig_tick -= delta
 		if _dig_tick <= 0:
 			_dig_tick = 0.25
@@ -3794,6 +3973,46 @@ func _process_inner(delta: float) -> void:
 			print("GEAR %s; bow: %s; boat: %s; fishing: %s; horse saddled %s, ridden %s, rode %.1f blocks" % [
 				_st["armor"], _st["bow"], _st["boat"], _st["fish"], h.saddled, _st["riding"], (h.pos - _st["h0"]).length()])
 			get_tree().quit()
+	if "--signtest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: signs, enchanting, compass
+		if not _st.has("so"):
+			_st["so"] = Vector3i(floori(player.position.x + 0.5), floori(player.position.y), floori(player.position.z + 0.5))
+		var o: Vector3i = _st["so"]
+		if _st_frame == 5:
+			set_mode(true)
+			var e := {}
+			for x in range(-4, 5):
+				for z in range(-8, 3):
+					e[o + Vector3i(x, -1, z)] = 3
+					for y in range(0, 4):
+						e[o + Vector3i(x, y, z)] = 0
+			e[o + Vector3i(1, 0, -4)] = 41               # a wall block for the wall sign
+			e[o + Vector3i(1, 1, -4)] = 41
+			e[o + Vector3i(-1, 0, -4)] = 1953 + 0        # a standing sign, writing toward +z (to you)
+			e[o + Vector3i(1, 1, -3)] = 1957 + 2         # a wall sign on the block's +z side (wall at -z)
+			e[o + Vector3i(3, 0, -4)] = 1961             # the enchanting table
+			_rebuild(world.bulk_set(e)[0])
+			_edit_sign(o + Vector3i(-1, 0, -4))
+			_sign_line.text = "HISHAM"
+			_sign_done()
+			_edit_sign(o + Vector3i(1, 1, -3))
+			_sign_line.text = "بيت تاليا"
+			_sign_done()
+			player.position = Vector3(o.x, o.y + 0.5, o.z)
+			player.yaw = 0.0
+			player.rotation.y = 0.0
+			player.pitch = -0.2
+			player.camera.rotation.x = player.pitch
+			inv.slots[selected] = [205, 1, 250]
+			inv.add(114, 3)
+			_open_enchant()
+			_enchant(0)
+			var en := inv.enchant_of(selected)
+			inv.slots[selected] = [int(Items.S["COMPASS"]), 1]
+			_st["en"] = en
+		if _st_frame == 40:
+			print("SIGN labels %d, texts %s, enchanted pickaxe: %s, compass says: %s" % [_sign_labels.size(),
+				_sign_labels.values().map(func(l): return l.text), _st["en"], hud.mode_label.text])
 	if "--mobcount" in OS.get_cmdline_user_args() and spawned and Engine.get_process_frames() % 600 == 0:
 		var kinds := {}                                 # testing: which creatures are around
 		for a in wildlife.animals:

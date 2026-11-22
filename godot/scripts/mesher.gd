@@ -617,6 +617,17 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 			if not linked:                                                  # alone: a pane across x
 				pb.append([Vector3(-.5, -.5, -.0625), Vector3(.5, .5, .0625)])
 			return pb
+		"sign":
+			var sf: int = facing[id]
+			if shapes[id] == "sign" and id >= 1957:
+				# on a wall: a board against the wall side `sf`
+				match sf:
+					0: return [[Vector3(-.45, -.22, .42), Vector3(.45, .3, .5)]]
+					1: return [[Vector3(.42, -.22, -.45), Vector3(.5, .3, .45)]]
+					2: return [[Vector3(-.45, -.22, -.5), Vector3(.45, .3, -.42)]]
+				return [[Vector3(-.5, -.22, -.45), Vector3(-.42, .3, .45)]]
+			var board := [Vector3(-.45, 0.0, -.04), Vector3(.45, .5, .04)] if sf % 2 == 0 else [Vector3(-.04, 0.0, -.45), Vector3(.04, .5, .45)]
+			return [[Vector3(-.04, -.5, -.04), Vector3(.04, 0.0, .04)], board]
 		"lantern":
 			return [[Vector3(-.19, -.5, -.19), Vector3(.19, -.06, .19)], [Vector3(-.12, -.06, -.12), Vector3(.12, .06, .12)]]
 		"fence":

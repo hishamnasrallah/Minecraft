@@ -331,6 +331,15 @@ for _f in range(4):
         DOORS[i] = dict(axis=_f % 2, open=is_open, top=0, base=1940, single=True, facing=_f)
         block(i, "fence gate", "planks", FUNCTIONAL, 2.0, "axe", shape="fence_gate", creative=i == 1940, drop=1940,
               door=DOORS[i], facing=_f, solid=not is_open)
+# signs: you write on them; standing (1953 + the way the text faces) or on a wall (1957 + wall side)
+for _f in range(4):
+    block(1953 + _f, "sign", "planks", FUNCTIONAL, 1.0, "axe", shape="sign", solid=False, facing=_f,
+          creative=_f == 0, drop=1953, sign=dict(wall=False))
+    block(1957 + _f, "sign", "planks", FUNCTIONAL, 1.0, "axe", shape="sign", solid=False, facing=_f,
+          creative=False, drop=1953, sign=dict(wall=True))
+# the enchanting table: a tool or armour in your hand and 3 rubies make it better
+block(1961, "enchanting table", ("enchant_top", "enchant_side", "obsidian"), FUNCTIONAL, 5.0, "pickaxe", 1,
+      emit=7, shape="slab")
 block(1948, "glass pane", "glass", BUILDING, 0.3, drop=None, shape="pane")
 block(1949, "lantern", "lantern", FUNCTIONAL, 1.0, "pickaxe", shape="lantern", emit=15, solid=False)
 block(1950, "barrel", ("barrel_top", "barrel_side", "barrel_top"), FUNCTIONAL, 2.5, "axe", container=True)

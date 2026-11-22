@@ -335,8 +335,10 @@ func show_hotbar(inv: Inventory, selected: int, creative: bool) -> void:
 		slots[i].z_index = 1 if i == selected else 0
 	var s = inv.slots[selected]
 	item_label.text = Items.name_of(s[0]) if s != null else ""
-	if s != null and s.size() == 3:
+	if s != null and s.size() >= 3 and Items.tools.has(int(s[0])):
 		item_label.text += "  (%d/%d)" % [s[2], int(Items.tools[s[0]]["durability"])]
+	if s != null and s.size() > 3:
+		item_label.text += "  ✨ " + I18n.t("ench_" + str(s[3])).get_slice(":", 0)
 
 
 func show_bars(sv: Survival, creative: bool) -> void:

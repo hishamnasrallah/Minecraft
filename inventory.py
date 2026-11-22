@@ -27,6 +27,7 @@ from blocks import POTATO, BEETROOT, BEET_SEEDS, PUMPKIN_SEEDS, PUMPKIN, MELON_S
 BAKED_POTATO, PUMPKIN_PIE = 145, 150
 SHEARS = 153
 BOW, ARROW, BOAT, FISHING_ROD, SADDLE = 154, 155, 156, 157, 158
+COMPASS, MAP_ITEM, PAPER = 168, 169, 170
 # armour: item -> (slot, points); every point takes away 4% of the damage (at most 80%)
 ARMOR = {160: ("head", 2), 161: ("chest", 6), 162: ("legs", 5), 163: ("feet", 2),
          164: ("head", 3), 165: ("chest", 8), 166: ("legs", 6), 167: ("feet", 3)}
@@ -68,7 +69,8 @@ OTHER_ITEMS = {BUCKET: ("bucket", "bucket"), WATER_BUCKET: ("water bucket", "wat
                PUMPKIN_SEEDS: ("pumpkin seeds", "pumpkin_seeds"), MELON_SEEDS: ("melon seeds", "melon_seeds"),
                PUMPKIN: ("pumpkin", "pumpkin"), SHEARS: ("shears", "shears"),
                BOW: ("bow", "bow"), ARROW: ("arrow", "arrow"), BOAT: ("boat", "boat"),
-               FISHING_ROD: ("fishing rod", "fishing_rod"), SADDLE: ("saddle", "saddle"), **ARMOR_NAMES, FIRE_STRIKER: ("fire striker", "fire_striker"),
+               FISHING_ROD: ("fishing rod", "fishing_rod"), SADDLE: ("saddle", "saddle"), **ARMOR_NAMES,
+               COMPASS: ("compass", "compass"), MAP_ITEM: ("map", "map_item"), PAPER: ("paper", "paper"), FIRE_STRIKER: ("fire striker", "fire_striker"),
                GLASS_BOTTLE: ("glass bottle", "glass_bottle"), WATER_BOTTLE: ("water bottle", "water_bottle"),
                **{p: (v[0], v[1]) for p, v in POTIONS.items()}}
 
@@ -178,7 +180,7 @@ def attack_damage(item):
 
 def max_stack(item):
     return 1 if item in TOOLS or item in (WATER_BUCKET, LAVA_BUCKET, MILK_BUCKET, FIRE_STRIKER, SHEARS, BOW,
-                                         BOAT, FISHING_ROD, SADDLE, *ARMOR) else 16 if item == BUCKET else STACK_SIZE
+                                         BOAT, FISHING_ROD, SADDLE, COMPASS, MAP_ITEM, *ARMOR) else 16 if item == BUCKET else STACK_SIZE
 
 
 def new_stack(item, amount):
@@ -348,6 +350,11 @@ RECIPES = [
     ({STICK: 3, "wool": 1}, (BOW, 1)),
     ({STICK: 1, FEATHER: 1, 22: 1}, (ARROW, 4)),
     ({"planks": 5}, (BOAT, 1)),
+    ({"planks": 6, STICK: 1}, (1953, 3)),                # signs
+    ({59: 3}, (PAPER, 3)),                               # paper from reeds
+    ({IRON_INGOT: 4, COPPER_INGOT: 1}, (COMPASS, 1)),
+    ({PAPER: 8, COMPASS: 1}, (MAP_ITEM, 1)),
+    ({DIAMOND: 2, 1890: 4, 45: 1}, (1961, 1)),           # enchanting table: diamonds, obsidian, a bookshelf
     ({STICK: 3, "wool": 1, IRON_INGOT: 1}, (FISHING_ROD, 1)),
     ({"wool": 3, IRON_INGOT: 1}, (SADDLE, 1)),
     ({IRON_INGOT: 5}, (160, 1)), ({IRON_INGOT: 8}, (161, 1)), ({IRON_INGOT: 7}, (162, 1)), ({IRON_INGOT: 4}, (163, 1)),

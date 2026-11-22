@@ -468,6 +468,56 @@ def armour_icon(piece, colour):
     return gen
 
 
+def compass_icon(rng):
+    img = _blank()
+    for x in range(TILE):
+        for y in range(TILE):
+            d = ((x - 7.5) ** 2 + (y - 7.5) ** 2) ** 0.5
+            if d < 6.5:
+                _px(img, x, y, (120, 122, 130) if d > 5.3 else (236, 232, 220))
+    for i in range(4):
+        _px(img, 8, 4 + i, (210, 40, 40))
+        _px(img, 7, 8 + i, (60, 60, 70))
+    return img
+
+
+def map_icon(rng):
+    img = _blank()
+    for x in range(2, 14):
+        for y in range(2, 14):
+            edge = x in (2, 13) or y in (2, 13)
+            land = ((x * 3 + y * 5) % 7) < 3
+            _px(img, x, y, (170, 140, 90) if edge else ((110, 170, 80) if land else (90, 140, 210)))
+    _px(img, 8, 7, (210, 40, 40))
+    return img
+
+
+def paper_icon(rng):
+    img = _blank()
+    for x in range(3, 13):
+        for y in range(2, 14):
+            _px(img, x, y, (240, 238, 228) if (y % 3) else (200, 200, 196))
+    return img
+
+
+def enchant_top(rng):
+    img = _noise(rng, (150, 30, 40), 0.08)
+    for x in range(4, 12):
+        for y in range(4, 12):
+            img.putpixel((x, y), (236, 230, 214) if (x + y) % 5 else (90, 70, 160))
+    return img
+
+
+def enchant_side(rng):
+    img = _noise(rng, (26, 18, 40), 0.25)
+    for x in range(TILE):
+        for y in range(0, 4):
+            img.putpixel((x, y), (150, 30, 40))
+    for x in (3, 8, 12):
+        img.putpixel((x, 8), (110, 220, 230))
+    return img
+
+
 def lava(rng):
     img = _noise(rng, (222, 92, 18), 0.08)
     for _ in range(7):                       # bright molten streaks
@@ -2337,6 +2387,8 @@ EXTRA_GENERATORS.update({
     "iron_door_top": iron_door(True), "iron_door_bottom": iron_door(False), "trapdoor": trapdoor,
     "lantern": lantern, "barrel_side": barrel_side, "barrel_top": barrel_top, "tnt_side": tnt_side,
     "tnt_top": tnt_top, "tnt_bottom": tnt_top, "tnt_lit": noise_tile((250, 240, 230), 0.05), "shears": shears,
+    "compass": compass_icon, "map_item": map_icon, "paper": paper_icon, "enchant_top": enchant_top,
+    "enchant_side": enchant_side,
     "bow": bow_icon, "arrow": arrow_icon, "boat": boat_icon, "fishing_rod": rod_icon, "saddle": saddle_icon,
     **{f"{m}_{p}": armour_icon(p, c) for m, c in (("iron", (214, 214, 220)), ("diamond", (90, 220, 225)))
        for p in ("helmet", "chestplate", "leggings", "boots")},
