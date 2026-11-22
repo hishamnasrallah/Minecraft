@@ -201,6 +201,16 @@ func _drop_chunk(k: Vector2i) -> void:
 		_bodies.erase(sk)
 
 
+## Is this chunk drawn up to its surface? (Then the far land is not needed over it.)
+func surface_shown(k: Vector2i) -> bool:
+	if not views.has(k):
+		return false
+	var h := _heights_of(k)
+	if h.is_empty():
+		return false
+	return sections.has(section_key(k, mini(int(h[1]), WorldData.H - 1) / SEC))
+
+
 func is_ready_at(position: Vector3) -> bool:
 	var k := WorldData.chunk_key(floori(position.x + 0.5), floori(position.z + 0.5))
 	if not views.has(k):

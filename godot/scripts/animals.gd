@@ -101,13 +101,22 @@ const SPECIES := {
 	"cinder": {"speed": 2.4, "height": 0.8, "width": 0.8, "flee_range": 0.0, "swims": true, "group": [1, 2], "health": 12,
 		"hostile": true, "cap": "hostile", "move": "hop", "hop": 7.5, "damage": 3, "reach": 1.4, "sun_proof": true,
 		"fireproof": true},
+	# the archer: a bony night walker that keeps its distance and shoots arrows
+	"archer": {"speed": 2.0, "height": 1.9, "width": 0.6, "flee_range": 0.0, "swims": false, "group": [1, 1], "health": 10,
+		"hostile": true, "cap": "hostile", "damage": 0, "cooldown": 3.0, "sense": 24.0, "shoots": true},
+	# the bomb beetle: creeps up close, hisses and blows up
+	"beetle": {"speed": 2.2, "height": 1.0, "width": 0.8, "flee_range": 0.0, "swims": false, "group": [1, 1], "health": 10,
+		"hostile": true, "cap": "hostile", "damage": 0, "sense": 20.0, "explodes": true},
+	# the wolf: lives in forests; tame it with raw meat and it fights the night creatures for you
+	"wolf": {"speed": 3.2, "height": 0.85, "width": 0.6, "flee_range": 0.0, "swims": false, "group": [2, 3], "health": 10,
+		"food": [RAW_MEAT, 104], "call": ""},
 	"globlet": {"speed": 3.0, "height": 0.45, "width": 0.45, "flee_range": 0.0, "swims": true, "group": [1, 1], "health": 3,
 		"hostile": true, "cap": "hostile", "move": "hop", "hop": 6.0, "damage": 1, "reach": 1.1},
 }
 const DROPS := {"rabbit": [RAW_MEAT, 1, 1], "deer": [RAW_MEAT, 2, 3], "duck": [RAW_MEAT, 1, 2], "gloom": [COAL, 0, 2],
 	"woolly": [WOOL, 1, 2], "hen": [FEATHER, 1, 2], "goat": [RAW_MEAT, 1, 2], "frog": [0, 0, 0], "turtle": [0, 0, 0],
 	"lizard": [0, 0, 0], "fish": [RAW_FISH, 1, 1], "bird": [FEATHER, 0, 1], "butterfly": [0, 0, 0], "firefly": [0, 0, 0],
-	"bramble": [STICK, 1, 3], "glob": [172, 1, 2], "globlet": [SEEDS, 0, 1], "worker": [0, 0, 0], "cow": [RAW_MEAT, 1, 3], "cinder": [143, 0, 2], "pig": [RAW_MEAT, 1, 3], "horse": [0, 0, 0]}   # item, min, max
+	"bramble": [STICK, 1, 3], "glob": [172, 1, 2], "globlet": [SEEDS, 0, 1], "worker": [0, 0, 0], "cow": [RAW_MEAT, 1, 3], "cinder": [143, 0, 2], "pig": [RAW_MEAT, 1, 3], "horse": [0, 0, 0], "archer": [155, 0, 2], "beetle": [1951, 0, 1], "wolf": [0, 0, 0]}   # item, min, max
 # colour variants: woolly fleece = wool colour index (mostly naturals); see AnimalView.PALETTES
 const WOOL_COLOURS := [0, 0, 0, 0, 1, 1, 2, 3, 4, 4, 6, 7, 10, 12, 13, 14]
 const VARIANTS := {"rabbit": 2, "fish": 3, "butterfly": 4, "bird": 3, "worker": 3, "horse": 4}
@@ -152,6 +161,9 @@ class Animal:
 	var killed := false            # died from the player's hits (not despawned)
 	var burn := 0.0                # time spent in lava since the last burn
 	var sheared := 0.0             # a woolly sheep's fleece growing back (seconds)
+	var wants_shoot := false
+	var fuse := 0.0                # a bomb beetle about to blow up (seconds)
+	var bite_cd := 0.0             # a tame wolf's time between bites
 	var saddled := false           # a horse with a saddle: it can be ridden
 	var drive := 0.0               # being ridden: -1..1, how hard the rider pushes on
 	var farm := false              # lives on a farm (came with a library building): kept, but stays home
@@ -276,7 +288,14 @@ class Animal:
 			if can_target and not dormant and dist < float(spec.get("sense", CHASE_RANGE)) and absf(player.y - pos.y) < 6:
 				state = "chase"
 				yaw = rad_to_deg(atan2(px, pz))
-				if dist < float(spec.get("reach", ATTACK_RANGE)) and attack_cooldown <= 0:
+				if spec.get("shoots", false):
+					if dist < 16.0 and attack_cooldown <= 0:
+						wants_shoot = true              # an archer shoots from where it stands
+						attack_cooldown = float(spec.get("cooldown", 2.5))
+				elif spec.get("explodes", false):
+					if dist < 2.2 and fuse <= 0:
+						fuse = 1.5                      # it hisses: get away!
+				elif dist < float(spec.get("reach", ATTACK_RANGE)) and attack_cooldown <= 0:
 					wants_attack = true
 					attack_cooldown = float(spec.get("cooldown", 1.0))
 				return
@@ -345,6 +364,10 @@ class Animal:
 		var speed := 0.0
 		if state == "flee" or state == "chase":
 			speed = spec["speed"]
+			if spec.get("shoots", false) and player_dist < 8.0:
+				speed = 0.0                          # an archer keeps its distance
+			if fuse > 0:
+				speed = 0.0
 		elif state == "walk":
 			speed = spec["speed"] * 0.45
 		elif state == "ride":
@@ -510,7 +533,10 @@ class Animal:
 
 var world: WorldData
 var animals := []
-var parked := []                # tame / farm animals in chunks that are not loaded
+var parked := []
+var shots := []                 # archers' arrows this frame: [from, at] (the game flies them)
+var booms := []
+var bites := 0                  # tame wolves' bites (tests)                 # bomb beetles that went off: positions                # tame / farm animals in chunks that are not loaded
 var laid := []                  # [[item, count], position] dropped while no game is attached (tests)
 var _spawn_timer := 0.0
 var _spawn_turn := 0
@@ -581,6 +607,20 @@ func update(dt: float, player: Vector3, daylight := 1.0, hostile := true, can_ta
 		if every == 1 or (_frame + a.slot) % every == 0:
 			a.update(a.acc, world, target, target_ok)
 			a.acc = 0.0
+		if a.wants_shoot:
+			a.wants_shoot = false
+			shots.append([a.pos + Vector3(0, 1.5, 0), target])
+		if a.fuse > 0:
+			a.fuse -= dt
+			if int(a.fuse * 6.0) % 2 == 0:
+				a.hurt_time = 0.08                     # it flashes while it burns
+			if Vector2(target.x - a.pos.x, target.z - a.pos.z).length() > 5.0:
+				a.fuse = 0.0                           # you got away: it calms down
+			elif a.fuse <= 0:
+				a.dead = true
+				booms.append(a.pos + Vector3(0, 0.4, 0))
+		if a.kind == "wolf" and a.tame and not a.dead:
+			_wolf(a, dt)
 		if a.wants_attack:
 			if target_peer == 0:
 				damage += int(a.spec.get("damage", ATTACK_DAMAGE))
@@ -730,6 +770,30 @@ const TRADES := [
 	[[102, 15, 114, 1], [106, 4, 114, 1], [114, 3, 205, 1], [114, 3, 207, 1], [114, 4, 215, 1], [114, 2, 211, 1]],  # smith
 	[[124, 12, 114, 1], [114, 1, 122, 4], [114, 2, 128, 1], [114, 1, 104, 3]],                            # baker
 ]
+
+
+## A tame wolf goes for the nearest night creature within 10 blocks and bites it.
+func _wolf(w: Animal, dt: float) -> void:
+	w.bite_cd -= dt
+	var best: Animal = null
+	var best_d := 100.0
+	for a: Animal in animals:
+		if a.hostile and not a.dead:
+			var d := a.pos.distance_squared_to(w.pos)
+			if d < best_d:
+				best = a
+				best_d = d
+	if best == null:
+		return
+	w.state = "walk"
+	w.target = Vector2(best.pos.x, best.pos.z)
+	w.timer = 1.0
+	w.yaw = rad_to_deg(atan2(best.pos.x - w.pos.x, best.pos.z - w.pos.z))
+	if best_d < 1.6 * 1.6 and w.bite_cd <= 0:
+		w.bite_cd = 0.8
+		best.hit(w.pos, 4)
+		bites += 1
+		_sound("hurt" if false else "pop", best.pos.distance_squared_to(_player), -6.0, 0.7)
 
 
 ## A worker's job, twice a second. Farmers: walk to a ripe crop near home, harvest it, plant
@@ -1034,6 +1098,12 @@ func try_spawn_hostile(player: Vector3, daylight: float) -> Array:
 		return []                              # (the fire realm glows everywhere: its creatures do not mind)
 	if world.dimension == "fire":
 		kind = "cinder" if randf() < 0.7 else "gloom"         # the fire realm's own creatures
+	elif kind == "gloom":
+		var r2 := randf()
+		if r2 < 0.3:
+			kind = "archer"
+		elif r2 < 0.5:
+			kind = "beetle"
 	var g := Animal.new(kind, Vector3(x, y - 0.5, z))
 	if g.blocked(world, g.pos.x, g.pos.z):
 		return []
@@ -1085,7 +1155,7 @@ func pick_kind(x: int, z: int) -> Array:
 	if wet and randf() < 0.5:
 		return ["frog", y, -1]
 	if trees >= 2:
-		return [["deer", "deer", "rabbit", "hen"].pick_random(), y, -1]   # forest
+		return [["deer", "deer", "rabbit", "hen", "wolf"].pick_random(), y, -1]   # forest
 	return [["woolly", "woolly", "cow", "cow", "pig", "horse", "hen", "hen", "rabbit", "deer"].pick_random(), y, -1]   # meadow
 
 

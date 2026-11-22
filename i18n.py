@@ -177,6 +177,7 @@ UI = {
     "cause_starved": ("You starved.", "متت من الجوع."), "cause_drowned": ("You drowned.", "غرقت."),
     "cause_lava": ("You fell into lava.", "وقعت بالحمم."),
     "cause_explosion": ("You were blown up.", "انفجر فيك الديناميت."),
+    "cause_arrow": ("You were shot by an archer.", "أصابك سهم الرامي."),
     "cause_fell from a high place": ("You fell from a high place.", "وقعت من مكان عالي."),
     # settings
     "settings": ("Settings", "الإعدادات"), "language": ("Language", "اللغة"),

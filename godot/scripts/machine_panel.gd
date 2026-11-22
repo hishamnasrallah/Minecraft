@@ -167,7 +167,7 @@ func _open_now(kind: String, id: int, delay: int, mode: String, choices: Array, 
 			none.add_theme_font_size_override("font_size", 16)
 			none.modulate = Color(1, 1, 1, 0.7)
 			_list.add_child(none)
-		var box := _button("📦  " + I18n.t("panel_open"), false)
+		var box := _button(I18n.t("panel_open"), false)
 		box.pressed.connect(func(): chosen.emit("open", 0))
 		_list.add_child(box)
 	elif kind == "crafter":
@@ -195,7 +195,7 @@ func _open_now(kind: String, id: int, delay: int, mode: String, choices: Array, 
 			none.add_theme_font_size_override("font_size", 16)
 			none.modulate = Color(1, 1, 1, 0.7)
 			_list.add_child(none)
-		var box := _button("📦  " + I18n.t("panel_open"), false)
+		var box := _button(I18n.t("panel_open"), false)
 		box.pressed.connect(func(): chosen.emit("open", 0))
 		_list.add_child(box)
 	else:

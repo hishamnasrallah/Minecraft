@@ -1071,7 +1071,12 @@ func _shoot() -> void:
 			return
 		inv.remove(arrow, 1)
 		hud.show_hotbar(inv, selected, creative)
-	var dir := aim_dir()
+	_shoot_from(player.eye() + aim_dir() * 0.6, aim_dir(), false)
+	Sfx.play("click", 0.0, 0.6)
+
+
+## An arrow from `from` along `dir`: the player's hurt animals, an archer's hurt you.
+func _shoot_from(from: Vector3, dir: Vector3, hostile: bool) -> void:
 	var node := MeshInstance3D.new()
 	var bm := BoxMesh.new()
 	bm.size = Vector3(0.05, 0.05, 0.6)
@@ -1081,8 +1086,9 @@ func _shoot() -> void:
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	node.material_override = mat
 	add_child(node)
-	_arrows.append({"pos": player.eye() + dir * 0.6, "vel": dir * 32.0, "node": node, "age": 0.0})
-	Sfx.play("click", 0.0, 0.6)
+	_arrows.append({"pos": from, "vel": dir * (22.0 if hostile else 32.0), "node": node, "age": 0.0, "hostile": hostile})
+	if hostile:
+		Sfx.play("click", -6.0, 0.5)
 
 
 func _update_arrows(delta: float) -> void:
@@ -1093,7 +1099,11 @@ func _update_arrows(delta: float) -> void:
 		a["vel"] = vel
 		var pos: Vector3 = a["pos"] + vel * delta
 		var done: bool = a["age"] > 6.0
-		for an in wildlife.animals:                 # an animal in the way
+		if a.get("hostile", false):
+			if (player.position + Vector3(0, 0.9, 0)).distance_to(pos) < 0.7:
+				_take_damage(2, "arrow")                # an archer's arrow found you
+				done = true
+		for an in (wildlife.animals if not a.get("hostile", false) else []):   # an animal in the way
 			var centre: Vector3 = an.pos + Vector3(0, float(an.spec["height"]) * 0.5, 0)
 			if centre.distance_to(pos) < float(an.spec["width"]) * 0.6 + 0.35:
 				var drop: Array = an.hit(pos - vel.normalized(), 6)
@@ -1530,8 +1540,7 @@ func _open_trades(w) -> void:
 
 ## TNT goes off: the blocks within 3.5 blocks break (not bedrock, obsidian or fluids), other
 ## TNT nearby is lit with a short fuse, and it hurts and pushes anyone close.
-func _explode(c: Vector3i) -> void:
-	var r := 3.5
+func _explode(c: Vector3i, r := 3.5) -> void:
 	var edits := {}
 	for dx in range(-4, 5):
 		for dy in range(-4, 5):
@@ -1563,7 +1572,7 @@ func _explode(c: Vector3i) -> void:
 	if d.length() < 7.0:
 		player.velocity += d.normalized() * (7.0 - d.length()) * 2.0
 		if not creative:
-			_take_damage(int((7.0 - d.length()) * 2.0), "explosion")
+			_take_damage(int((7.0 - d.length()) * 2.0 * r / 3.5), "explosion")   # a small blast hurts less
 	for a in wildlife.animals:
 		var ad: Vector3 = a.pos - cp
 		if ad.length() < 6.0:
@@ -2055,6 +2064,38 @@ func _start_paste(origin: Vector3i, include_air: bool) -> void:
 		if not by_chunk.has(k):
 			by_chunk[k] = {}
 		by_chunk[k][q] = id
+	if _clip_from_library:
+		# a library building stands on the ground: under the edges of its lowest layer, walls of
+		# its base block go down to the land (or the sea floor), so it never floats
+		var low := {}
+		var miny := 1 << 30
+		for p in builder.clipboard:
+			if builder.clipboard[p] != 0:
+				var col := Vector2i(p.x, p.z)
+				if not low.has(col) or p.y < int(low[col][0]):
+					low[col] = [p.y, builder.clipboard[p]]
+				miny = mini(miny, p.y)
+		for col in low:
+			if int(low[col][0]) != miny:
+				continue
+			var edge := false
+			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				var n: Vector2i = col + d
+				if not low.has(n) or int(low[n][0]) != miny:
+					edge = true
+			if not edge:
+				continue
+			var wx: int = origin.x + col.x
+			var wz: int = origin.z + col.y
+			var ground := world.height_at(wx, wz)
+			var base_id: int = low[col][1]
+			if Blocks.solid[base_id] == 0 or Blocks.transparent[base_id] == 1:
+				base_id = 41                              # stone bricks under see-through or thin blocks
+			for y in range(origin.y + miny - 1, maxi(ground, origin.y + miny - 48), -1):
+				var k := WorldData.chunk_key(wx, wz)
+				if not by_chunk.has(k):
+					by_chunk[k] = {}
+				by_chunk[k][Vector3i(wx, y, wz)] = base_id
 	var me := WorldData.chunk_key(floori(player.position.x + 0.5), floori(player.position.z + 0.5))
 	var keys: Array = by_chunk.keys()
 	keys.sort_custom(func(a, b): return (a - me).length_squared() < (b - me).length_squared())
@@ -2955,12 +2996,12 @@ func _factory_test(name: String) -> void:
 	if t == 40 and _shot_path:                  # a picture from in front, a little above
 		var box := _paste_box
 		var c := box.get_center()
-		player.position = Vector3(c.x, box.end.y + 1.5, box.end.z + maxf(box.size.x, box.size.z) * 0.55)
+		player.position = Vector3(c.x, box.end.y + 1.5 + maxf(box.size.x, box.size.z) * 0.3, box.end.z + maxf(box.size.x, box.size.z) * 0.55)
 		player.yaw = 0.0
 		player.rotation.y = 0.0
 		player.pitch = -0.55
 		player.camera.rotation.x = player.pitch
-	if t == 70 and _shot_path:
+	if t == 400 and _shot_path:
 		get_viewport().get_texture().get_image().save_png(_shot_path)
 		get_tree().quit()
 		return
@@ -3419,6 +3460,15 @@ func _update_animals(delta: float) -> void:
 		var monsters: bool = I18n.settings.get("monsters", true)
 		Wildlife.others = remote_players.targets() if Net.is_host() else []
 		_take_damage(wildlife.update(delta, player.position, daylight, monsters, not creative and not health.dead))
+		for sh in wildlife.shots:                      # archers' arrows (aimed a little high: they drop)
+			var aim: Vector3 = sh[1] + Vector3(0, 1.2, 0)
+			var t: float = sh[0].distance_to(aim) / 22.0
+			aim.y += 0.5 * 14.0 * t * t
+			_shoot_from(sh[0], (aim - sh[0]).normalized(), true)
+		wildlife.shots.clear()
+		for bpos in wildlife.booms:                    # bomb beetles
+			_explode(Vector3i(floori(bpos.x + 0.5), floori(bpos.y + 0.5), floori(bpos.z + 0.5)), 2.5)
+		wildlife.booms.clear()
 		for peer in Wildlife.remote_damage:               # night creatures that hit a friend
 			Net.send_hurt(peer, Wildlife.remote_damage[peer])
 		Wildlife.remote_damage.clear()
@@ -3526,6 +3576,12 @@ func _update_sky(delta: float) -> void:
 	env.fog_depth_end = far_m * 0.98
 	player.camera.far = maxf(400.0, far_m + 64.0)
 	far_land.near_chunks = chunks.render_distance
+	if Engine.get_process_frames() % 30 == 0:
+		var cov := {}                                    # the far land fills every spot not drawn yet
+		for k in chunks.views:
+			if chunks.surface_shown(k):
+				cov[k] = true
+		far_land.covered = cov
 	far_land.update(player.position, shown_light)
 	if world.dimension != "fire":
 		weather.update(delta, player.position, 0.16 + 0.84 * day)
@@ -4157,6 +4213,54 @@ func _process_inner(delta: float) -> void:
 		if _st_frame == 400:
 			print("TOOLS bone meal grew the crop to %d (ripe 974); campfire took meat %s and gave cooked meat %s; anvil mended the pickaxe 100 -> %d; bounced up at %.1f, health %d -> %d" % [
 				_st["crop"], _st["cooking"], drops.drops.any(func(d): return int(d["stack"][0]) == 104), _st["repair"], _st["maxv"], _st["hp"], health.health])
+			get_tree().quit()
+	if "--mobtest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: archer, bomb beetle, tame wolf
+		if not _st.has("mo"):
+			_st["mo"] = Vector3i(floori(player.position.x + 0.5), floori(player.position.y), floori(player.position.z + 0.5))
+		var o: Vector3i = _st["mo"]
+		if _st_frame == 5:
+			set_mode(false)
+			world.time_of_day = 0.75                     # night
+			var e := {}
+			for x in range(-20, 21):
+				for z in range(-20, 21):
+					e[o + Vector3i(x, -1, z)] = 3
+					for y in range(0, 5):
+						e[o + Vector3i(x, y, z)] = 0
+			_rebuild(world.bulk_set(e)[0])
+			player.position = Vector3(o.x, o.y + 0.1, o.z)
+			wildlife.animals.clear()
+			var archer := Wildlife.Animal.new("archer", Vector3(o) + Vector3(0, -0.5, -11))
+			wildlife.animals.append(archer)
+			_st["hp0"] = health.health
+		if _st_frame == 600:
+			_st["archer"] = "health %d -> %d" % [_st["hp0"], health.health]
+			health.health = 20
+			health.dead = false
+			wildlife.animals.clear()
+			var beetle := Wildlife.Animal.new("beetle", Vector3(o) + Vector3(0, -0.5, -1.6))
+			wildlife.animals.append(beetle)
+			_st["hp1"] = health.health
+		if _st_frame == 900:
+			var hole := 0
+			for x in range(-3, 4):
+				for z in range(-5, 2):
+					hole += int(world.get_block(o.x + x, o.y - 1, o.z + z) == 0)
+			_st["beetle"] = "health %d -> %d, floor holes %d" % [_st["hp1"], health.health, hole]
+			health.health = 20
+			health.dead = false
+			wildlife.animals.clear()
+			var wolf := Wildlife.Animal.new("wolf", Vector3(o) + Vector3(4, -0.5, 4))
+			wolf.tame = true
+			var g := Wildlife.Animal.new("gloom", Vector3(o) + Vector3(-6, -0.5, -12))
+			wildlife.animals.append(wolf)
+			wildlife.animals.append(g)
+			_st["g"] = g
+			player.position = Vector3(o.x + 12, o.y + 0.1, o.z + 12)
+		if _st_frame == 1500:
+			var g = _st["g"]
+			print("MOBS archer: %s; beetle: %s; wolf vs gloom: wolf bites %d, gloom health %d of 10, dead %s" % [_st["archer"], _st["beetle"], wildlife.bites, g.health, g.dead])
 			get_tree().quit()
 	if "--mobcount" in OS.get_cmdline_user_args() and spawned and Engine.get_process_frames() % 600 == 0:
 		var kinds := {}                                 # testing: which creatures are around

@@ -82,6 +82,8 @@ var corner_uvs: Array             # face_uvs
 var shapes: PackedStringArray
 var transparent: PackedByteArray
 var fluid: PackedByteArray
+var letter := PackedByteArray()      # 1: a neon letter block
+var letter_back := 0
 var flow: PackedByteArray
 var translucent: PackedByteArray
 var emit: PackedByteArray
@@ -127,6 +129,11 @@ func _init(w: WorldData) -> void:
 	machine = Blocks.machine.duplicate()
 	lit = Blocks.lit.duplicate()
 	fluid = Blocks.fluid.duplicate()
+	letter.resize(Blocks.MAX_ID)
+	for lid in Blocks.defs:
+		if Blocks.defs[lid].has("letter"):
+			letter[lid] = 1
+	letter_back = Blocks.tile_side[603]                 # black concrete: the back and ends of a sign
 	flow = Blocks.flow.duplicate()
 	obs_face = Blocks.tiles.find("observer_face")
 	obs_out_off = Blocks.tiles.find("observer_out_off")
@@ -377,6 +384,8 @@ func _mesh_rows(key: Vector2i, row_lo: int, row_hi: int) -> Dictionary:
 					var lmp := 15 if emit[id] else l.y
 					var col := Color(l.x / 15.0, lmp / 15.0, faces[f][1], 1.0)
 					var tile := tile_top[id] if n.y > 0 else (tile_bottom[id] if n.y < 0 else tile_side[id])
+					if letter[id] and _letter_edge(x, y, z, n):
+						tile = letter_back                 # only the faces you read the word from show letters
 					# ambient occlusion: each corner gets darker for every solid block around it
 					# (water is left flat). The quad is split along the brighter diagonal so the
 					# shading stays smooth instead of showing a crease.
@@ -395,6 +404,16 @@ func _mesh_rows(key: Vector2i, row_lo: int, row_hi: int) -> Dictionary:
 						var uv: Vector2 = corner_uvs[f][i]
 						g.uvs.append(_uv(tile, uv.x, uv.y))
 	return out
+
+
+## A neon letter's face that is not a reading face: the top and bottom, and the ends of a word
+## (the sides that face along the row of letters).
+func _letter_edge(x: int, y: int, z: int, n: Vector3i) -> bool:
+	if n.y != 0:
+		return true
+	var along_x: bool = letter[world.get_block(x + 1, y, z)] == 1 or letter[world.get_block(x - 1, y, z)] == 1
+	var along_z: bool = letter[world.get_block(x, y, z + 1)] == 1 or letter[world.get_block(x, y, z - 1)] == 1
+	return (along_x and n.x != 0) or (along_z and n.z != 0)
 
 
 ## The boxes (min, max within -0.5..0.5) a non-cube block is made of.

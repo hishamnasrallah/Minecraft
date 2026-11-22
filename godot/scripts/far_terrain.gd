@@ -17,6 +17,9 @@ var _task := -1
 var _result = null
 var _lock := Mutex.new()
 var _built_for := []                    # [center, distance, near] of what is shown
+var covered := {}                       # chunk keys drawn by the real chunks (the far land skips them)
+var _covered_built := {}
+var _since := 0.0
 
 
 func _ready() -> void:
@@ -56,16 +59,22 @@ func update(player_pos: Vector3, light: float) -> void:
 	_mesh_node.visible = true
 	var c := Vector2i(floori(player_pos.x + 0.5) >> 4, floori(player_pos.z + 0.5) >> 4)
 	var want := [c, distance, near_chunks]
-	if _task != -1 or want == _built_for:
+	_since += get_process_delta_time()
+	if _task != -1:
 		return
-	if _built_for.size() == 3 and _built_for[1] == distance and _built_for[2] == near_chunks:
+	var holes_changed := covered.size() != _covered_built.size() or not covered.keys().all(func(k): return _covered_built.has(k))
+	if want == _built_for and not (holes_changed and _since > 1.0):
+		return
+	if _built_for.size() == 3 and _built_for[1] == distance and _built_for[2] == near_chunks and not (holes_changed and _since > 1.0):
 		var was: Vector2i = _built_for[0]
 		if maxi(absi(c.x - was.x), absi(c.y - was.y)) < 2:
 			return                                   # it overlaps the real ground by two chunks
+	_since = 0.0
+	_covered_built = covered.duplicate()
 	# a private copy of the generator, so the worker shares nothing with the game
 	var g := WorldData.new(world.seed, world.dimension)
 	g.gen = world.gen
-	_task = WorkerThreadPool.add_task(_build.bind(g, want))
+	_task = WorkerThreadPool.add_task(_build.bind(g, want, _covered_built.duplicate()))
 
 
 func _exit_tree() -> void:
@@ -74,7 +83,7 @@ func _exit_tree() -> void:
 		_task = -1
 
 
-func _build(g: WorldData, want: Array) -> void:
+func _build(g: WorldData, want: Array, cov: Dictionary) -> void:
 	var c: Vector2i = want[0]
 	var dist: int = want[1]
 	var near: int = want[2]
@@ -116,8 +125,11 @@ func _build(g: WorldData, want: Array) -> void:
 		for ix in size - 1:
 			var x0 := (ix - n) * STEP
 			var z0 := (iz - n) * STEP
-			if absi(x0 + STEP / 2) < cut and absi(z0 + STEP / 2) < cut:
-				continue
+			if cov.is_empty():
+				if absi(x0 + STEP / 2) < cut and absi(z0 + STEP / 2) < cut:
+					continue
+			elif cov.has(Vector2i(floori(float(cx + x0 + STEP / 2) / 16.0), floori(float(cz + z0 + STEP / 2) / 16.0))):
+				continue                                 # a real chunk is drawn here
 			var i00 := iz * size + ix
 			var h00 := heights[i00]
 			var h10 := heights[i00 + 1]

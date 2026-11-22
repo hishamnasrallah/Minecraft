@@ -396,6 +396,10 @@
    "en": "You were blown up.",
    "ar": "انفجر فيك الديناميت."
   },
+  "cause_arrow": {
+   "en": "You were shot by an archer.",
+   "ar": "أصابك سهم الرامي."
+  },
   "cause_fell from a high place": {
    "en": "You fell from a high place.",
    "ar": "وقعت من مكان عالي."
