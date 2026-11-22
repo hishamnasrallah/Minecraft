@@ -51,3 +51,36 @@ func test_bench() -> String:
 			surf += w.top_y(x, z)
 	print("BENCH average surface y: ", surf / 256.0, "  H=", WorldData.H)
 	return ""
+
+
+func test_bench_mesh() -> String:
+	Mesher._static_setup()
+	var w := WorldData.new(5)
+	for x in range(0, 6):
+		for z in range(0, 6):
+			w.ensure_chunk(Vector2i(x, z))
+	var m := Mesher.new(w)
+	var t := Time.get_ticks_usec()
+	var n := 0
+	var secs_n := 0
+	var light_us := 0
+	var rows_us := 0
+	for x in range(1, 5):
+		for z in range(1, 5):
+			var k := Vector2i(x, z)
+			var hs: Array = ChunkManager.scan_heights(w.chunks[k], Blocks.transparent)
+			var want := []
+			for s in range(maxi(int(hs[0]) - 6, 0) / Mesher.SEC, int(hs[1]) / Mesher.SEC + 1):
+				want.append(s)
+			m.max_y = mini(int(hs[1]) + 1, WorldData.H - 1)
+			var tl := Time.get_ticks_usec()
+			m.compute_light(k, want[0] * Mesher.SEC, mini(WorldData.H, want[-1] * Mesher.SEC + Mesher.SEC))
+			light_us += Time.get_ticks_usec() - tl
+			tl = Time.get_ticks_usec()
+			for s in want:
+				m._mesh_rows(k, s * Mesher.SEC, mini(WorldData.H, s * Mesher.SEC + Mesher.SEC))
+			rows_us += Time.get_ticks_usec() - tl
+			n += 1
+			secs_n += want.size()
+	print("BENCH mesh per chunk: %.1f ms (%.1f sections each): light %.1f ms, faces %.1f ms" % [(Time.get_ticks_usec() - t) / 1000.0 / n, float(secs_n) / n, light_us / 1000.0 / n, rows_us / 1000.0 / n])
+	return ""

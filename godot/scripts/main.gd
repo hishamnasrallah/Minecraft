@@ -286,7 +286,7 @@ func _ready() -> void:
 	power = Power.new(world)
 	fluids = Fluids.new()
 	fluids.world = world
-	fluids.set_block = func(p: Vector3i, id: int) -> void: edit(p, id, true, false)
+	fluids.set_block = func(p: Vector3i, id: int) -> void: edit(p, id, true, false, false)
 	fluids.wash = func(p: Vector3i, id: int) -> void:
 		var d := Items.drop_for(id)
 		if d != 0:
@@ -298,7 +298,7 @@ func _ready() -> void:
 			Net.send_edit(p, id)
 		if Blocks.defs.get(id, {}).has("crop") or Items.sapling_trees.has(id):
 			growing[p] = true                      # also crops and saplings from pasted buildings
-	power.set_block = func(p: Vector3i, id: int) -> void: edit(p, id, true, false)
+	power.set_block = func(p: Vector3i, id: int) -> void: edit(p, id, true, false, false)
 	power.spawn_drop = func(st: Array, p: Vector3) -> void: _drop_from_machine(st, p)
 	power.feed_animal = func(at: Vector3, item: int) -> int: return wildlife.feed_near(at, item)
 	power.explode = func(p: Vector3i) -> void: _explode(p)
@@ -871,15 +871,17 @@ func looked_at_animal():
 	return best if hit.is_empty() or best_d < hit["distance"] + 0.3 else null
 
 
-func edit(pos: Vector3i, id: int, force := false, flood := true) -> bool:
+## urgent: the player did it (redrawn at once). Machines and flowing water are not urgent:
+## their chunks are redrawn in turn, so a busy factory never holds up the land loading.
+func edit(pos: Vector3i, id: int, force := false, flood := true, urgent := true) -> bool:
 	var keys := world.set_block(pos.x, pos.y, pos.z, id, force, flood)
 	# light can change up to 15 blocks away: re-mesh the sections within 16 rows
-	_rebuild(keys, maxi(pos.y - 16, 0), mini(pos.y + 16, WorldData.H - 1))
+	_rebuild(keys, maxi(pos.y - 16, 0), mini(pos.y + 16, WorldData.H - 1), urgent)
 	return not keys.is_empty()
 
 
 ## Rows: the height range that changed (default: anything, e.g. building tools).
-func _rebuild(keys: Array, y_lo := -1, y_hi := -1) -> void:
+func _rebuild(keys: Array, y_lo := -1, y_hi := -1, urgent := true) -> void:
 	# the chunks the edit touched show it at once; the ring around them only needs its light
 	# touched up, so it waits for a free moment (fast building merges into one redraw)
 	var ring := {}
@@ -2567,7 +2569,7 @@ func _update_growing(delta: float) -> void:
 			if nxt == 0:
 				growing.erase(p)                # ripe
 			elif randf() < grow_speed / 45.0:   # about 45 s per stage
-				edit(p, nxt)
+				edit(p, nxt, false, true, false)     # growing is not urgent
 		elif Items.sapling_trees.has(id):
 			if randf() < 1.0 / 90.0:            # about a minute and a half
 				if _grow_tree(p, Items.sapling_trees[id]):
@@ -3945,6 +3947,8 @@ func _process_inner(delta: float) -> void:
 	_spawn_shield = maxf(0.0, _spawn_shield - delta)
 	var tc := Time.get_ticks_usec()
 	chunks.update_center(player.position)
+	# a second and a half ahead (at most 3 chunks): what you fly towards loads first
+	chunks.lead = (Vector2(player.velocity.x, player.velocity.z) * 1.5 / 16.0).limit_length(3.0)
 	_perf("world", Time.get_ticks_usec() - tc)
 	_perf("chunks", chunks.last_usec)
 	hud.perf = _perf_ms
@@ -4107,6 +4111,79 @@ func _process_inner(delta: float) -> void:
 			var f := Vector3i(floori(player.position.x + 0.5), floori(player.position.y + 0.6), floori(player.position.z + 0.5))
 			var b := world.get_block(f.x, f.y, f.z)
 			print("PASTEHERE player moved from ", _st["before"], " to ", player.position, ", stuck in a block: ", b != 0 and Blocks.solid[b] == 1, " block ", b, " ", Items.name_of(b), " top_y ", world.top_y(f.x, f.z))
+	if "--revisittest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: paste a big building, leave, come back
+		if _st_frame == 5:
+			creative = true
+			set_flying(true)
+			for a in OS.get_cmdline_user_args():
+				if a.begins_with("--rd="):
+					chunks.render_distance = int(a.substr(5))
+			chunks.update_center(player.position, true)
+			builder.load_file("res://data/schematics/industrial_park.json")
+			_clip_from_library = true
+			var f := Vector3i(floori(player.position.x + 0.5), floori(player.position.y) - 1, floori(player.position.z + 0.5))
+			_start_paste(_paste_origin({"pos": f + Vector3i(0, 0, -20), "normal": Vector3i(0, 1, 0)}), true)
+			_st["home"] = player.position
+		if _st_frame > 5 and not _st.has("pasted") and _paste_batches.is_empty():
+			_st["pasted"] = _st_frame
+			_st["box"] = _paste_box
+			player.position += Vector3(600, 0, 0)           # fly far away
+		if _st.has("pasted") and _st_frame == int(_st["pasted"]) + 400:
+			player.position = _st["home"] + Vector3(0, 40, 30)    # and come back, high up
+			player.yaw = 0.0
+			player.look(Vector2(0, 0.7))
+		if _st.has("pasted") and _st_frame > int(_st["pasted"]) + 400 and _st_frame % 100 == 0:
+			print("REVISIT f%d views %d dirty %d gen %d mesh %d pending %d started %d max_jobs %d urgent %d calm %d fps %d" % [_st_frame, chunks.views.size(), chunks._dirty.size(), chunks._generating.size(), chunks._meshing.size(), chunks._pending.size(), chunks.jobs_started, chunks.max_jobs, chunks._urgent.size(), chunks._calm.size(), Engine.get_frames_per_second()])
+		if _st.has("pasted") and _st_frame == int(_st["pasted"]) + 650 and "--early" in OS.get_cmdline_user_args() and _shot_path:
+			get_viewport().get_texture().get_image().save_png(_shot_path.replace(".png", "_early.png"))
+		if _st.has("pasted") and _st_frame == int(_st["pasted"]) + 1400:
+			var box: AABB = _st["box"]
+			var bad := []
+			var n := 0
+			for cx in range(floori(box.position.x) >> 4, (floori(box.end.x) >> 4) + 1):
+				for cz in range(floori(box.position.z) >> 4, (floori(box.end.z) >> 4) + 1):
+					var k := Vector2i(cx, cz)
+					if ChunkManager._dist(k, chunks._center) > chunks.render_distance:
+						continue
+					n += 1
+					if not chunks.surface_shown(k):
+						bad.append(k)
+			print("REVISIT building chunks %d, not drawn to the top: %s; views %d dirty %d" % [n, bad, chunks.views.size(), chunks._dirty.size()])
+			if _shot_path:
+				get_viewport().get_texture().get_image().save_png(_shot_path)
+			get_tree().quit()
+	if "--streamtest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: fly around at a big view distance
+		if _st_frame == 5:
+			creative = true
+			set_flying(true)
+			for a in OS.get_cmdline_user_args():
+				if a.begins_with("--rd="):
+					chunks.render_distance = int(a.substr(5))
+			chunks.update_center(player.position, true)
+			player.position.y += 30
+		if _st_frame > 5 and _st_frame < 1500:
+			player.fast = true                        # fly forward fast
+			_test_move = Vector2(0, 1)
+		if _st_frame == 1500:
+			_test_move = Vector2.ZERO
+		if _st_frame % 150 == 0:
+			var c := WorldData.chunk_key(floori(player.position.x + 0.5), floori(player.position.z + 0.5))
+			var near_n := 0
+			var shown_n := 0
+			var drawn_n := 0
+			for dx in range(-3, 4):
+				for dz in range(-3, 4):
+					var k := Vector2i(c.x + dx, c.y + dz)
+					near_n += 1
+					shown_n += int(chunks.surface_shown(k))
+					drawn_n += int(chunks.views.has(k))
+			print("STREAM f%d pos %s near 7x7: drawn %d, surface %d of %d; views %d dirty %d gen %d mesh %d pending %d loaded %d fps %d" % [_st_frame, Vector3i(player.position), drawn_n, shown_n, near_n, chunks.views.size(), chunks._dirty.size(), chunks._generating.size(), chunks._meshing.size(), chunks._pending.size(), world.chunks.size(), Engine.get_frames_per_second()])
+		if _st_frame == 2400:
+			if _shot_path:
+				get_viewport().get_texture().get_image().save_png(_shot_path)
+			get_tree().quit()
 	if "--playtest" in OS.get_cmdline_user_args() and spawned:
 		_st_frame += 1                                  # testing: a heavy play session, measured
 		if _st_frame == 5:

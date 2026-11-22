@@ -68,6 +68,7 @@ static func _static_setup() -> void:
 				uv.append(Vector2(u, c.y + 0.5))
 		face_corners.append(tri)
 		face_uvs.append(uv)
+	_ao_tables()
 
 
 # private copies (made on the main thread in _init): a worker thread never touches an
@@ -276,6 +277,49 @@ func _opaque(x: int, y: int, z: int) -> bool:
 	return b != 0 and transparent[b] == 0
 
 
+## The same as _corner_ao, without allocating: the result goes into _ao.
+func _corner_ao_fast(f: int, x: int, y: int, z: int) -> void:
+	var n: Vector3i = faces[f][0]
+	var bx := x + n.x
+	var by := y + n.y
+	var bz := z + n.z
+	var d1s: Array = _ao_d1[f]
+	var d2s: Array = _ao_d2[f]
+	for q in 4:
+		var d1: Vector3i = d1s[q]
+		var d2: Vector3i = d2s[q]
+		var a := _bk(bx + d1.x, by + d1.y, bz + d1.z)
+		var b := _bk(bx + d2.x, by + d2.y, bz + d2.z)
+		var s1 := a != 0 and transparent[a] == 0
+		var s2 := b != 0 and transparent[b] == 0
+		if s1 and s2:
+			_ao[q] = 0
+			continue
+		var c := _bk(bx + d1.x + d2.x, by + d1.y + d2.y, bz + d1.z + d2.z)
+		_ao[q] = 3 - int(s1) - int(s2) - int(c != 0 and transparent[c] == 0)
+
+
+static func _ao_tables() -> void:
+	for f in 6:
+		var n: Vector3i = FACES[f][0]
+		var axes := []
+		for a in 3:
+			if n[a] == 0:
+				axes.append(a)
+		var l1 := []
+		var l2 := []
+		for q in 4:
+			var c: Vector3 = face_corners[f][QUAD_INDEX[q]]
+			var d1 := Vector3i.ZERO
+			var d2 := Vector3i.ZERO
+			d1[axes[0]] = 1 if c[axes[0]] > 0 else -1
+			d2[axes[1]] = 1 if c[axes[1]] > 0 else -1
+			l1.append(d1)
+			l2.append(d2)
+		_ao_d1.append(l1)
+		_ao_d2.append(l2)
+
+
 ## 0..3 for each of the face's 4 corners: how open the space around that corner is.
 func _corner_ao(f: int, x: int, y: int, z: int) -> Array:
 	var n: Vector3i = faces[f][0]
@@ -344,16 +388,58 @@ func build(key: Vector2i) -> Dictionary:
 	return _mesh_rows(key, 0, H)
 
 
+## The 3x3 chunk arrays around the chunk being meshed, for fast neighbour reads.
+var _slots: Array = []
+var _skx := 0
+var _skz := 0
+var _nbs := PackedInt32Array([0, 0, 0, 0, 0, 0])
+var _ao := PackedInt32Array([3, 3, 3, 3])
+static var _ao_d1: Array = []           # per face, per corner: the two side offsets of the corner
+static var _ao_d2: Array = []
+
+
+func _set_slots(key: Vector2i) -> void:
+	_skx = key.x
+	_skz = key.y
+	_slots.resize(9)
+	for dx in 3:
+		for dz in 3:
+			var c = world.chunks.get(Vector2i(key.x - 1 + dx, key.y - 1 + dz))
+			_slots[dx * 3 + dz] = c.b if c != null else PackedInt32Array()
+
+
+## The block at a world cell, read from the 3x3 chunk arrays (outside them: the world).
+func _bk(x: int, y: int, z: int) -> int:
+	if y < 0 or y >= H:
+		return 0
+	var sx := (x >> 4) - _skx + 1
+	var sz := (z >> 4) - _skz + 1
+	if sx < 0 or sx > 2 or sz < 0 or sz > 2:
+		return world.get_block(x, y, z)
+	var arr: PackedInt32Array = _slots[sx * 3 + sz]
+	if arr.is_empty():
+		return 0
+	return arr[((x & 15) * H + y) * CS + (z & 15)]
+
+
 func _mesh_rows(key: Vector2i, row_lo: int, row_hi: int) -> Dictionary:
 	var out := {"solid": Group.new(), "translucent": Group.new(), "water": Group.new(), "plants": Group.new()}
+	_set_slots(key)
 	var data: PackedInt32Array = world.chunks[key].b
+	var xp_arr: PackedInt32Array = _slots[7]       # the chunks at x+1, x-1, z+1, z-1
+	var xm_arr: PackedInt32Array = _slots[1]
+	var zp_arr: PackedInt32Array = _slots[5]
+	var zm_arr: PackedInt32Array = _slots[3]
+	var sxs := H * CS                              # index step for x
 	var x0 := key.x * CS
 	var z0 := key.y * CS
+	var nbs := _nbs
 	for lx in CS:
 		for y in range(row_lo, mini(row_hi, max_y + 2)):
 			var base := (lx * H + y) * CS
 			for lz in CS:
-				var id := data[base + lz]
+				var i := base + lz
+				var id := data[i]
 				if id == 0:
 					continue
 				var x := x0 + lx
@@ -364,16 +450,32 @@ func _mesh_rows(key: Vector2i, row_lo: int, row_hi: int) -> Dictionary:
 					if fluid[id] == 0:
 						continue
 					tid = WorldData.WATER            # a sea plant: the water around it is drawn too
+				# the six neighbours, straight from the chunk arrays
+				nbs[0] = data[i + CS] if y + 1 < H else 0
+				nbs[1] = data[i - CS] if y > 0 else 0
+				nbs[2] = data[i + sxs] if lx < 15 else (xp_arr[i - 15 * sxs] if not xp_arr.is_empty() else 0)
+				nbs[3] = data[i - sxs] if lx > 0 else (xm_arr[i + 15 * sxs] if not xm_arr.is_empty() else 0)
+				nbs[4] = data[i + 1] if lz < 15 else (zp_arr[i - 15] if not zp_arr.is_empty() else 0)
+				nbs[5] = data[i - 1] if lz > 0 else (zm_arr[i + 15] if not zm_arr.is_empty() else 0)
 				var fl := fluid[id]
+				if fl == 0 and tid == id:
+					var buried := true                 # hidden on all sides: nothing to draw
+					for k in 6:
+						var q := nbs[k]
+						if q == 0 or (transparent[q] != 0 and q != id):
+							buried = false
+							break
+					if buried:
+						continue
 				var water := fl == 1
 				var g: Group = out["water"] if water else (out["translucent"] if translucent[id] else out["solid"])
 				# a fluid's surface sits lower the further it has run from its source; under
 				# more of the same fluid it is full
-				var lowered := fl != 0 and fluid[world.get_block(x, y + 1, z)] != fl
+				var lowered := fl != 0 and fluid[nbs[0]] != fl
 				var top := 0.4 - flow[id] * (0.1 if water else 0.2)
 				for f in 6:
 					var n: Vector3i = faces[f][0]
-					var nb := world.get_block(x + n.x, y + n.y, z + n.z)
+					var nb := nbs[f]
 					if fl != 0:
 						if fluid[nb] == fl and not (n.y == 0 and lowered and flow[nb] > flow[id]):
 							continue
@@ -392,19 +494,23 @@ func _mesh_rows(key: Vector2i, row_lo: int, row_hi: int) -> Dictionary:
 					# ambient occlusion: each corner gets darker for every solid block around it
 					# (water is left flat). The quad is split along the brighter diagonal so the
 					# shading stays smooth instead of showing a crease.
-					var ao := [3, 3, 3, 3] if fl != 0 else _corner_ao(f, x, y, z)
+					if fl != 0:
+						_ao.fill(3)
+					else:
+						_corner_ao_fast(f, x, y, z)
+					var ao := _ao
 					var order := corners_a
 					if ao[0] + ao[2] < ao[1] + ao[3]:
 						order = corners_b
 					for k in 6:
 						var q: int = order[k]
-						var i: int = quad_index[q]
-						var c: Vector3 = corners[f][i]
+						var ci: int = quad_index[q]
+						var c: Vector3 = corners[f][ci]
 						if lowered and c.y > 0:
 							c.y = top
 						g.verts.append(Vector3(x, y, z) + c)
 						g.colors.append(Color(col.r, col.g, col.b * ao_levels[ao[q]], 1.0))
-						var uv: Vector2 = corner_uvs[f][i]
+						var uv: Vector2 = corner_uvs[f][ci]
 						g.uvs.append(_uv(tile, uv.x, uv.y))
 	return out
 

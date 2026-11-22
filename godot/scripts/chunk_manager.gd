@@ -56,8 +56,9 @@ func setup(w: WorldData, mats: Dictionary, distance: int) -> void:
 	# shared tables must exist before any worker thread uses them
 	Mesher._static_setup()
 	_transparent = Blocks.transparent.duplicate()
-	# one background thread: enough to keep up, and nothing for two workers to fight over
-	max_jobs = 0 if Boot.safe_mode else 1
+	# background jobs: each works on its own copy of the blocks, so several can run at once.
+	# Keep two cores free for the game itself (8 cores: 4 jobs; 4 cores: 2).
+	max_jobs = 0 if Boot.safe_mode else clampi(OS.get_processor_count() - 2, 1, 4)
 
 
 func _exit_tree() -> void:
@@ -156,11 +157,12 @@ func rebuild(keys: Array, y_lo := -1, y_hi := -1, urgent := true) -> void:
 			if sections.has(section_key(k, s)) or s in want:
 				d[s] = true
 		_dirty[k] = d
-		if urgent:
-			_urgent[k] = true
+		if urgent and views.has(k):
+			_urgent[k] = true                    # only a chunk on screen: you see your edit at once
 			_calm.erase(k)
-		elif not _urgent.has(k):
+		elif not _urgent.has(k) and views.has(k):
 			_calm[k] = Time.get_ticks_msec()     # redraw once the building around it pauses
+			# (a chunk not drawn yet never waits: a busy machine must not keep it hidden)
 
 
 func update_center(position: Vector3, force := false) -> void:
@@ -187,6 +189,12 @@ func update_center(position: Vector3, force := false) -> void:
 		for k in _dirty.keys():
 			if _dist(k, c) > render_distance:
 				_dirty.erase(k)
+		for k in _urgent.keys():
+			if not _dirty.has(k):
+				_urgent.erase(k)                 # left behind: nothing urgent about it any more
+		for k in _calm.keys():
+			if not _dirty.has(k):
+				_calm.erase(k)
 	_update_collision()
 
 
@@ -283,12 +291,17 @@ func _jobs() -> int:
 	return _generating.size() + _meshing.size()
 
 
+var lead := Vector2.ZERO               # where the player will be in a moment, in chunks (set by the game)
+
+
 func _sorted_dirty() -> Array:
 	var order: Array = _dirty.keys()
+	# flying fast: the chunks ahead come first, not the ones about to be left behind
+	var aim := Vector2(_center) + lead
 	order.sort_custom(func(a, b):
 		if _urgent.has(a) != _urgent.has(b):
 			return _urgent.has(a)
-		return (a - _center).length_squared() < (b - _center).length_squared())
+		return (Vector2(a) - aim).length_squared() < (Vector2(b) - aim).length_squared())
 	return order
 
 
@@ -318,11 +331,19 @@ func _schedule() -> void:
 	if max_jobs == 0:
 		_schedule_inline()
 		return
+	# redrawing chunks already on screen (machines at work) gets one job at most while there is
+	# land still to load, so a busy factory never holds the loading up
+	var redraws := 0
+	for k in _meshing:
+		if views.has(k):
+			redraws += 1
 	for key in _sorted_dirty():
 		if _jobs() >= max_jobs and not _urgent.has(key):
 			return
+		if views.has(key) and not _urgent.has(key) and redraws >= 1 and max_jobs > 1:
+			continue
 		if _urgent.has(key) and _meshing.size() >= MAX_URGENT_JOBS:
-			return                                  # fast building: let edits pile into one job
+			continue                                # fast building: let edits pile into one job
 		if _calm.has(key):
 			if Time.get_ticks_msec() - int(_calm[key]) < RING_CALM_MS:
 				continue
@@ -336,6 +357,8 @@ func _schedule() -> void:
 				_dirty.erase(key)
 				_urgent.erase(key)
 			else:
+				if views.has(key):
+					redraws += 1
 				_start_mesh(key, secs)
 		else:
 			for k in missing:

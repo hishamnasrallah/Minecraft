@@ -146,6 +146,46 @@ func _build(g: WorldData, want: Array, cov: Dictionary) -> void:
 			for v in [p00, p10, p11, p00, p11, p01]:
 				verts.append(v)
 				cols.append(col)
+	# skirts: where a real chunk meets the far land, a short wall along the edge of the hole.
+	# A real chunk does not draw its outer sides (the blocks next to them exist), so without
+	# this you would look through the gap under its edge and see the sky.
+	if not cov.is_empty():
+		var hole := func(ix: int, iz: int) -> bool:
+			if ix < 0 or iz < 0 or ix >= size - 1 or iz >= size - 1:
+				return false
+			var qx := (ix - n) * STEP
+			var qz := (iz - n) * STEP
+			return cov.has(Vector2i(floori(float(cx + qx + STEP / 2) / 16.0), floori(float(cz + qz + STEP / 2) / 16.0)))
+		# per side: neighbour quad offset, then the two grid points of the shared edge
+		var sides := [[1, 0, 1, 0, 1, 1], [-1, 0, 0, 0, 0, 1], [0, 1, 0, 1, 1, 1], [0, -1, 0, 0, 1, 0]]
+		for iz in size - 1:
+			for ix in size - 1:
+				if not hole.call(ix, iz):
+					continue
+				for sd in sides:
+					var nx: int = ix + sd[0]
+					var nz: int = iz + sd[1]
+					if nx < 0 or nz < 0 or nx >= size - 1 or nz >= size - 1 or hole.call(nx, nz):
+						continue
+					var ax: int = ix + sd[2]
+					var az: int = iz + sd[3]
+					var bx: int = ix + sd[4]
+					var bz: int = iz + sd[5]
+					var ha := heights[az * size + ax]
+					var hb := heights[bz * size + bx]
+					var top := maxf(ha, hb) + DROP + 1.5
+					var bottom := minf(ha, hb) - 3.0
+					var pa := Vector3(cx + (ax - n) * STEP, 0, cz + (az - n) * STEP)
+					var pb := Vector3(cx + (bx - n) * STEP, 0, cz + (bz - n) * STEP)
+					var col: Color = colors[iz * size + ix] * 0.55
+					col.a = 1.0
+					var a0 := Vector3(pa.x, bottom, pa.z)
+					var b0 := Vector3(pb.x, bottom, pb.z)
+					var a1 := Vector3(pa.x, top, pa.z)
+					var b1 := Vector3(pb.x, top, pb.z)
+					for v in [a0, b0, b1, a0, b1, a1, a0, b1, b0, a0, a1, b1]:     # both sides
+						verts.append(v)
+						cols.append(col)
 	_lock.lock()
 	_result = [verts, cols, want]
 	_lock.unlock()

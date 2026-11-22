@@ -880,7 +880,7 @@ func _tick_worker(a: Animal, dt: float, game) -> void:
 					if n > 0:
 						a.carry[int(bonus[0])] = int(a.carry.get(int(bonus[0]), 0)) + n
 				if game != null:
-					game.edit(crop, b - int(c["stage"]), true, false)
+					game.edit(crop, b - int(c["stage"]), true, false, false)
 				else:
 					world.set_block(crop.x, crop.y, crop.z, b - int(c["stage"]), true, false)
 				a.walk_phase += 3.0                # the arms swing: work done
