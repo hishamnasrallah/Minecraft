@@ -4198,6 +4198,9 @@ func _process_inner(delta: float) -> void:
 		if world.dimension == "fire":
 			print("FIRE arrived in: ", world.dimension, ", standing on ", Blocks.name_of[world.get_block(floori(player.position.x + 0.5), floori(player.position.y - 0.5), floori(player.position.z + 0.5))],
 				", lava sea below: ", world.get_block(40, WorldData.FIRE_SEA, 40) == Blocks.LAVA or true)
+			var cp := Vector3i(WorldData.FORT_X + 6, WorldData.FIRE_HALL + 1, WorldData.FORT_Z + WorldData.FORT_W - 2)
+			world.ensure_chunk(WorldData.chunk_key(cp.x, cp.z))
+			print("FIRE fortress chest: %s, bridge block %s" % [world.containers.get(cp), Blocks.name_of[world.get_block(20, WorldData.FIRE_HALL, 1)]])
 			Session.set_meta("firetest", 2)
 			player.position = Vector3(0, WorldData.FIRE_HALL + 1.5, -6)    # into the portal home
 			_portal_lock = false

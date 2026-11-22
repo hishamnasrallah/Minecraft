@@ -780,6 +780,10 @@ func fire_cave(x: int, z: int) -> Vector2i:
 	if pillar > 0.72:
 		f = c                                      # a column from floor to roof
 	var d := sqrt(float(x * x + z * z))
+	if d >= 10.0 and x >= 8 and x <= FORT_X + FORT_W + 4 and z >= FORT_Z - 4 and z <= FORT_Z + FORT_W + 4 \
+			and (x >= FORT_X - 4 or (z >= -3 and z <= 5)):
+		f = FIRE_SEA - 4                           # the fortress and its bridge stand over open lava
+		c = maxf(c, FIRE_HALL + 26.0)
 	if d < 10.0:                                   # the arrival hall: flat, dry, with room
 		f = FIRE_HALL
 		c = maxf(c, FIRE_HALL + 12.0)
@@ -829,6 +833,7 @@ func _ensure_fire(key: Vector2i) -> bool:
 			if fl < ce and VNoise.hash2(x, z, seed + 606) < 0.012 and ce - 1 > fl + 3:
 				blk[base + (ce - 1) * CS] = FIRE["CRYSTAL"]            # glowing crystals hang from the roof
 				e[Vector3i(x, ce - 1, z)] = true
+	_fortress(key, blk, e)
 	# the portal home: an obsidian frame across x at z = -6, on the hall floor
 	for i in 4:
 		for j in 5:
@@ -847,6 +852,72 @@ func _ensure_fire(key: Vector2i) -> bool:
 	if not e.is_empty():
 		emitters[key] = e
 	return true
+
+
+## The ember fortress, east of the arrival hall: a bridge of ember bricks over the lava from the
+## hall to a walled keep with towers; chests inside hold treasure (filled the first time).
+const FORT_X := 40
+const FORT_Z := -10
+const FORT_W := 24
+
+
+func _fortress(key: Vector2i, blk: PackedInt32Array, e: Dictionary) -> void:
+	var x0 := key.x * CS
+	var z0 := key.y * CS
+	if x0 + CS < 8 or x0 > FORT_X + FORT_W or z0 + CS < FORT_Z or z0 > FORT_Z + FORT_W:
+		return
+	var bricks := 1901
+	var y0 := FIRE_HALL
+	var put := func(x: int, y: int, z: int, id: int) -> void:
+		if (x >> 4) == key.x and (z >> 4) == key.y and y > 0 and y < H:
+			blk[((x - x0) * H + y) * CS + (z - z0)] = id
+			if Blocks.emit[id] > 0:
+				e[Vector3i(x, y, z)] = true
+	# the bridge from the hall (x 8..40) along z = 0..2, with low walls and lanterns
+	for x in range(8, FORT_X):
+		for z in range(0, 3):
+			put.call(x, y0, z, bricks)
+			for y in range(y0 + 1, y0 + 4):
+				put.call(x, y, z, 0)
+		put.call(x, y0 + 1, -1, bricks)
+		put.call(x, y0 + 1, 3, bricks)
+		if x % 6 == 0:
+			put.call(x, y0 + 2, -1, 1949)               # a lantern on the wall
+			for y in range(y0 - 12, y0):               # a pillar down into the lava
+				put.call(x, y, 1, bricks)
+	# the keep: a hollow box with a door gap toward the bridge, towers at the corners
+	var fx := FORT_X
+	var fz := FORT_Z
+	for x in range(fx, fx + FORT_W + 1):
+		for z in range(fz, fz + FORT_W + 1):
+			var edge := x == fx or x == fx + FORT_W or z == fz or z == fz + FORT_W
+			put.call(x, y0, z, bricks)
+			for y in range(y0 + 1, y0 + 8):
+				put.call(x, y, z, bricks if edge else 0)
+			put.call(x, y0 + 8, z, bricks)
+			for y in range(y0 - 12, y0):
+				if edge and (x - fx) % 6 == 0 and (z - fz) % 6 == 0:
+					put.call(x, y, z, bricks)
+	for y in range(y0 + 1, y0 + 4):
+		for z in range(0, 3):
+			put.call(fx, y, z, 0)                       # the doorway from the bridge
+	for c in [Vector2i(fx, fz), Vector2i(fx + FORT_W, fz), Vector2i(fx, fz + FORT_W), Vector2i(fx + FORT_W, fz + FORT_W)]:
+		for y in range(y0 + 8, y0 + 14):
+			for dx in range(-1, 2):
+				for dz in range(-1, 2):
+					put.call(c.x + dx, y, c.y + dz, bricks)
+		put.call(c.x, y0 + 14, c.y, 910)               # a glowing crystal on every tower
+	for lx in range(fx + 3, fx + FORT_W - 2, 5):
+		put.call(lx, y0 + 7, fz + FORT_W / 2, 1949)
+	# treasure chests along the back wall
+	for i in 3:
+		var cx := fx + 6 + i * 6
+		var cz := fz + FORT_W - 2
+		put.call(cx, y0 + 1, cz, 48)
+		var cp := Vector3i(cx, y0 + 1, cz)
+		if (cx >> 4) == key.x and (cz >> 4) == key.y and not containers.has(cp) and not changes.get(key, {}).has(cp):
+			var loot := [[[111, 3], [109, 8], [143, 12]], [[139, 2], [136, 2], [106, 10]], [[114, 6], [1890, 8], [155, 16]]]
+			containers[cp] = loot[i]
 
 
 # ---------------------------------------------------------------- the sky realm
