@@ -358,9 +358,12 @@ func _mesh_rows(key: Vector2i, row_lo: int, row_hi: int) -> Dictionary:
 					continue
 				var x := x0 + lx
 				var z := z0 + lz
+				var tid := id                    # whose tiles the faces use
 				if shapes[id] != "cube":
 					_shape(out, id, x, y, z)
-					continue
+					if fluid[id] == 0:
+						continue
+					tid = WorldData.WATER            # a sea plant: the water around it is drawn too
 				var fl := fluid[id]
 				var water := fl == 1
 				var g: Group = out["water"] if water else (out["translucent"] if translucent[id] else out["solid"])
@@ -381,10 +384,10 @@ func _mesh_rows(key: Vector2i, row_lo: int, row_hi: int) -> Dictionary:
 					elif (nb != 0 and (transparent[nb] == 0 or nb == id)) or (n.y == -1 and y == 0):
 						continue
 					var l := light_at(x + n.x, y + n.y, z + n.z)
-					var lmp := 15 if emit[id] else l.y
+					var lmp := 15 if emit[tid] else l.y
 					var col := Color(l.x / 15.0, lmp / 15.0, faces[f][1], 1.0)
-					var tile := tile_top[id] if n.y > 0 else (tile_bottom[id] if n.y < 0 else tile_side[id])
-					if letter[id] and _letter_edge(x, y, z, n):
+					var tile := tile_top[tid] if n.y > 0 else (tile_bottom[tid] if n.y < 0 else tile_side[tid])
+					if letter[tid] and _letter_edge(x, y, z, n):
 						tile = letter_back                 # only the faces you read the word from show letters
 					# ambient occlusion: each corner gets darker for every solid block around it
 					# (water is left flat). The quad is split along the brighter diagonal so the

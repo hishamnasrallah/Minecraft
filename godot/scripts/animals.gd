@@ -120,10 +120,12 @@ const SPECIES := {
 	"ember_lord": {"speed": 1.4, "height": 3.6, "width": 1.6, "flee_range": 0.0, "swims": true, "group": [1, 1],
 		"health": 150, "hostile": true, "cap": "boss", "damage": 6, "reach": 2.4, "cooldown": 3.0, "sense": 30.0,
 		"shoots": true, "fireproof": true, "sun_proof": true},
+	"jellyfish": {"speed": 0.6, "height": 0.7, "width": 0.5, "flee_range": 0.0, "swims": true, "group": [1, 3], "health": 2,
+		"move": "swim", "cap": "fish"},                 # drifts in deep water and glows in the dark
 	"globlet": {"speed": 3.0, "height": 0.45, "width": 0.45, "flee_range": 0.0, "swims": true, "group": [1, 1], "health": 3,
 		"hostile": true, "cap": "hostile", "move": "hop", "hop": 6.0, "damage": 1, "reach": 1.1},
 }
-const DROPS := {"rabbit": [RAW_MEAT, 1, 1], "deer": [RAW_MEAT, 2, 3], "duck": [RAW_MEAT, 1, 2], "gloom": [COAL, 0, 2],
+const DROPS := {"jellyfish": [172, 0, 1], "rabbit": [RAW_MEAT, 1, 1], "deer": [RAW_MEAT, 2, 3], "duck": [RAW_MEAT, 1, 2], "gloom": [COAL, 0, 2],
 	"woolly": [WOOL, 1, 2], "hen": [FEATHER, 1, 2], "goat": [RAW_MEAT, 1, 2], "frog": [0, 0, 0], "turtle": [0, 0, 0],
 	"lizard": [0, 0, 0], "fish": [RAW_FISH, 1, 1], "bird": [FEATHER, 0, 1], "butterfly": [0, 0, 0], "firefly": [0, 0, 0],
 	"bramble": [STICK, 1, 3], "glob": [172, 1, 2], "globlet": [SEEDS, 0, 1], "worker": [0, 0, 0], "cow": [RAW_MEAT, 1, 3], "cinder": [143, 0, 2], "pig": [RAW_MEAT, 1, 3], "horse": [0, 0, 0], "archer": [155, 0, 2], "guard": [30, 1, 2], "ember_lord": [111, 4, 6], "bee": [0, 0, 0], "beetle": [1951, 0, 1], "wolf": [0, 0, 0]}   # item, min, max
@@ -1140,6 +1142,8 @@ func pick_kind(x: int, z: int) -> Array:
 	var water_top: int = col[1]
 	var ground := world.get_block(x, top, z)
 	if water_top > top:
+		if water_top - top >= 6 and randf() < 0.12:
+			return ["jellyfish", top + 2.0 + randf() * (water_top - top - 3.0), -1]
 		if water_top - top >= 2 and randf() < 0.65:
 			return ["fish", top + 1.0 + randf() * (water_top - top - 1.5), -1]
 		return ["duck", water_top + 0.3, -1]

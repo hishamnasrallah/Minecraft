@@ -1274,6 +1274,58 @@ def reeds(rng):
     return _plant(rng, [(x, rng.randrange(12, 16), 0) for x in (3, 6, 10, 13)])
 
 
+def seagrass(rng):
+    return _plant(rng, [(x, rng.randrange(7, 15), rng.uniform(-0.15, 0.15)) for x in (2, 5, 7, 10, 12, 14)])
+
+
+def kelp(rng):
+    img = _blank()
+    for y in range(TILE):
+        x = 8 + (1 if (y // 4) % 2 else -1)
+        _px(img, x, y, _shade((60, 110, 40), 1 + rng.uniform(-0.1, 0.1)))
+        _px(img, x + 1, y, _shade((50, 96, 34), 1 + rng.uniform(-0.1, 0.1)))
+        if y % 4 == 1:                                   # leaves sticking out
+            side = 1 if (y // 4) % 2 else -1
+            for i in range(1, 4):
+                _px(img, x + (side * i if side < 0 else 1 + i), y + i // 2, _shade((80, 140, 50), 1 + rng.uniform(-0.1, 0.1)))
+    return img
+
+
+def coral(colour):
+    def gen(rng):
+        img = _blank()
+        for x0, h in ((4, 10), (8, 14), (12, 9)):
+            for y in range(TILE - 1, TILE - 1 - h, -1):
+                _px(img, x0, y, _shade(colour, 1 + rng.uniform(-0.1, 0.1)))
+            for i in range(1, 3):                         # branches
+                _px(img, x0 - i, TILE - h + 2 - i, _shade(colour, 1.15))
+                _px(img, x0 + i, TILE - h + 4 - i, _shade(colour, 1.15))
+        return img
+    return gen
+
+
+def coral_block(colour):
+    def gen(rng):
+        img = Image.new("RGB", (TILE, TILE))
+        for x in range(TILE):
+            for y in range(TILE):
+                img.putpixel((x, y), _shade(colour, 0.85 + rng.uniform(-0.08, 0.08)))
+        for _ in range(26):                                # little round polyps
+            img.putpixel((rng.randrange(TILE), rng.randrange(TILE)), _shade(colour, 1.25))
+        return img
+    return gen
+
+
+def lily_pad(rng):
+    img = _blank()
+    for x in range(TILE):
+        for y in range(TILE):
+            dx, dy = x - 7.5, y - 7.5
+            if dx * dx + dy * dy <= 49 and not (dx > 0 and abs(dy) < 1.2):    # round with a notch
+                _px(img, x, y, _shade((60, 130, 50), 1 + rng.uniform(-0.08, 0.08) + (0.1 if (x + y) % 5 == 0 else 0)))
+    return img
+
+
 def cactus(rng):
     img = Image.new("RGB", (TILE, TILE))
     for x in range(TILE):
@@ -1411,6 +1463,10 @@ EXTRA_GENERATORS = {
     "blue_flower": flower((70, 100, 220)), "white_flower": flower((240, 240, 240)),
     "red_mushroom": mushroom((200, 40, 36), (240, 240, 240)), "brown_mushroom": mushroom((140, 100, 70)),
     "reeds": reeds, "cactus": cactus, "cactus_top": cactus_top,
+    "seagrass": seagrass, "kelp": kelp, "lily_pad": lily_pad,
+    "coral_red": coral((220, 70, 80)), "coral_yellow": coral((236, 200, 60)), "coral_blue": coral((70, 120, 230)),
+    "coral_block_red": coral_block((200, 60, 70)), "coral_block_yellow": coral_block((220, 186, 56)),
+    "coral_block_blue": coral_block((60, 104, 210)),
     "iron_ingot": ingot((214, 214, 220)), "copper_ingot": ingot((206, 116, 66)), "tin_ingot": ingot((196, 198, 210)),
     "gold_ingot": ingot((246, 206, 60)), "bronze_ingot": ingot((184, 136, 72)), "diamond": gem,
     "bucket": bucket, "water_bucket": lambda rng: bucket(rng, True),

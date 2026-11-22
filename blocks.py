@@ -365,6 +365,16 @@ block(1990, "flower pot", "flower_pot", FUNCTIONAL, 0.3, shape="pot", solid=Fals
 # a beehive: its bees fill it with honey while flowers grow near it; scaffolding you climb
 block(1991, "beehive", ("beehive_top", "beehive_side", "beehive_top"), FUNCTIONAL, 0.6, "axe")
 block(1992, "scaffolding", "scaffolding", BUILDING, 0.0, shape="scaffold", solid=False, climbable=True)
+# the sea: plants that grow under water (the cell still counts as water: you swim, it does
+# not drain, and breaking one leaves water), coral reefs in warm shallow seas, lily pads
+SEAGRASS, KELP, CORALS, CORAL_BLOCKS, LILY_PAD = 1993, 1994, (1995, 1996, 1997), (1998, 1999, 2000), 2001
+block(SEAGRASS, "seagrass", "seagrass", PLANTS, 0.0, shape=CROSS, solid=False, drop=None, fluid="water", flow=0, sea_plant=True)
+block(KELP, "kelp", "kelp", PLANTS, 0.0, shape=CROSS, solid=False, fluid="water", flow=0, sea_plant=True)
+for _i, _c in enumerate(("red", "yellow", "blue")):
+    block(CORALS[_i], f"{_c} coral", f"coral_{_c}", PLANTS, 0.0, shape=CROSS, solid=False, fluid="water", flow=0,
+          sea_plant=True, family="coral")
+    block(CORAL_BLOCKS[_i], f"{_c} coral block", f"coral_block_{_c}", NATURAL, 1.5, "pickaxe", family="coral_block")
+block(LILY_PAD, "lily pad", "lily_pad", PLANTS, 0.0, shape=CARPET, solid=False)
 block(1948, "glass pane", "glass", BUILDING, 0.3, drop=None, shape="pane")
 block(1949, "lantern", "lantern", FUNCTIONAL, 1.0, "pickaxe", shape="lantern", emit=15, solid=False)
 block(1950, "barrel", ("barrel_top", "barrel_side", "barrel_top"), FUNCTIONAL, 2.5, "axe", container=True)

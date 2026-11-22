@@ -895,7 +895,7 @@ func _rebuild(keys: Array, y_lo := -1, y_hi := -1) -> void:
 
 func break_at(pos: Vector3i) -> void:
 	var id := world.get_block(pos.x, pos.y, pos.z)
-	if id == 0 or Blocks.fluid[id] != 0 or (Blocks.hardness[id] < 0 and not creative):
+	if id == 0 or (Blocks.fluid[id] != 0 and Blocks.shape[id] == "cube") or (Blocks.hardness[id] < 0 and not creative):
 		return
 	if Blocks.hardness[id] < 0:
 		edit(pos, 0, true)
@@ -2594,8 +2594,8 @@ func _facing() -> int:
 func place_block(allow_use := true) -> void:
 	if health.dead:
 		return
-	var hit := target()
 	var item := inv.item_at(selected)
+	var hit := target(item == 2001)                   # a lily pad goes on the water's surface
 	if allow_use and not hit.is_empty() and use_block(hit["pos"]):
 		return
 	if not hit.is_empty() and _farm(hit["pos"], item):
@@ -2729,6 +2729,14 @@ func place_block(allow_use := true) -> void:
 		var by_n := {Vector2i(0, -1): 0, Vector2i(-1, 0): 1, Vector2i(0, 1): 2, Vector2i(1, 0): 3}
 		var wall_base := {1846: 1848, 1702: 1860, 1704: 1856, 1953: 1957}
 		id = int(wall_base.get(item, WALL_TORCH)) + int(by_n[Vector2i(n0.x, n0.z)])
+	elif d.get("sea_plant", false):
+		var here := world.get_block(pos.x, pos.y, pos.z)
+		if Blocks.fluid[here] != 1 or Blocks.shape[here] != "cube" or not (Blocks.solid[below] or below == 1994):
+			hud.flash(I18n.t("needs_water"))
+			return                                 # seagrass, kelp and coral grow on the floor under water
+	elif item == 2001 and (Blocks.fluid[below] != 1 or world.get_block(pos.x, pos.y, pos.z) != 0):
+		hud.flash(I18n.t("needs_water"))
+		return                                     # a lily pad floats on water
 	elif d["shape"] in ["cross", "torch", "lever", "button", "wire", "track", "ptorch"] and (below == 0 or not Blocks.solid[below]):
 		return                                 # plants and torches need ground
 	if d.get("logic") is Dictionary and d["logic"].has("facing") and not d["shape"] in ["ptorch", "lever", "button"]:
@@ -3847,6 +3855,14 @@ func _update_sky(delta: float) -> void:
 	var far_m: float = maxf(reach_m, float(far_land.distance))
 	env.fog_depth_begin = reach_m * (0.85 if far_land.distance > 0 else 0.68)
 	env.fog_depth_end = far_m * 0.98
+	if player.head_under_water() and world.dimension != "fire":
+		# under water: a deep blue haze, you see some 20 blocks (night vision clears it a bit)
+		var see := 34.0 if effects.has("night") or effects.has("water") else 20.0
+		var deep := Color(0.1, 0.25, 0.5).lerp(Color(0.02, 0.05, 0.12), 1.0 - daylight)
+		env.background_color = deep
+		env.fog_light_color = deep
+		env.fog_depth_begin = 1.0
+		env.fog_depth_end = see
 	player.camera.far = maxf(400.0, far_m + 64.0)
 	far_land.near_chunks = chunks.render_distance
 	if Engine.get_process_frames() % 30 == 0:
@@ -4611,6 +4627,55 @@ func _process_inner(delta: float) -> void:
 				_st["gliding"], moved, _st["hp"], health.health, xp0, health.xp, health.level()])
 		if _st_frame == 700:
 			print("GLIDE snowing %s" % weather.snowing)
+			get_tree().quit()
+	if "--seatest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: reefs and kelp under the sea
+		if _st_frame == 60:
+			var best = null
+			var kinds := {}
+			for k in world.chunks:
+				var c = world.chunks[k]
+				for i in c.b.size():
+					var b: int = c.b[i]
+					if b >= 1993 and b <= 2001:
+						kinds[b] = int(kinds.get(b, 0)) + 1
+						if b >= 1995 and b <= 1997 and best == null:
+							best = WorldData.cell_of(k, i)
+			print("SEA plants in loaded chunks: ", kinds)
+			_st["sea_kinds"] = kinds
+			if best != null:
+				_st["reef"] = best
+				set_mode(true)
+				set_flying(true)
+				player.position = Vector3(best) + Vector3(0.0, 1.5, 4.0)
+				player.yaw = 0.0
+				player.look(Vector2(0, 0.35))
+				var jf := Wildlife.Animal.new("jellyfish", Vector3(best) + Vector3(0.5, 1.6, 1.0))
+				wildlife.animals.append(jf)
+				_st["jelly"] = jf
+		if _st_frame == 196 and _st.has("jelly"):
+			var aim: Vector3 = (_st["jelly"] as Wildlife.Animal).pos + Vector3(0, 0.4, 0)
+			player.position = aim + Vector3(0, -0.8, 2.2)
+			var to := aim - player.eye()
+			player.yaw = atan2(-to.x, -to.z)
+			player.pitch = atan2(to.y, Vector2(to.x, to.z).length())
+			player.look(Vector2.ZERO)
+		if _st_frame == 200 and _st.has("reef"):
+			var jf: Wildlife.Animal = _st["jelly"]
+			print("SEA jellyfish alive %s, still in water %s, moved %.1f" % [wildlife.animals.has(jf), Blocks.is_water(world.get_block(Wildlife.cell(jf.pos.x), Wildlife.cell(jf.pos.y + 0.3), Wildlife.cell(jf.pos.z))), jf.pos.distance_to(Vector3(_st["reef"]) + Vector3(0.5, 1.6, 1.0))])
+			if _shot_path:
+				get_viewport().get_texture().get_image().save_png(_shot_path)
+			var r: Vector3i = _st["reef"]
+			break_at(r)
+			var after := world.get_block(r.x, r.y, r.z)
+			inv.slots[selected] = [1994, 5]
+			_forced_hit = {"pos": r - Vector3i(0, 1, 0), "normal": Vector3i(0, 1, 0)}
+			place_block(false)
+			var placed := world.get_block(r.x, r.y, r.z)
+			_forced_hit = {"pos": Vector3i(r.x, WorldData.H - 2, r.z), "normal": Vector3i(0, 1, 0)}
+			place_block(false)
+			_forced_hit = {}
+			print("SEA broke coral -> %s, kelp placed in water %s, kelp refused in the air %s, swimming there %s" % [Blocks.name_of[after], placed == 1994, world.get_block(r.x, WorldData.H - 1, r.z) == 0, Blocks.fluid[placed] == 1])
 			get_tree().quit()
 	if "--bosstest2" in OS.get_cmdline_user_args() and spawned and world.dimension == "fire":
 		_st_frame += 1                                  # testing: the Ember Lord in the fortress

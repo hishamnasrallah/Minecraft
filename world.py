@@ -9,7 +9,7 @@ import random
 from collections import deque
 from pathlib import Path
 
-from blocks import (BLOCK_DEFS, BLOCKS, BLOCK_TILES, TRANSPARENT, TRANSLUCENT, NON_SOLID, LIGHT_EMIT,
+from blocks import (SEAGRASS, KELP, CORALS, CORAL_BLOCKS, LILY_PAD, BLOCK_DEFS, BLOCKS, BLOCK_TILES, TRANSPARENT, TRANSLUCENT, NON_SOLID, LIGHT_EMIT,
                     UNBREAKABLE, PLANTS_NEED_SOIL, WATER, LAMP, GLASS, CUBE, CROSS, SLAB, STAIR, FENCE, LADDER,
                     DOOR, BED, TORCH, CARPET, DOORS, WOODS, FLOWERS, SLATE, LIMESTONE, RUBY_ORE, SAPPHIRE_ORE,
                     AMETHYST_ORE, QUARTZ_ORE, LEAFY_BUSH, BERRY_BUSH, DRY_BUSH)
@@ -470,6 +470,10 @@ class World:
         flowers = FLOWERS
         for (x, z), (h, top_block, desert) in surface.items():
             y = h + 1
+            if h < WATER_LEVEL:
+                if self.get(x, h, z) == top_block and self.get(x, y, z) == WATER:
+                    self._sea_plants(x, z, h)
+                continue
             if self.get(x, h, z) != top_block or self.get(x, y, z) or self.has_tree(x, z):
                 continue                                          # carved away, under water or a trunk spot
             r = _hash(x, z, seed + 91)
@@ -504,6 +508,27 @@ class World:
                 self._put((x, y, z), BERRY_BUSH if _hash(x, z, seed + 98) < 0.3 else LEAFY_BUSH)
             elif r < 0.16 + 0.05 * forest and forest < 0.45:
                 self._put((x, y, z), 951 if _hash(x, z, seed + 99) < 0.5 else 952)   # wild pumpkins and melons
+
+    def _sea_plants(self, x, z, h):
+        """Seagrass on the sea floor, kelp in deeper water, coral reefs in warm shallow patches
+        and lily pads on shallow water."""
+        seed = self.seed
+        y = h + 1
+        depth = WATER_LEVEL - h
+        r = _hash(x, z, seed + 101)
+        warm = _hash(x >> 4, z >> 4, seed + 104) < 0.3 and depth <= 8
+        if warm and r < 0.3:
+            pick = int(_hash(x, z, seed + 102) * 3)
+            self._put((x, y, z), CORALS[pick])
+            if r < 0.12:
+                self._put((x, h, z), CORAL_BLOCKS[pick])
+        elif depth >= 4 and r < 0.07:
+            for dy in range(1 + int(_hash(x, z, seed + 103) * (depth - 2))):
+                self._put((x, y + dy, z), KELP)
+        elif r < 0.25:
+            self._put((x, y, z), SEAGRASS)
+        if depth <= 2 and not warm and _hash(x, z, seed + 105) < 0.05:
+            self._put((x, WATER_LEVEL + 1, z), LILY_PAD)
 
     def _carve_caves(self, key):
         """Hollow out tunnels everywhere and big caverns deep down. Noise is sampled on a coarse

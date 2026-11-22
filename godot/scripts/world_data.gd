@@ -107,6 +107,14 @@ static func chunk_key(x: int, z: int) -> Vector2i:
 	return Vector2i(x >> 4, z >> 4)
 
 
+## The world cell of index `i` in chunk `key` (the reverse of _index).
+static func cell_of(key: Vector2i, i: int) -> Vector3i:
+	var lz := i % CS
+	var y := (i / CS) % H
+	var lx := i / (CS * H)
+	return Vector3i(key.x * CS + lx, y, key.y * CS + lz)
+
+
 static func _index(x: int, y: int, z: int) -> int:
 	return ((x & 15) * H + y) * CS + (z & 15)
 
@@ -147,9 +155,12 @@ func set_block(x: int, y: int, z: int, id: int, force := false, flood := true) -
 	var old := get_block(x, y, z)
 	if id == 0 and Blocks.hardness[old] < 0 and not force:
 		return []
+	var removed := id == 0
+	if removed and Blocks.fluid[old] == 1 and Blocks.shape[old] != "cube":
+		id = WATER                       # a sea plant taken away leaves its water behind
 	_edit(x, y, z, id)
 	var touched := [Vector3i(x, y, z)]
-	if id == 0:
+	if removed:
 		var door = Blocks.defs.get(old, {}).get("door")
 		if door != null and not door.get("single", false):   # a door is two blocks: remove the other half too
 			var oy := y - 1 if door["top"] else y + 1
@@ -158,7 +169,8 @@ func set_block(x: int, y: int, z: int, id: int, force := false, flood := true) -
 				touched.append(Vector3i(x, oy, z))
 		var ay := y + 1                   # plants, torches, cactus and reeds need something below
 		while ay < H and (Blocks.plants_need_soil.has(get_block(x, ay, z)) or get_block(x, ay, z) in [50, 60]):
-			_edit(x, ay, z, 0)
+			var up := get_block(x, ay, z)
+			_edit(x, ay, z, WATER if Blocks.fluid[up] == 1 else 0)
 			touched.append(Vector3i(x, ay, z))
 			ay += 1
 		if flood:
@@ -650,6 +662,10 @@ func _plants(surface: Array) -> void:
 		var top_block: int = s[3]
 		var desert: bool = s[4]
 		var y := h + 1
+		if h < WATER_LEVEL:
+			if get_block(x, h, z) == top_block and get_block(x, y, z) == WATER:
+				_sea_plants(x, z, h)
+			continue
 		if get_block(x, h, z) != top_block or get_block(x, y, z) != 0 or has_tree(x, z):
 			continue
 		var r := VNoise.hash2(x, z, seed + 91)
@@ -686,6 +702,34 @@ func _plants(surface: Array) -> void:
 			_put(x, y, z, G["BERRY_BUSH"] if VNoise.hash2(x, z, seed + 98) < 0.3 else G["LEAFY_BUSH"])
 		elif r < 0.16 + 0.05 * forest and forest < 0.45:
 			_put(x, y, z, G["PUMPKIN"] if VNoise.hash2(x, z, seed + 99) < 0.5 else G["MELON"])
+
+
+const SEAGRASS := 1993
+const KELP := 1994
+const CORALS := [1995, 1996, 1997]
+const CORAL_BLOCKS := [1998, 1999, 2000]
+const LILY_PAD := 2001
+
+
+## Seagrass on the sea floor, kelp in deeper water, coral reefs in warm shallow patches and
+## lily pads on shallow water (the same as world.py).
+func _sea_plants(x: int, z: int, h: int) -> void:
+	var y := h + 1
+	var depth := WATER_LEVEL - h
+	var r := VNoise.hash2(x, z, seed + 101)
+	var warm := VNoise.hash2(x >> 4, z >> 4, seed + 104) < 0.3 and depth <= 8
+	if warm and r < 0.3:
+		var pick := int(VNoise.hash2(x, z, seed + 102) * 3)
+		_put(x, y, z, CORALS[pick])
+		if r < 0.12:
+			_put(x, h, z, CORAL_BLOCKS[pick])
+	elif depth >= 4 and r < 0.07:
+		for dy in 1 + int(VNoise.hash2(x, z, seed + 103) * (depth - 2)):
+			_put(x, y + dy, z, KELP)
+	elif r < 0.25:
+		_put(x, y, z, SEAGRASS)
+	if depth <= 2 and not warm and VNoise.hash2(x, z, seed + 105) < 0.05:
+		_put(x, WATER_LEVEL + 1, z, LILY_PAD)
 
 
 func _tree(x: int, y: int, z: int, key: Vector2i, kind: int) -> void:
@@ -1084,7 +1128,7 @@ func raycast(origin: Vector3, direction: Vector3, max_distance := 6.0, hit_water
 	var t := 0.0
 	while t <= max_distance:
 		var b := get_block(cell.x, cell.y, cell.z)
-		if b != 0 and (Blocks.fluid[b] == 0 or hit_water):
+		if b != 0 and (Blocks.fluid[b] == 0 or hit_water or Blocks.shape[b] != "cube"):   # sea plants can be aimed at
 			return {"pos": cell, "normal": normal, "distance": t}
 		var a := 0
 		if t_max.y < t_max[a]:
