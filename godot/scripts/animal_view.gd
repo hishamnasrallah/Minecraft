@@ -194,6 +194,16 @@ const MODELS := {
 		["leg", Vector3(0.22, 0.55, -0.38), Vector3(0.18, 0.55, 0.18), Color8(92, 62, 40)],
 		["leg", Vector3(-0.22, 0.55, -0.38), Vector3(0.18, 0.55, 0.18), Color8(92, 62, 40)],
 	],
+	"cinder": [
+		["body", Vector3(0.0, 0.35, 0.0), Vector3(0.8, 0.7, 0.8), Color8(58, 30, 26)],
+		["crack", Vector3(0.401, 0.4, 0.1), Vector3(0.02, 0.4, 0.08), Color8(255, 140, 40)],
+		["crack", Vector3(-0.401, 0.3, -0.15), Vector3(0.02, 0.3, 0.08), Color8(255, 140, 40)],
+		["crack", Vector3(0.1, 0.701, 0.0), Vector3(0.4, 0.02, 0.08), Color8(255, 140, 40)],
+		["crack", Vector3(-0.2, 0.5, 0.401), Vector3(0.08, 0.3, 0.02), Color8(255, 140, 40)],
+		["glow", Vector3(0.18, 0.5, 0.405), Vector3(0.14, 0.1, 0.02), Color8(255, 220, 90)],
+		["glow", Vector3(-0.18, 0.5, 0.405), Vector3(0.14, 0.1, 0.02), Color8(255, 220, 90)],
+		["mouth", Vector3(0.0, 0.25, 0.405), Vector3(0.36, 0.06, 0.02), Color8(255, 100, 30)],
+	],
 	# a worker: a person in a shirt of their trade's colour, overalls and a cap
 	"worker": [
 		["body", Vector3(0, 1.08, 0), Vector3(.5, .72, .28), VAR], ["bib", Vector3(0, .98, .145), Vector3(.34, .5, .02), PANTS],

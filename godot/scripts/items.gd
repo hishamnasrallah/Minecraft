@@ -120,7 +120,14 @@ func drop_for(block: int) -> int:
 	if d.is_empty():
 		return 0
 	if block == 51 or block == 52:                 # tall grass and ferns sometimes hide seeds
-		return int(S.get("SEEDS", 120)) if randf() < 0.15 else 0
+		var r := randf()
+		if r < 0.15:
+			return int(S.get("SEEDS", 120))
+		# sometimes other seeds: potato, beetroot, pumpkin and melon
+		for pick in [[0.18, 144], [0.205, 147], [0.225, 148], [0.245, 151]]:
+			if r < pick[0]:
+				return int(pick[1])
+		return 0
 	if d.get("leaves", false):
 		var roll := randf()
 		if roll >= 0.94:

@@ -352,3 +352,57 @@ func test_powered_block_runs_pusher_and_door() -> String:
 	if not Blocks.defs[_id(w, 0, 60, -1)]["door"]["open"]:
 		return "the door should open"
 	return ""
+
+
+func test_timer_pulses_and_counter_passes_every_third() -> String:
+	var s := _setup()
+	var w: WorldData = s[0]
+	var p: Power = s[1]
+	w.set_block(0, 40, 0, 1906, true, false)        # timer, every 1 s
+	w.settings[Vector3i(0, 40, 0)] = {"period": 1.0}
+	w.set_block(1, 40, 0, 1700, true, false)        # wire
+	w.set_block(2, 40, 0, 1908, true, false)        # counter, every 3rd
+	w.settings[Vector3i(2, 40, 0)] = {"count": 3}
+	w.set_block(3, 40, 0, 1708, true, false)        # lamp on the counter
+	w.set_block(0, 40, 2, 1906, true, false)        # a second timer with its own lamp
+	w.settings[Vector3i(0, 40, 2)] = {"period": 1.0}
+	w.set_block(1, 40, 2, 1708, true, false)
+	var timer_lit := 0
+	var counter_lit := 0
+	var last_t := false
+	var last_c := false
+	for i in 95:                                     # about 9.6 s
+		_run(p, 1)
+		var t := _id(w, 1, 40, 2) == 1709
+		var c := _id(w, 3, 40, 0) == 1709
+		if t and not last_t:
+			timer_lit += 1
+		if c and not last_c:
+			counter_lit += 1
+		last_t = t
+		last_c = c
+	if timer_lit < 8 or timer_lit > 10:
+		return "timer lamp lit %d times in 9.6 s (every 1 s)" % timer_lit
+	return "" if counter_lit == 3 else "counter lamp lit %d times for %d pulses (every 3rd)" % [counter_lit, timer_lit]
+
+
+func test_note_block_and_fan() -> String:
+	var s := _setup()
+	var w: WorldData = s[0]
+	var p: Power = s[1]
+	w.set_block(0, 40, 0, 1910, true, false)        # note block
+	w.set_block(1, 40, 0, 1704, true, false)        # button beside it
+	w.set_block(0, 40, 3, 1915, true, false)        # fan facing up (1911 + 4)
+	w.set_block(1, 40, 3, 1702, true, false)        # switch beside it
+	_run(p, 3)
+	p.press_button(Vector3i(1, 40, 0))
+	_run(p, 5)
+	if p.notes_played != 1:
+		return "the note block played %d notes for one press" % p.notes_played
+	if not p.fans_on.is_empty():
+		return "the fan should be off"
+	w.set_block(1, 40, 3, 1703, true, false)
+	_run(p, 3)
+	if p.fans_on.get(Vector3i(0, 40, 3)) != Vector3i(0, 1, 0):
+		return "the fan should blow up: %s" % [p.fans_on]
+	return "" if _id(w, 0, 40, 3) == 1921 else "the fan should show it spins: %d" % _id(w, 0, 40, 3)

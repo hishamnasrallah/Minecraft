@@ -4,7 +4,7 @@ extends Node
 
 const POOL := 8
 const NAMES := ["dig_stone", "dig_dirt", "dig_wood", "dig_glass", "dig_soft", "place", "step",
-	"splash", "hurt", "eat", "pop", "click", "rain", "cluck", "bleat", "croak", "chirp"]
+	"splash", "hurt", "eat", "pop", "click", "rain", "cluck", "bleat", "croak", "chirp", "note"]
 
 var _streams := {}
 var _players := []

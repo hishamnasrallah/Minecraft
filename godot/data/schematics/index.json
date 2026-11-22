@@ -204,6 +204,18 @@
   "blocks": 124
  },
  {
+  "file": "music_box.json",
+  "name": "Music box (timer, notes, counter)",
+  "name_ar": "صندوق موسيقى (مؤقّت ونغمات وعدّاد)",
+  "category": "small_factories",
+  "size": [
+   20,
+   5,
+   5
+  ],
+  "blocks": 133
+ },
+ {
   "file": "night_street.json",
   "name": "Street with night lights",
   "name_ar": "شارع بإنارة ليلية",
@@ -276,6 +288,18 @@
   "blocks": 891
  },
  {
+  "file": "food_factory.json",
+  "name": "Food factory (field to bread)",
+  "name_ar": "مصنع غذاء (من الحقل للخبز)",
+  "category": "small_factories",
+  "size": [
+   14,
+   15,
+   8
+  ],
+  "blocks": 1019
+ },
+ {
   "file": "stone_factory.json",
   "name": "Stone factory",
   "name_ar": "مصنع حجر",
@@ -298,6 +322,18 @@
    15
   ],
   "blocks": 1161
+ },
+ {
+  "file": "market_garden.json",
+  "name": "Market garden (6 crops)",
+  "name_ar": "بستان خضار (6 أصناف)",
+  "category": "small_factories",
+  "size": [
+   14,
+   10,
+   20
+  ],
+  "blocks": 1177
  },
  {
   "file": "smelter_hall.json",
@@ -370,5 +406,17 @@
    83
   ],
   "blocks": 24959
+ },
+ {
+  "file": "industrial_park.json",
+  "name": "Industrial park (all factories working)",
+  "name_ar": "المنطقة الصناعية (كل المصانع شغّالة)",
+  "category": "big_factories",
+  "size": [
+   121,
+   21,
+   91
+  ],
+  "blocks": 79416
  }
 ]

@@ -89,6 +89,7 @@ func note(pos: Vector3i, id: int) -> void:
 		gate_on.erase(pos)
 		comp_out.erase(pos)
 		torch_on.erase(pos)
+		fans_on.erase(pos)
 		was_powered.erase(pos)
 		delay_line.erase(pos)
 		_lists_dirty = true
@@ -271,6 +272,19 @@ func _tick(comp: Dictionary) -> bool:
 	if is_day:
 		for p in _list("sensor"):
 			_emit[p] = true
+	var keep := false
+	for p in _list("timer"):
+		# a short pulse every `period` seconds (the circuit keeps ticking while it has a timer)
+		var period := float(world.settings.get(p, {}).get("period", 2.0)) if world.settings.get(p) is Dictionary else 2.0
+		if fmod(now, period) < 0.25:
+			_emit[p] = true
+		_show(p, _emit.has(p))
+		keep = true
+	for p in _list("counter"):
+		if counter_out.get(p, 0.0) > now:
+			_emit[p] = true
+			keep = true
+		_show(p, _emit.has(p))
 	# 1b. blocks: a switch, button or plate strongly powers the block it sits on; a gate (and an
 	# observer, comparator) the block in front of it. A strongly powered block powers the dust
 	# and the machines around it.
@@ -413,7 +427,7 @@ func _tick(comp: Dictionary) -> bool:
 				changed = true
 	# 4. users: lamps, pushers, breakers and the doors next to this circuit
 	var users := {}
-	for k in ["lamp", "pusher", "sticky", "breaker", "booster", "thrower"]:
+	for k in ["lamp", "pusher", "sticky", "breaker", "booster", "thrower", "counter", "note", "fan"]:
 		for p in _list(k):
 			users[p] = k
 	for p in comp["doors"]:
@@ -432,6 +446,25 @@ func _tick(comp: Dictionary) -> bool:
 		if on != before:
 			changed = true
 		match kind:
+			"counter":
+				if on and not before:
+					var need := int(world.settings.get(p, {}).get("count", 3)) if world.settings.get(p) is Dictionary else 3
+					counts[p] = int(counts.get(p, 0)) + 1
+					if counts[p] >= need:
+						counts[p] = 0
+						counter_out[p] = now + 0.3      # every Nth pulse goes on
+						changed = true
+			"note":
+				if on and not before:
+					var pitch := int(world.settings.get(p, {}).get("pitch", 0)) if world.settings.get(p) is Dictionary else 0
+					Sfx.play("note", -4.0, pow(2.0, pitch / 12.0), 0.0)
+					notes_played += 1
+			"fan":
+				if on:
+					fans_on[p] = DIRS[_info[id][1]]
+				else:
+					fans_on.erase(p)
+				_show(p, on)
 			"lamp":
 				if on != _info[id][2]:
 					set_block.call(p, 1709 if on else 1708)
@@ -479,7 +512,7 @@ func _tick(comp: Dictionary) -> bool:
 		if _info.has(gid) and bool(_info[gid][2]) != bool(next_gate[p]):
 			var off: int = {"observer": OBSERVER_LIT, "comparator": 4}.get(_info[gid][0], GATE_LIT)
 			set_block.call(p, gid + off if next_gate[p] else gid - off)
-	return changed
+	return changed or keep
 
 
 const UP := Vector3i(0, 1, 0)
@@ -705,7 +738,11 @@ func _container(p: Vector3i) -> Inventory:
 
 var _item_movers := {"collector": [], "smelter": [], "crafter": [], "brewer": []}
 var _turn := {}                      # collector -> the slot above it takes from next
-var busy_until := {}                 # smelter / crafter Vector3i -> time it stops showing it works
+var busy_until := {}
+var counts := {}                      # counter -> pulses counted so far
+var counter_out := {}                 # counter -> time its output pulse ends
+var fans_on := {}                     # fan -> the way it blows (the game moves things)
+var notes_played := 0                 # smelter / crafter Vector3i -> time it stops showing it works
 const LIT_TWIN := {1747: 1748, 1748: 1748, 1868: 1869, 1869: 1869, 1884: 1885, 1885: 1885}
 const COLD_TWIN := {1747: 1747, 1748: 1747, 1868: 1868, 1869: 1868, 1884: 1884, 1885: 1884}
 
@@ -729,6 +766,15 @@ func _move_items() -> void:
 
 static func _bucket(name: String) -> int:
 	return int(Items.S[name])
+
+
+## A timer, counter or fan shows when it is on (its lit twin).
+func _show(p: Vector3i, on: bool) -> void:
+	var id := world.get_block(p.x, p.y, p.z)
+	if not _info.has(id) or bool(_info[id][2]) == on:
+		return
+	var step := 6 if _info[id][0] == "fan" else 1
+	set_block.call(p, id + step if on else id - step)
 
 
 ## Smelters and crafters take things in at the top (slots 0-17) and give them out below (18-26).

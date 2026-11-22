@@ -1010,6 +1010,19 @@ func _update_effects(delta: float) -> void:
 
 var _portal_to := "sky"
 
+## A timer's period (tenths of a second), a counter's count or a note block's note.
+func _small_setting(pos: Vector3i, mk: String) -> int:
+	var st = world.settings.get(pos, {})
+	if not st is Dictionary:
+		st = {}
+	match mk:
+		"timer":
+			return int(float(st.get("period", 2.0)) * 10)
+		"counter":
+			return int(st.get("count", 3))
+	return int(st.get("pitch", 0))
+
+
 var _trader = null
 
 
@@ -1096,7 +1109,7 @@ func _overlaps_player(p: Vector3i, id: int) -> bool:
 func _usable(id: int) -> bool:
 	var d: Dictionary = Blocks.defs.get(id, {})
 	return d.has("door") or d.get("container", false) or id == 62 or id == 47 \
-		or power.kind_of(id) in ["switch", "button", "not", "and", "or", "xor", "delay", "comparator", "crafter", "collector"]
+		or power.kind_of(id) in ["switch", "button", "not", "and", "or", "xor", "delay", "comparator", "crafter", "collector", "timer", "counter", "note"]
 
 
 ## Doors open and close, chests open, beds set your spawn point (and skip the night).
@@ -1104,9 +1117,14 @@ func use_block(pos: Vector3i) -> bool:
 	var id := world.get_block(pos.x, pos.y, pos.z)
 	var d: Dictionary = Blocks.defs.get(id, {})
 	var mk := power.kind_of(id)
-	if mk in MachinePanel.GATES or mk == "comparator" or (mk in ["pusher", "sticky", "breaker", "conveyor", "observer"] and inv.item_at(selected) == 0):
+	if mk in MachinePanel.GATES or mk == "comparator" or (mk in ["pusher", "sticky", "breaker", "conveyor", "observer", "fan"] and inv.item_at(selected) == 0):
 		_panel_pos = pos
 		machine_panel.open(mk, id, int(world.settings.get(pos, {}).get("delay", 3)), str(world.settings.get(pos, {}).get("mode", "compare")))
+		touch.blocked = true
+		return true
+	if mk in ["timer", "counter", "note"] and inv.item_at(selected) == 0:
+		_panel_pos = pos
+		machine_panel.open(mk, id, 0, "", [], _small_setting(pos, mk))
 		touch.blocked = true
 		return true
 	if mk == "crafter" or mk == "collector":
@@ -1493,6 +1511,8 @@ func _apply_extras() -> void:
 			world.settings[q] = {"craft": int(e["craft"])}
 		if e.has("filter"):
 			world.settings[q] = {"filter": int(e["filter"])}
+		if e.get("settings") is Dictionary:
+			world.settings[q] = (e["settings"] as Dictionary).duplicate()
 		if e.has("cart") and carts.is_track(world.get_block(q.x, q.y, q.z)):
 			carts.add(q, carts.links_of(world.get_block(q.x, q.y, q.z))[0], str(e["cart"]) == "chest")
 		for entry in e.get("animals", []):
@@ -1587,6 +1607,7 @@ func _update_machines(delta: float) -> void:
 	if not _remote_world:
 		power.update(delta)                         # with friends, the host runs the machines
 		fluids.update(delta)
+	_blow(delta)
 	# conveyors carry the player and items standing on them
 	var below := feet + Vector3i(0, -1, 0)
 	for c in [feet, below]:
@@ -1810,7 +1831,7 @@ func place_block(allow_use := true) -> void:
 		# machines face away from you; pushers and breakers can also face up or down
 		var f := _facing()
 		var fy := player.forward().y
-		var six := power.kind_of(item) in ["pusher", "sticky", "breaker", "observer", "thrower"]
+		var six := power.kind_of(item) in ["pusher", "sticky", "breaker", "observer", "thrower", "fan"]
 		if six and fy > 0.75:
 			f = 4
 		elif six and fy < -0.75:
@@ -1871,8 +1892,16 @@ func _machine_choice(action: String, value: int) -> void:
 			world.settings[p] = {"mode": ["compare", "subtract"][value]}
 			power.note(p, id)
 		"turn":
-			var n := 6 if kind in ["pusher", "sticky", "breaker", "observer", "thrower"] else 4
+			var n := 6 if kind in ["pusher", "sticky", "breaker", "observer", "thrower", "fan"] else 4
 			id = base + (f + 1) % n
+		"timer", "counter", "note":
+			var key: String = {"timer": "period", "counter": "count", "note": "pitch"}[action]
+			world.settings[p] = {key: value / 10.0 if action == "timer" else value}
+			power.note(p, id)
+			if action == "note":
+				Sfx.play("note", -4.0, pow(2.0, value / 12.0), 0.0)
+			machine_panel.open(action, id, 0, "", [], value)
+			return
 		"trade":
 			if _trader == null:
 				return
@@ -1990,6 +2019,45 @@ func _get_out() -> void:
 			player.position = Vector3(t.x, t.y - 0.5 + 0.02, t.z)
 			break
 	player.velocity = Vector3.ZERO
+
+
+## Fans that are on blow along their facing, up to 6 blocks (stopped by a solid block):
+## items drift that way (up: they float up, an item lift), and so do animals and you.
+func _blow(delta: float) -> void:
+	if power.fans_on.is_empty():
+		return
+	var air := {}
+	for f in power.fans_on:
+		var d: Vector3i = power.fans_on[f]
+		for k in range(1, 7):
+			var q: Vector3i = f + d * k
+			if world.solid_at(q.x, q.y, q.z):
+				break
+			air[q] = d
+	var cell_of := func(v: Vector3) -> Vector3i: return Vector3i(floori(v.x + 0.5), floori(v.y + 0.5), floori(v.z + 0.5))
+	for dr in drops.drops:
+		var c: Vector3i = cell_of.call(dr["pos"])
+		if air.has(c):
+			var d: Vector3i = air[c]
+			if d.y > 0:
+				dr["vel"].y = 4.0
+			else:
+				dr["pos"] += Vector3(d) * 3.0 * delta
+	var pc: Vector3i = cell_of.call(player.position + Vector3(0, 0.6, 0))
+	if air.has(pc) and not player.flying:
+		var d: Vector3i = air[pc]
+		if d.y > 0:
+			player.velocity.y = maxf(player.velocity.y, 6.0)
+		else:
+			player.position += Vector3(d) * 3.0 * delta
+	for a in wildlife.animals:
+		var ac: Vector3i = cell_of.call(a.pos + Vector3(0, 0.3, 0))
+		if air.has(ac):
+			var d: Vector3i = air[ac]
+			if d.y > 0:
+				a.vy = maxf(a.vy, 5.0)
+			else:
+				a.pos += Vector3(d) * 2.5 * delta
 
 
 ## Chest carts load under a collector hanging over the track and unload into a collector set
@@ -2236,7 +2304,7 @@ func _factory_test(name: String) -> void:
 				_st["ft_wait"] = 1500
 			"cobble_generator", "stone_factory", "obsidian_factory", "bakery", "grill_house", "metal_works":
 				_st["ft_wait"] = 1800
-			"cargo_line", "village", "old_town", "modern_city", "potion_lab":
+			"cargo_line", "village", "old_town", "modern_city", "potion_lab", "music_box", "market_garden", "industrial_park", "food_factory":
 				_st["ft_wait"] = 1800
 			"animal_farm":
 				for a in wildlife.animals:
@@ -2347,8 +2415,9 @@ func _factory_test(name: String) -> void:
 	if t == int(_st.get("ft_wait", 600)):
 		var out := ""
 		match name:
-			"cobble_generator", "stone_factory", "obsidian_factory", "bakery", "grill_house", "metal_works", "animal_farm", "cargo_line", "village", "old_town", "modern_city", "potion_lab":
+			"cobble_generator", "stone_factory", "obsidian_factory", "bakery", "grill_house", "metal_works", "animal_farm", "cargo_line", "village", "old_town", "modern_city", "potion_lab", "music_box", "market_garden", "industrial_park", "food_factory":
 				var got := {}
+				out += "notes played %d; " % power.notes_played
 				if name == "potion_lab":
 					inv.slots[selected] = [135, 1]
 					drink(135)
@@ -3240,6 +3309,13 @@ func _process_inner(delta: float) -> void:
 			print("FIRE portal opened: ", world.get_block(o.x, o.y + 1, o.z + 1) == WorldData.FIRE["PORTAL"])
 			player.position = Vector3(o.x, o.y + 0.5, o.z + 1)
 			_portal_lock = false
+	if "--mobcount" in OS.get_cmdline_user_args() and spawned and Engine.get_process_frames() % 600 == 0:
+		var kinds := {}                                 # testing: which creatures are around
+		for a in wildlife.animals:
+			kinds[a.kind] = int(kinds.get(a.kind, 0)) + 1
+		print("MOBS in %s: %s" % [world.dimension, kinds])
+		if Engine.get_process_frames() >= 3600:
+			get_tree().quit()
 	if "--bossview" in OS.get_cmdline_user_args() and spawned and boss != null:
 		var d := boss.global_position - player.eye()           # testing: keep the boss in view
 		player.yaw = atan2(-d.x, -d.z)

@@ -316,10 +316,15 @@ family("doors", [w["door"] for w in WOODS.values()])
 # ---------------------------------------------------------------- farming
 # hoe a grass / dirt block into farmland, plant seeds or a carrot on it, and it grows in 4 stages
 SEEDS, WHEAT_ITEM, BREAD, CARROT = 120, 121, 122, 123
+POTATO, BEETROOT, BEET_SEEDS, PUMPKIN_SEEDS, PUMPKIN, MELON_SEEDS, MELON_SLICE = 144, 146, 147, 148, 149, 151, 152
 FARMLAND = block(970, "farmland", ("farmland_top", "dirt", "dirt"), NATURAL, 0.5, "shovel", drop=2, creative=False)
 CROPS = {}           # crop name -> [stage ids]
 for _crop, _base, _seed, _ripe, _bonus in (("wheat", 971, SEEDS, WHEAT_ITEM, [SEEDS, 1, 2]),
-                                          ("carrots", 975, CARROT, CARROT, [CARROT, 1, 2])):
+                                          ("carrots", 975, CARROT, CARROT, [CARROT, 1, 2]),
+                                          ("potatoes", 979, POTATO, POTATO, [POTATO, 1, 3]),
+                                          ("beetroots", 983, BEET_SEEDS, BEETROOT, [BEET_SEEDS, 1, 2]),
+                                          ("pumpkins", 987, PUMPKIN_SEEDS, PUMPKIN, [PUMPKIN_SEEDS, 1, 2]),
+                                          ("melons", 991, MELON_SEEDS, MELON_SLICE, [MELON_SEEDS, 1, 2])):
     CROPS[_crop] = []
     for _stage in range(4):
         ripe = _stage == 3
@@ -327,7 +332,9 @@ for _crop, _base, _seed, _ripe, _bonus in (("wheat", 971, SEEDS, WHEAT_ITEM, [SE
                                   solid=False, creative=False, drop=_ripe if ripe else _seed,
                                   crop=dict(stage=_stage, next=_base + _stage + 1 if not ripe else 0),
                                   **({"bonus": _bonus} if ripe else {})))
-PLANT_ON_FARMLAND = {SEEDS: CROPS["wheat"][0], CARROT: CROPS["carrots"][0]}   # item -> crop stage 0
+PLANT_ON_FARMLAND = {SEEDS: CROPS["wheat"][0], CARROT: CROPS["carrots"][0], POTATO: CROPS["potatoes"][0],
+                     BEET_SEEDS: CROPS["beetroots"][0], PUMPKIN_SEEDS: CROPS["pumpkins"][0],
+                     MELON_SEEDS: CROPS["melons"][0]}   # item -> crop stage 0
 
 
 # ---------------------------------------------------------------- neon letters
@@ -452,6 +459,21 @@ _logic(1748, "auto-smelter", ("smelter_top", "smelter_front_on", "machine_bottom
        hardness=2.0, on=True, creative=False, drop=1747, emit=12)
 # the auto-crafter: like the smelter, but it makes things at the crafting table (wheat -> bread,
 # planks, sticks...). Input slots first, finished things in the last 9; a tap chooses what it makes.
+# small machines: a timer gives a short pulse every few seconds (tap to choose how often); a
+# counter passes on every Nth pulse; a note block plays a note when powered; a fan blows items,
+# animals and you along its facing (up: an item lift) while powered
+_logic(1906, "timer", ("timer_face", "machine_side", "machine_side"), "timer", on=False, hardness=1.0)
+_logic(1907, "timer", ("timer_face_on", "machine_side", "machine_side"), "timer", on=True, creative=False,
+       drop=1906, emit=6, hardness=1.0)
+_logic(1908, "counter", ("counter_face", "machine_side", "machine_side"), "counter", on=False, hardness=1.0)
+_logic(1909, "counter", ("counter_face_on", "machine_side", "machine_side"), "counter", on=True, creative=False,
+       drop=1908, emit=6, hardness=1.0)
+_logic(1910, "note block", "note_block", "note", hardness=0.8, tool="axe")
+for _f in range(6):
+    _logic(1911 + _f, "fan", ("fan_face", "machine_side", "machine_side"), "fan", facing=_f, creative=_f == 0,
+           drop=1911, hardness=1.5)
+    _logic(1917 + _f, "fan", ("fan_face_on", "machine_side", "machine_side"), "fan", facing=_f, on=True,
+           creative=False, drop=1911, hardness=1.5)
 # the brewing stand: water bottles and an ingredient in at the top, potions out below, by itself
 _logic(1884, "brewing stand", ("brewer_top", "brewer_side", "machine_bottom"), "brewer", container=True,
        hardness=2.0)

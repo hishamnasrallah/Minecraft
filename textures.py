@@ -250,6 +250,65 @@ def fire_striker(rng):
     return img
 
 
+def timer_face(rng, lit=False):
+    """A round clock face with one hand; the rim glows while it gives its pulse."""
+    img = _dark_stone(rng)
+    for x in range(TILE):
+        for y in range(TILE):
+            d = ((x - 7.5) ** 2 + (y - 7.5) ** 2) ** 0.5
+            if d < 6.0:
+                img.putpixel((x, y), (236, 230, 214, 255))
+            elif d < 7.0:
+                img.putpixel((x, y), (255, 80, 60, 255) if lit else (150, 60, 50, 255))
+    for i in range(5):
+        img.putpixel((8, 8 - i), (30, 30, 34, 255))
+        img.putpixel((8 + i // 2, 8), (30, 30, 34, 255))
+    return img
+
+
+def counter_face(rng, lit=False):
+    """Three little digit windows over a tally; the light on top shines on the Nth pulse."""
+    img = _dark_stone(rng)
+    for k in range(3):
+        for x in range(2 + k * 4, 5 + k * 4):
+            for y in range(6, 11):
+                img.putpixel((x, y), (30, 60, 40, 255))
+        for y in (6, 8, 10):
+            img.putpixel((3 + k * 4, y), (120, 255, 140, 255))
+    for x in range(6, 10):
+        img.putpixel((x, 2), (255, 220, 90, 255) if lit else (90, 80, 60, 255))
+    return img
+
+
+def note_block(rng):
+    img = boards((150, 104, 64))(rng)
+    for x, y in ((9, 3), (9, 4), (9, 5), (9, 6), (9, 7), (9, 8), (10, 3), (11, 4)):
+        _px(img, x, y, (30, 24, 20))
+    for x in (6, 7, 8):
+        for y in (8, 9, 10):
+            _px(img, x, y, (30, 24, 20))
+    return img
+
+
+def fan_face(rng, lit=False):
+    """A round grille with four blades (blurred into a ring while it spins)."""
+    img = _dark_stone(rng)
+    for x in range(TILE):
+        for y in range(TILE):
+            dx, dy = x - 7.5, y - 7.5
+            d = (dx * dx + dy * dy) ** 0.5
+            if d < 6.5:
+                if lit:
+                    c = (170, 176, 186) if int(d) % 2 else (120, 126, 136)
+                else:
+                    blade = abs(dx) < 1.2 or abs(dy) < 1.2
+                    c = (190, 194, 204) if blade else (40, 42, 48)
+                img.putpixel((x, y), c + (255,))
+    img.putpixel((7, 7), (230, 200, 80, 255))
+    img.putpixel((8, 8), (230, 200, 80, 255))
+    return img
+
+
 def lava(rng):
     img = _noise(rng, (222, 92, 18), 0.08)
     for _ in range(7):                       # bright molten streaks
@@ -1450,24 +1509,34 @@ def farmland_top(rng):
 
 
 def crop(stage, leaf, fruit=None, carrot=False):
+    """A crop at a growth stage. Ripe: grain ears, or `fruit` (a colour) showing: low at the
+    soil (carrot=True: roots and tubers) or as round fruit among the leaves."""
     def gen(rng):
         img = _blank()
         height = 4 + stage * 3
         ripe = stage == 3
+        grain = fruit is None and not carrot
         for col in (2, 5, 8, 11, 14):
             top = TILE - height - rng.randrange(0, 2)
             for y in range(top, TILE):
-                c = leaf if not (ripe and not carrot) else _mix(leaf, (214, 178, 70), 0.85)
+                c = leaf if not (ripe and grain) else _mix(leaf, (214, 178, 70), 0.85)
                 _px(img, col, y, _shade(c, 1 + rng.uniform(-0.12, 0.08)))
                 if y % 3 == 0:
                     _px(img, col + (1 if y % 2 else -1), y, _shade(c, 0.85))
-            if ripe and not carrot:              # ears of grain
+            if ripe and grain:                   # ears of grain
                 for y in range(top, top + 4):
                     _px(img, col, y, _shade((232, 196, 90), 1 + rng.uniform(-0.1, 0.1)))
                     _px(img, col + 1, y + 1, _shade((210, 170, 70), 1))
-            if ripe and carrot:                  # orange tops peeking out of the soil
-                _px(img, col, TILE - 1, (230, 120, 30))
-                _px(img, col, TILE - 2, (240, 136, 40))
+            if ripe and carrot:                  # tops peeking out of the soil
+                tone = fruit or (230, 120, 30)
+                _px(img, col, TILE - 1, tone)
+                _px(img, col, TILE - 2, _shade(tone, 1.08))
+        if ripe and fruit is not None and not carrot:   # round fruit among the leaves
+            for cx, cy in ((4, 11), (11, 12)):
+                for dx in range(-2, 3):
+                    for dy in range(-2, 3):
+                        if dx * dx + dy * dy <= 5:
+                            _px(img, cx + dx, cy + dy, _shade(fruit, 1 + rng.uniform(-0.1, 0.05) - 0.05 * dy))
         return img
     return gen
 
@@ -1538,11 +1607,65 @@ def wood_door(planks, frame):
 
 for _metal, _head in METALS.items():
     EXTRA_GENERATORS[f"{_metal}_hoe"] = (lambda h: lambda rng: _hoe(rng, h))(_head)
+def _round_item(colour, spots=None, flat=False):
+    def gen(rng):
+        img = _blank()
+        for x in range(TILE):
+            for y in range(TILE):
+                dx, dy = (x - 7.5) / (6.5 if not flat else 6.5), (y - 8.5) / (5.5 if not flat else 3.5)
+                if dx * dx + dy * dy <= 1:
+                    _px(img, x, y, _shade(colour, 1.1 - 0.25 * (dy + 1) / 2 + rng.uniform(-0.05, 0.05)))
+        for _ in range(spots or 0):
+            _px(img, rng.randrange(5, 11), rng.randrange(5, 12), _shade(colour, 0.7))
+        return img
+    return gen
+
+
+def _seed_item(colour):
+    def gen(rng):
+        img = _blank()
+        for _ in range(7):
+            x, y = rng.randrange(3, 12), rng.randrange(4, 13)
+            _px(img, x, y, colour)
+            _px(img, x + 1, y, _shade(colour, 0.8))
+        return img
+    return gen
+
+
+def pumpkin_pie(rng):
+    img = _blank()
+    for x in range(2, 14):
+        for y in range(7, 13):
+            c = (200, 140, 70) if y in (7, 12) or x in (2, 13) else (226, 132, 40)
+            _px(img, x, y, _shade(c, 1 + rng.uniform(-0.06, 0.06)))
+    return img
+
+
+def melon_slice(rng):
+    img = _blank()
+    for x in range(2, 14):
+        for y in range(6, 13):
+            if (x - 8) ** 2 / 36 + (y - 12) ** 2 / 36 <= 1:
+                rim = (x - 8) ** 2 / 36 + (y - 12) ** 2 / 36 > 0.7
+                _px(img, x, y, (70, 150, 50) if rim else (230, 70, 70))
+    for x, y in ((6, 10), (9, 9), (11, 11)):
+        _px(img, x, y, (30, 20, 20))
+    return img
+
+
 EXTRA_GENERATORS.update({"farmland_top": farmland_top, "seeds": seeds, "wheat": wheat, "bread": bread,
-                         "carrot": carrot})
+                         "carrot": carrot, "potato": _round_item((196, 160, 96), 4),
+                         "baked_potato": _round_item((214, 160, 70), 3), "beetroot": _round_item((150, 30, 56)),
+                         "pumpkin": _round_item((230, 130, 30), 0, True), "pumpkin_pie": pumpkin_pie,
+                         "melon_slice": melon_slice, "beet_seeds": _seed_item((140, 60, 60)),
+                         "pumpkin_seeds": _seed_item((230, 220, 170)), "melon_seeds": _seed_item((40, 34, 30))})
 for _stage in range(4):
     EXTRA_GENERATORS[f"wheat_{_stage}"] = crop(_stage, (80, 160, 50))
     EXTRA_GENERATORS[f"carrots_{_stage}"] = crop(_stage, (60, 150, 46), carrot=True)
+    EXTRA_GENERATORS[f"potatoes_{_stage}"] = crop(_stage, (70, 140, 60), (200, 170, 100), carrot=True)
+    EXTRA_GENERATORS[f"beetroots_{_stage}"] = crop(_stage, (60, 130, 50), (150, 30, 50), carrot=True)
+    EXTRA_GENERATORS[f"pumpkins_{_stage}"] = crop(_stage, (70, 140, 50), (230, 130, 30))
+    EXTRA_GENERATORS[f"melons_{_stage}"] = crop(_stage, (60, 140, 50), (90, 170, 60))
 for _sp, _cols in WOOD_COLORS.items():
     _wd = wood_door(_cols[4], _shade(_cols[4], 0.65))
     EXTRA_GENERATORS[f"{_sp}_door_top"] = _wd(True)
@@ -2052,6 +2175,9 @@ EXTRA_GENERATORS.update({
     "cart": cart_icon, "chest_cart": chest_cart_icon,
     "ember_rock": ember_rock, "ember_bricks": ember_bricks, "ember_ore": ember_ore, "ash_sand": ash_sand,
     "magma": magma, "fire_portal": fire_portal, "ember_shard": ember_shard, "fire_striker": fire_striker,
+    "timer_face": timer_face, "timer_face_on": lambda rng: timer_face(rng, True),
+    "counter_face": counter_face, "counter_face_on": lambda rng: counter_face(rng, True),
+    "note_block": note_block, "fan_face": fan_face, "fan_face_on": lambda rng: fan_face(rng, True),
     "glass_bottle": potion((215, 230, 240)), "water_bottle": potion((60, 110, 210)),
     "potion_swift": potion((120, 200, 250)), "potion_heal": potion((240, 60, 80)),
     "potion_night": potion((40, 50, 160)), "potion_leap": potion((120, 230, 90)),

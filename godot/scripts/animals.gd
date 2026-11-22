@@ -92,13 +92,17 @@ const SPECIES := {
 	# nearest chest; a smith (grey) and a baker (white) go from machine to machine tending them.
 	"worker": {"speed": 2.6, "height": 1.9, "width": 0.5, "flee_range": 0.0, "swims": false, "group": [1, 1],
 		"health": 20, "food": [122], "call": ""},
+	# the cinder: a hopping lump of cooling lava in the fire realm; lava does not hurt it
+	"cinder": {"speed": 2.4, "height": 0.8, "width": 0.8, "flee_range": 0.0, "swims": true, "group": [1, 2], "health": 12,
+		"hostile": true, "cap": "hostile", "move": "hop", "hop": 7.5, "damage": 3, "reach": 1.4, "sun_proof": true,
+		"fireproof": true},
 	"globlet": {"speed": 3.0, "height": 0.45, "width": 0.45, "flee_range": 0.0, "swims": true, "group": [1, 1], "health": 3,
 		"hostile": true, "cap": "hostile", "move": "hop", "hop": 6.0, "damage": 1, "reach": 1.1},
 }
 const DROPS := {"rabbit": [RAW_MEAT, 1, 1], "deer": [RAW_MEAT, 2, 3], "duck": [RAW_MEAT, 1, 2], "gloom": [COAL, 0, 2],
 	"woolly": [WOOL, 1, 2], "hen": [FEATHER, 1, 2], "goat": [RAW_MEAT, 1, 2], "frog": [0, 0, 0], "turtle": [0, 0, 0],
 	"lizard": [0, 0, 0], "fish": [RAW_FISH, 1, 1], "bird": [FEATHER, 0, 1], "butterfly": [0, 0, 0], "firefly": [0, 0, 0],
-	"bramble": [STICK, 1, 3], "glob": [0, 0, 0], "globlet": [SEEDS, 0, 1], "worker": [0, 0, 0], "cow": [RAW_MEAT, 1, 3]}   # item, min, max
+	"bramble": [STICK, 1, 3], "glob": [0, 0, 0], "globlet": [SEEDS, 0, 1], "worker": [0, 0, 0], "cow": [RAW_MEAT, 1, 3], "cinder": [143, 0, 2]}   # item, min, max
 # colour variants: woolly fleece = wool colour index (mostly naturals); see AnimalView.PALETTES
 const WOOL_COLOURS := [0, 0, 0, 0, 1, 1, 2, 3, 4, 4, 6, 7, 10, 12, 13, 14]
 const VARIANTS := {"rabbit": 2, "fish": 3, "butterfly": 4, "bird": 3, "worker": 3}
@@ -572,7 +576,7 @@ func update(dt: float, player: Vector3, daylight := 1.0, hostile := true, can_ta
 				remote_damage[target_peer] = int(remote_damage.get(target_peer, 0)) + int(a.spec.get("damage", ATTACK_DAMAGE))
 		if a.kind == "worker" and not a.dead:
 			_tick_worker(a, dt, game)
-		if not a.ambient and not a.dead and Blocks.fluid[world.get_block(cell(a.pos.x), cell(a.pos.y + 0.2), cell(a.pos.z))] == 2:
+		if not a.ambient and not a.dead and not a.spec.get("fireproof", false) and Blocks.fluid[world.get_block(cell(a.pos.x), cell(a.pos.y + 0.2), cell(a.pos.z))] == 2:
 			_burn(a, dt, game)
 		if a.hostile:
 			if not hostile:
@@ -625,7 +629,7 @@ func update(dt: float, player: Vector3, daylight := 1.0, hostile := true, can_ta
 		if not others.is_empty() and _spawn_turn % (others.size() + 1) != 0:
 			around = others[_spawn_turn % (others.size() + 1) - 1][1]
 		try_spawn(around)
-		if _spawn_turn % 2 == 0:
+		if _spawn_turn % 2 == 0 and world.dimension == "overworld":
 			try_spawn_ambient(around, daylight)
 		if hostile and _spawn_turn % 3 == 0:          # night creatures come one by one, not in a wave
 			try_spawn_hostile(around, daylight)
@@ -1011,8 +1015,10 @@ func try_spawn_hostile(player: Vector3, daylight: float) -> Array:
 				break
 		if randf() < 0.35:
 			kind = "glob"
-	if y < 0 or _near_light(Vector3i(x, y, z)):
-		return []
+	if y < 0 or (world.dimension != "fire" and _near_light(Vector3i(x, y, z))):
+		return []                              # (the fire realm glows everywhere: its creatures do not mind)
+	if world.dimension == "fire":
+		kind = "cinder" if randf() < 0.7 else "gloom"         # the fire realm's own creatures
 	var g := Animal.new(kind, Vector3(x, y - 0.5, z))
 	if g.blocked(world, g.pos.x, g.pos.z):
 		return []
@@ -1152,7 +1158,7 @@ func spawn_lineup(origin: Vector3, forward: Vector3) -> Array:
 	forward = Vector3(forward.x, 0, forward.z).normalized()
 	var side := Vector3(forward.z, 0, -forward.x)
 	var rows := [["rabbit", "duck", "hen", "frog", "turtle", "lizard", "fish", "globlet", "butterfly", "firefly", "bird"],
-		["deer", "woolly", "goat", "gloom", "bramble", "glob"]]
+		["deer", "woolly", "goat", "cow", "worker", "cinder", "gloom", "bramble", "glob"]]
 	var out := []
 	for r in rows.size():
 		var kinds: Array = rows[r]

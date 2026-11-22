@@ -15,6 +15,7 @@ from blocks import CONCRETE, NEON
 AIR, STONE_BRICKS, GLASS, LAMP, PLANKS, IRON, FENCE, CHEST, BRICK = 0, 41, 12, 11, 7, 30, 61, 48, 8
 TORCH, COBBLE, POLISHED = 50, 22, 803
 FARMLAND, WHEAT, CARROTS = 970, 971, 975
+POTATOES, BEETROOTS, PUMPKINS, MELONS = 979, 983, 987, 991
 WIRE, SWITCH, BUTTON, CELL, PLATE, SENSOR, PLAMP = 1700, 1702, 1704, 1705, 1706, 1707, 1708
 NOT, AND, OR, XOR, DELAY = 1710, 1714, 1718, 1722, 1726
 PUSHER, BREAKER, CONVEYOR, COLLECTOR, SMELTER = 1730, 1736, 1742, 1746, 1747
@@ -50,6 +51,9 @@ class Clip(dict):
 
     def cart(self, x, y, z, kind="chest"):
         self.extras.setdefault((x, y, z), {})["cart"] = kind
+
+    def setting(self, x, y, z, **values):
+        self.extras.setdefault((x, y, z), {}).setdefault("settings", {}).update(values)
 
     def filter(self, x, y, z, item):
         self.extras.setdefault((x, y, z), {})["filter"] = item
@@ -321,6 +325,108 @@ def door_alarm():
     c.put(3, 1, 2, OBSERVER + 1)                # its eye looks at the door (-x), the pulse goes +x
     c.put(4, 1, 2, PLAMP)
     c.text(1, 5, 2, "ALARM", "blue")
+    return c
+
+
+TIMER, COUNTER, NOTE_BLOCK, FAN = 1906, 1908, 1910, 1911
+
+
+def music_box():
+    """A timer starts a tune every 4 s: the pulse runs down a line of delay gates and each
+    note block beside the line plays its note in turn (do re mi fa sol la si do). A counter
+    lights the lamp every third tune."""
+    c = Clip()
+    tune = (0, 2, 4, 5, 7, 9, 11, 12)
+    c.box(-1, 0, -1, len(tune) * 2 + 2, 0, 3, POLISHED)
+    c.put(0, 1, 1, TIMER)
+    c.setting(0, 1, 1, period=4.0)
+    for i, pitch in enumerate(tune):
+        x = 1 + i * 2
+        c.put(x, 1, 1, DELAY + 1)                     # facing +x
+        c.put(x + 1, 1, 1, WIRE)
+        c.put(x + 1, 1, 2, NOTE_BLOCK)
+        c.setting(x + 1, 1, 2, pitch=pitch)
+    c.put(0, 1, 0, WIRE)
+    c.put(1, 1, 0, COUNTER)
+    c.setting(1, 1, 0, count=3)
+    c.put(2, 1, 0, PLAMP)
+    c.text(0, 4, 2, "MUSIC", "pink")
+    return c
+
+
+def market_garden():
+    """Six crops in self-harvesting rows (wheat, carrots, potatoes, beetroot, pumpkins, melons):
+    each row has its own observer, breakers and conveyor into its own chest, and a farmer."""
+    c = Clip()
+    length = 10
+    crops = (WHEAT, CARROTS, POTATOES, BEETROOTS, PUMPKINS, MELONS)
+    c.box(-1, -3, -1, length + 2, -1, len(crops) * 3, STONE_BRICKS)
+    for r, plant in enumerate(crops):
+        z = r * 3
+        for x in range(length):
+            c.put(x, 0, z, FARMLAND)
+            c.put(x, 1, z, plant)
+            c.put(x, 2, z, BREAKER + 5)
+            c.put(x, 3, z, WIRE)
+            c.put(x, 0, z + 1, CONVEYOR + 1)
+            c.put(x, 1, z + 1, AIR)
+        watched_row(c, 0, z)
+        c.put(-1, 0, z, PLANKS)
+        c.put(-1, 1, z, PLANKS)
+        c.put(-1, 2, z, PLANKS)
+        c.put(length, 0, z + 1, AIR)
+        c.put(length, -1, z + 1, COLLECTOR)
+        c.put(length, -2, z + 1, CHEST)
+    c.animals(5, 1, len(crops) * 3, "worker:0")
+    c.box(-1, 0, len(crops) * 3, length + 1, 0, len(crops) * 3, PLANKS)
+    c.text(0, 6, 0, "GARDEN", "pink")
+    return c
+
+
+def merge(c, other, ox, oy, oz):
+    """Copy another design (and what comes with it) into `c` at an offset."""
+    for (x, y, z), b in other.items():
+        c[(x + ox, y + oy, z + oz)] = b
+    for (x, y, z), e in other.extras.items():
+        c.extras[(x + ox, y + oy, z + oz)] = e
+    return c
+
+
+def food_factory():
+    """Field to food with nobody pressing anything: self-harvesting rows of wheat and potatoes
+    drop their harvest into chests; under each chest a collector set to take only the crop
+    feeds a machine (wheat into an auto-crafter making bread, potatoes into a smelter with coal
+    baking them), and the food goes down into the last chests. Seeds stay in the row chests."""
+    c = Clip()
+    length = 10
+    rows = ((WHEAT, WHEAT_ITEM, CRAFTER), (POTATOES, 144, SMELTER))
+    c.box(-1, -8, -1, length + 2, -1, len(rows) * 3, STONE_BRICKS)
+    for r, (plant, crop_item, machine) in enumerate(rows):
+        z = r * 3
+        for x in range(length):
+            c.put(x, 0, z, FARMLAND)
+            c.put(x, 1, z, plant)
+            c.put(x, 2, z, BREAKER + 5)
+            c.put(x, 3, z, WIRE)
+            c.put(x, 0, z + 1, CONVEYOR + 1)
+            c.put(x, 1, z + 1, AIR)
+        watched_row(c, 0, z)
+        c.box(-1, 0, z, -1, 2, z, PLANKS)
+        c.put(length, 0, z + 1, AIR)
+        c.put(length, -1, z + 1, COLLECTOR)
+        c.put(length, -2, z + 1, CHEST)                     # the harvest (seeds stay here)
+        c.put(length, -3, z + 1, COLLECTOR)
+        c.filter(length, -3, z + 1, crop_item)               # only the crop goes on
+        c.put(length, -4, z + 1, machine)
+        if machine == CRAFTER:
+            c.craft(length, -4, z + 1, BREAD)
+        else:
+            c.fill(length, -4, z + 1, [[COAL, 64]])
+        c.put(length, -5, z + 1, COLLECTOR)
+        c.put(length, -6, z + 1, CHEST)                     # the food
+    c.animals(5, 1, len(rows) * 3, "worker:0")
+    c.box(-1, 0, len(rows) * 3, length + 1, 0, len(rows) * 3, PLANKS)
+    c.text(0, 6, 0, "FOOD", "pink")
     return c
 
 
@@ -610,6 +716,9 @@ SMALL = [
     ("metal_works", "Metal works (iron, gold, copper, tin)", "مصنع المعادن (حديد، ذهب، نحاس، قصدير)", metal_works),
     ("cargo_line", "Cargo railway", "سكة شحن", cargo_line),
     ("potion_lab", "Potion lab", "مختبر الجرعات", potion_lab),
+    ("music_box", "Music box (timer, notes, counter)", "صندوق موسيقى (مؤقّت ونغمات وعدّاد)", music_box),
+    ("food_factory", "Food factory (field to bread)", "مصنع غذاء (من الحقل للخبز)", food_factory),
+    ("market_garden", "Market garden (6 crops)", "بستان خضار (6 أصناف)", market_garden),
     ("animal_farm", "Animal farm (eggs, lambs, milk)", "مزرعة حيوانات (بيض وخرفان وحليب)", animal_farm),
 ]
 
@@ -982,7 +1091,37 @@ def mega_complex():
     return c
 
 
+def industrial_park():
+    """Everything working together: stone and obsidian from lava, metal works, a bakery, a
+    food factory, a potion lab, an animal farm and a market garden, with a cargo railway in the
+    middle, streets with night lights and a village of workers."""
+    c = Clip()
+    W, D = 120, 90
+    c.box(0, -6, 0, W, -1, D, STONE_BRICKS)                 # a platform deep enough for the machines below
+    c.box(0, 0, 0, W, 0, D, GRAY)
+    for x in range(W + 1):
+        for z in (43, 44, 45):
+            c.put(x, 0, z, BLACK)
+        if x % 4 < 2:
+            c.put(x, 0, 44, YELLOW)
+    merge(c, stone_factory(), 4, 0, 4)
+    merge(c, obsidian_factory(), 26, 0, 8)
+    merge(c, metal_works(), 40, 0, 4)
+    merge(c, bakery(), 56, 0, 4)
+    merge(c, potion_lab(), 72, 0, 4)
+    merge(c, food_factory(), 4, 8, 52)
+    merge(c, animal_farm(), 24, 0, 54)
+    merge(c, market_garden(), 92, 3, 52)
+    merge(c, cargo_line(), 92, 0, 6)
+    for x in range(2, W - 2, 12):
+        street_lamp(c, x, 1, 41)
+        street_lamp(c, x + 6, 1, 47)
+    c.text(40, 14, 44, "INDUSTRIAL PARK", "blue")
+    return c
+
+
 LARGE = [
+    ("industrial_park", "Industrial park (all factories working)", "المنطقة الصناعية (كل المصانع شغّالة)", industrial_park),
     ("village", "Village (farmers, baker, smith)", "قرية (فلاحين وخبّاز وحدّاد)", village),
     ("old_town", "Old town with a market", "بلدة قديمة فيها سوق", old_town),
     ("modern_city", "Modern city", "مدينة حديثة", modern_city),

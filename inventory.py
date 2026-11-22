@@ -23,6 +23,8 @@ CART = 140
 CHEST_CART = 141
 GLASS_BOTTLE, WATER_BOTTLE = 133, 134
 EMBER_SHARD, FIRE_STRIKER = 143, 129
+from blocks import POTATO, BEETROOT, BEET_SEEDS, PUMPKIN_SEEDS, PUMPKIN, MELON_SEEDS, MELON_SLICE  # noqa: E402
+BAKED_POTATO, PUMPKIN_PIE = 145, 150
 # potions: item -> (name, icon, effect, seconds); drunk from the hand, the bottle comes back
 POTIONS = {135: ("swiftness potion", "potion_swift", "swift", 90), 136: ("healing potion", "potion_heal", "heal", 0),
            137: ("night vision potion", "potion_night", "night", 120), 138: ("leaping potion", "potion_leap", "leap", 90),
@@ -30,7 +32,7 @@ POTIONS = {135: ("swiftness potion", "potion_swift", "swift", 90), 136: ("healin
            142: ("water breathing potion", "potion_water", "water", 120)}
 EGG, FEATHER, RAW_FISH, COOKED_FISH = 124, 125, 126, 127          # from animals (animals.py)
 FOOD = {RAW_MEAT: 2, COOKED_MEAT: 6, APPLE: 4, BREAD: 5, CARROT: 3, RAW_FISH: 2, COOKED_FISH: 5, MILK_BUCKET: 3,
-        CAKE: 12}      # item -> hunger points restored
+        CAKE: 12, POTATO: 1, BAKED_POTATO: 5, BEETROOT: 2, MELON_SLICE: 2, PUMPKIN_PIE: 8}      # item -> hunger points restored
 
 MATERIAL_ITEMS = {
     STICK: ("stick", "stick"), COAL: ("coal", "coal"), IRON_INGOT: ("iron ingot", "iron_ingot"),
@@ -45,12 +47,17 @@ MATERIAL_ITEMS = {
 FOOD_ITEMS = {RAW_MEAT: ("raw meat", "raw_meat"), COOKED_MEAT: ("cooked meat", "cooked_meat"),
               APPLE: ("apple", "apple"), BREAD: ("bread", "bread"), CARROT: ("carrot", "carrot"),
               RAW_FISH: ("raw fish", "raw_fish"), COOKED_FISH: ("cooked fish", "cooked_fish"),
-              MILK_BUCKET: ("milk bucket", "milk_bucket"), CAKE: ("cake", "cake")}
+              MILK_BUCKET: ("milk bucket", "milk_bucket"), CAKE: ("cake", "cake"),
+              POTATO: ("potato", "potato"), BAKED_POTATO: ("baked potato", "baked_potato"),
+              BEETROOT: ("beetroot", "beetroot"), MELON_SLICE: ("melon slice", "melon_slice"),
+              PUMPKIN_PIE: ("pumpkin pie", "pumpkin_pie")}
 OTHER_ITEMS = {BUCKET: ("bucket", "bucket"), WATER_BUCKET: ("water bucket", "water_bucket"),
                LAVA_BUCKET: ("lava bucket", "lava_bucket"),
                SKY_KEY: ("sky key", "sky_key"), CART: ("cart", "cart"),
                CHEST_CART: ("chest cart", "chest_cart"),
-               EMBER_SHARD: ("ember shard", "ember_shard"), FIRE_STRIKER: ("fire striker", "fire_striker"),
+               EMBER_SHARD: ("ember shard", "ember_shard"), BEET_SEEDS: ("beetroot seeds", "beet_seeds"),
+               PUMPKIN_SEEDS: ("pumpkin seeds", "pumpkin_seeds"), MELON_SEEDS: ("melon seeds", "melon_seeds"),
+               PUMPKIN: ("pumpkin", "pumpkin"), FIRE_STRIKER: ("fire striker", "fire_striker"),
                GLASS_BOTTLE: ("glass bottle", "glass_bottle"), WATER_BOTTLE: ("water bottle", "water_bottle"),
                **{p: (v[0], v[1]) for p, v in POTIONS.items()}}
 
@@ -318,6 +325,12 @@ RECIPES = [
     ({IRON_INGOT: 5}, (CART, 1)),
     ({CART: 1, 48: 1}, (CHEST_CART, 1)),
     ({GLASS: 3}, (GLASS_BOTTLE, 3)),
+    ({"rock": 4, COPPER_INGOT: 2, 1726: 1}, (1906, 1)),     # timer: a delay gate in a box
+    ({"rock": 4, COPPER_INGOT: 2, 1700: 2}, (1908, 1)),     # counter
+    ({"planks": 8, COPPER_INGOT: 1}, (1910, 1)),           # note block
+    ({"rock": 4, IRON_INGOT: 2, COPPER_INGOT: 1}, (1911, 1)),   # fan
+    ({PUMPKIN: 1, EGG: 1, 59: 1}, (PUMPKIN_PIE, 1)),     # pumpkin, egg and reeds for sweetness
+    ({PUMPKIN: 1}, (PUMPKIN_SEEDS, 4)), ({MELON_SLICE: 1}, (MELON_SEEDS, 1)),
     ({IRON_INGOT: 1, COAL: 1}, (FIRE_STRIKER, 1)),       # lights an obsidian frame: the way to the fire realm
     ({EMBER_SHARD: 4}, (910, 1)),                        # ember shards make a glow crystal
     ({1900: 4}, (1901, 4)),                              # ember bricks
@@ -360,7 +373,7 @@ SMELTING = [
     ({6: 1, "fuel": 1}, (GLASS, 1)), ({22: 1, "fuel": 1}, (3, 1)), ({RAW_MEAT: 1, "fuel": 1}, (COOKED_MEAT, 1)),
     ({15: 1, "fuel": 1}, (664, 1)), ({COBBLED_SLATE: 1, "fuel": 1}, (SLATE, 1)),
     ({"logs": 1, "fuel": 1}, (COAL, 1)), ({24: 1, "fuel": 1}, (GLASS, 1)),
-    ({RAW_FISH: 1, "fuel": 1}, (COOKED_FISH, 1)),
+    ({RAW_FISH: 1, "fuel": 1}, (COOKED_FISH, 1)), ({POTATO: 1, "fuel": 1}, (BAKED_POTATO, 1)),
 ]
 
 

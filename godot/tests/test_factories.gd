@@ -131,7 +131,7 @@ func test_logic_board() -> String:
 ## The farms harvest by themselves: ripen every crop the observers do not watch (nothing
 ## happens), then let a watched crop grow: the row's breakers take every ripe crop and plant it
 ## again. Twice, to see it keeps going. The button still harvests at once.
-func _harvest(file: String) -> String:
+func _harvest(file: String, button := true) -> String:
 	var s := _world(file)
 	var w: WorldData = s[0]
 	var p: Power = s[1]
@@ -171,6 +171,8 @@ func _harvest(file: String) -> String:
 			return "%s round %d: %d of %d crops not harvested and planted again" % [file, round + 1, unripe, crops.size()]
 		if dropped.size() != (round + 1) * crops.size():
 			return "%s round %d: %d drops for %d crops" % [file, round + 1, dropped.size(), crops.size()]
+	if not button:
+		return ""
 	# the button harvests ripe crops at once
 	for c in crops:
 		ripe.call(c)
@@ -294,6 +296,8 @@ func _world_full(clip_file: String) -> Array:
 			w.settings[at] = {"craft": int(e["craft"])}
 		if e.has("filter"):
 			w.settings[at] = {"filter": int(e["filter"])}
+		if e.get("settings") is Dictionary:
+			w.settings[at] = (e["settings"] as Dictionary).duplicate()
 	return [w, p, dropped, f]
 
 
@@ -440,3 +444,36 @@ func test_potion_lab_brews_all_six() -> String:
 			n += _count_in(w, ch, potion)
 		made.append(n)
 	return "" if made.min() > 0 else "potions made (swift, heal, night, leap, fire, water): %s" % [made]
+
+
+func test_market_garden_six_crops_harvest_themselves() -> String:
+	return _harvest("market_garden.json", false)
+
+
+func test_music_box_plays_its_tune() -> String:
+	var s := _world_full("music_box.json")
+	var p: Power = s[1]
+	_run_all(p, s[3], 8.5)
+	return "" if p.notes_played >= 16 else "notes played in 8.5 s: %d (two tunes of 8)" % p.notes_played
+
+
+func test_food_factory_field_to_bread() -> String:
+	var s := _world_full("food_factory.json")
+	var w: WorldData = s[0]
+	var p: Power = s[1]
+	var dropped: Array = s[2]
+	# what the field gives arrives in the row chests (the game's conveyors do that): put it there
+	var chests := _find(w, 48)
+	chests.sort_custom(func(a, b): return a.y > b.y)
+	w.containers[chests[0]] = [[121, 12], [120, 20]]           # wheat and seeds
+	w.containers[chests[1]] = [[144, 6], [120, 3]]             # potatoes (and stray seeds)
+	_run_all(p, s[3], 30.0)
+	var bread := 0
+	var baked := 0
+	var seeds_left := 0
+	for ch in _find(w, 48):
+		bread += _count_in(w, ch, 122)
+		baked += _count_in(w, ch, 145)
+		if ch.y == chests[0].y:
+			seeds_left += _count_in(w, ch, 120)
+	return "" if bread == 4 and baked == 6 and seeds_left == 23 else "bread %d of 4, baked potatoes %d of 6, seeds kept %d of 23" % [bread, baked, seeds_left]

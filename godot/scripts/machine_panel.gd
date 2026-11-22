@@ -82,6 +82,37 @@ func _open_now(kind: String, id: int, delay: int, mode: String, choices: Array, 
 			var b := _button(I18n.f("seconds", "%.1f" % (t / 10.0)), t == delay)
 			b.pressed.connect(func(): chosen.emit("delay", t))
 			row.add_child(b)
+	if kind in ["timer", "counter", "note"]:
+		var label: String = {"timer": "panel_every", "counter": "panel_count", "note": "panel_note"}[kind]
+		var row := _row(I18n.t(label))
+		var opts: Array = {"timer": [0.5, 1.0, 2.0, 5.0, 10.0, 30.0], "counter": [2, 3, 4, 5, 8, 10],
+			"note": [0, 2, 4, 5, 7, 9, 11, 12]}[kind]
+		var names := ["Do", "Re", "Mi", "Fa", "Sol", "La", "Si", "Do+"]
+		var scale := 10.0 if kind == "timer" else 1.0
+		for i in opts.size():
+			if i == 4:
+				row = HBoxContainer.new()
+				row.add_theme_constant_override("separation", 8)
+				_list.add_child(row)
+			var v: float = float(opts[i])
+			var text := ""
+			match kind:
+				"timer":
+					text = I18n.f("seconds", ("%.1f" % v) if v < 1.0 else str(int(v)))
+				"counter":
+					text = I18n.f("pulses", str(int(v)))
+				"note":
+					text = names[i]
+			var b := _button(text, int(v * scale) == current)
+			var val := int(v * scale)
+			b.pressed.connect(func(): chosen.emit(kind, val))
+			row.add_child(b)
+		var done_s := _button(I18n.t("done"), false)
+		done_s.pressed.connect(close)
+		_list.add_child(done_s)
+		visible = true
+		_place.call_deferred()
+		return
 	if kind == "trade":
 		# a worker's offers: one button each, greyed out when you cannot pay
 		for i in choices.size():
