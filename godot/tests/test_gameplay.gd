@@ -256,3 +256,19 @@ func test_glooms_chase_attack_and_fade() -> String:
 	if not near._near_light(Vector3i(22, 4, 8)) or near._near_light(Vector3i(40, 4, 8)):
 		return "torch light check"
 	return ""
+
+
+func test_remote_player_armor_drawn() -> String:
+	var rp := RemotePlayers.new()
+	rp._ready()
+	rp.update_state(7, [Vector3.ZERO, 0.0, 0.0, 0, "Sam", true, [160, 165, 0, 163]])
+	var n := rp.armor_parts_of(7)
+	if n != 1 + 3 + 2:
+		return "helmet + chestplate with sleeves + boots should be 6 parts, got %d" % n
+	rp.update_state(7, [Vector3.ZERO, 0.0, 0.0, 0, "Sam", true, [0, 176, 0, 0]])
+	if rp.armor_parts_of(7) != 2:
+		return "wings should be 2 panels, got %d" % rp.armor_parts_of(7)
+	rp.update_state(7, [Vector3.ZERO, 0.0, 0.0, 0, "Sam", true, [0, 0, 0, 0]])
+	var left := rp.armor_parts_of(7)
+	rp.free()
+	return "" if left == 0 else "taking it all off should leave no parts, got %d" % left

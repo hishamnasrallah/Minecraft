@@ -647,6 +647,81 @@ def animal_farm():
     return c
 
 
+HIVE, GLASS_BOTTLE, HONEY_BOTTLE, GRASS, FLOWERS = 1991, 133, 175, 1, (53, 54, 55, 56)
+
+
+def bee_farm():
+    """A flower meadow with three beehives. Bees fly between the hives and the flowers and the
+    hives fill with honey. Behind each hive a thrower full of empty bottles fills one when the
+    hive is full (on a slow clock); a collector under the thrower takes only the honey down
+    into a chest."""
+    c = Clip()
+    c.box(-1, -2, -1, 13, -1, 8, STONE_BRICKS)
+    c.box(-1, 0, -1, 13, 0, 8, GRASS)
+    for x in range(0, 12):                         # the meadow in front of the hives
+        for z in range(0, 3):
+            c.put(x, 1, z, FLOWERS[(x * 3 + z) % 4])
+    for i, x in enumerate((2, 5, 8)):
+        c.put(x, 0, 3, STONE_BRICKS)
+        c.put(x, 1, 3, HIVE)
+        c.extras.setdefault((x, 1, 3), {})["hive"] = 4         # nearly full when it is built
+        c.put(x, 1, 4, THROWER + 2)                            # facing -z, at the hive
+        c.fill(x, 1, 4, [[GLASS_BOTTLE, 32]])
+        c.put(x, 0, 4, COLLECTOR)
+        c.filter(x, 0, 4, HONEY_BOTTLE)
+        c.put(x, -1, 4, CHEST)
+    for x in range(1, 10):                         # one wire behind the throwers to the clock
+        c.put(x, 1, 5, WIRE)
+    blinker(c, 10, 1, 6, lamps=1)
+    for x in range(-1, 14):
+        c.put(x, 1, -1, FENCE)
+        c.put(x, 1, 8, FENCE)
+    for z in range(-1, 9):
+        c.put(-1, 1, z, FENCE)
+        c.put(13, 1, z, FENCE)
+    c.text(2, 3, 4, "HONEY", "pink")
+    return c
+
+
+def harbour():
+    """A harbour: a deep basin of water behind a sea wall, wooden piers with boats tied up at
+    them, a lighthouse with a lamp at the top, a fish market and a fisher's house."""
+    c = Clip()
+    w, d = 26, 16
+    c.box(0, -4, 0, w, -4, d, STONE_BRICKS)        # the basin floor
+    c.walls(0, -3, 0, w, 0, d, STONE_BRICKS)
+    c.box(1, -3, 1, w - 1, 0, d - 1, WATER)
+    for px in (6, 13, 20):                         # piers out from the quay at z = 0
+        for z in range(1, 10):
+            c.put(px, 0, z, PLANKS)
+            if z % 3 == 0:
+                c.put(px, 1, z, FENCE)
+        c.put(px, 1, 9, LAMP)
+        c.extras.setdefault((px - 2, 0, 5), {})["boat"] = 0.0
+        c.extras.setdefault((px + 2, 0, 7), {})["boat"] = 3.14
+    c.box(0, 0, -6, w, 0, -1, PLANKS)              # the quay
+    house(c, 1, -14, w=6, d=6, people=("worker:0",))
+    c.box(10, 0, -13, 17, 0, -8, PLANKS)           # the fish market: stalls under a roof
+    for x in (10, 17):
+        for z in (-13, -8):
+            c.box(x, 1, z, x, 3, z, LOG)
+    c.box(10, 4, -13, 17, 4, -8, BRICK)
+    for x in (12, 15):
+        c.put(x, 1, -10, CHEST)
+        c.fill(x, 1, -10, [[RAW_FISH, 32], [BREAD, 8]])
+    # the lighthouse on the sea wall corner
+    lx, lz = w - 2, -4
+    for y in range(1, 13):
+        c.walls(lx - 1, y, lz - 1, lx + 1, y, lz + 1, WHITE if (y // 2) % 2 == 0 else RED)
+    c.box(lx - 1, 13, lz - 1, lx + 1, 13, lz + 1, GLASS)
+    c.put(lx, 13, lz, LAMP)
+    c.box(lx - 1, 14, lz - 1, lx + 1, 14, lz + 1, RED)
+    c.put(lx, 1, lz - 1, DOOR_BOTTOM)
+    c.put(lx, 2, lz - 1, DOOR_TOP)
+    c.text(9, 6, -14, "HARBOUR", "blue")
+    return c
+
+
 TRACK_X, TRACK_Z, BOOST_X, BOOST_Z = 1750, 1751, 1756, 1757
 TURN = {(1, 1): 1752, (-1, 1): 1753, (-1, -1): 1754, (1, -1): 1755}   # (dx, dz) it links to
 
@@ -720,6 +795,7 @@ SMALL = [
     ("food_factory", "Food factory (field to bread)", "مصنع غذاء (من الحقل للخبز)", food_factory),
     ("market_garden", "Market garden (6 crops)", "بستان خضار (6 أصناف)", market_garden),
     ("animal_farm", "Animal farm (eggs, lambs, milk)", "مزرعة حيوانات (بيض وخرفان وحليب)", animal_farm),
+    ("bee_farm", "Bee farm (honey by itself)", "مزرعة نحل (عسل لحاله)", bee_farm),
 ]
 
 
@@ -1124,6 +1200,7 @@ def industrial_park():
 
 LARGE = [
     ("industrial_park", "Industrial park (all factories working)", "المنطقة الصناعية (كل المصانع شغّالة)", industrial_park),
+    ("harbour", "Harbour with boats and a lighthouse", "ميناء فيه قوارب ومنارة", harbour),
     ("village", "Village (farmers, baker, smith)", "قرية (فلاحين وخبّاز وحدّاد)", village),
     ("old_town", "Old town with a market", "بلدة قديمة فيها سوق", old_town),
     ("modern_city", "Modern city", "مدينة حديثة", modern_city),

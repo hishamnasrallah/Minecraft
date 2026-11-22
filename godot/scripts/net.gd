@@ -248,9 +248,9 @@ func container(pos: Vector3i, data) -> void:
 	remote_container.emit(pos, data)
 
 
-func send_state(pos: Vector3, yaw: float, pitch: float, held: int, can_be_hit := true) -> void:
+func send_state(pos: Vector3, yaw: float, pitch: float, held: int, can_be_hit := true, worn: Array = []) -> void:
 	if active():
-		state.rpc([pos, yaw, pitch, held, _my_name(), can_be_hit])
+		state.rpc([pos, yaw, pitch, held, _my_name(), can_be_hit, worn])
 
 
 @rpc("any_peer", "unreliable_ordered")

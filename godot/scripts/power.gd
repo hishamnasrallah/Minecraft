@@ -682,6 +682,22 @@ func _throw(p: Vector3i, d: Vector3i) -> void:
 			return
 		if item == _bucket("MILK_BUCKET"):
 			continue
+		# bottles in front of a beehive: a full hive fills one with honey; otherwise they wait
+		if front == 1991 and (item == _bucket("GLASS_BOTTLE") or item == _bucket("HONEY_BOTTLE")):
+			var hive = world.settings.get(q, {})
+			if item == _bucket("HONEY_BOTTLE") or not (hive is Dictionary and int(hive.get("honey", 0)) >= 5):
+				continue
+			if int(mine.slots[i][1]) > 1 and mine.add(_bucket("HONEY_BOTTLE"), 1) > 0:
+				continue                               # no room for the honey
+			if int(mine.slots[i][1]) > 1:
+				mine.use_one(i)
+			else:
+				mine.slots[i] = [_bucket("HONEY_BOTTLE"), 1]
+			world.settings[q] = {"honey": 0}
+			world.containers[p] = mine.to_data()
+			changed_containers[p] = true
+			Sfx.play("splash", -6.0, 1.4)
+			return
 		if item == 171:
 			if not into_box and fertilize.is_valid() and fertilize.call(q):
 				mine.use_one(i)

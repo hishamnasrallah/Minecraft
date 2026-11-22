@@ -69,7 +69,7 @@ func _make(name: String) -> Dictionary:
 	root.add_child(label)
 	return {"node": root, "head": head, "label": label, "target": Vector3.ZERO, "yaw": 0.0, "pitch": 0.0,
 		"seen": Time.get_ticks_msec(), "fresh": true, "limbs": limbs, "held": held, "item": -1,
-		"phase": 0.0, "can_hit": true}
+		"phase": 0.0, "can_hit": true, "worn": [], "armor_parts": []}
 
 
 ## [position, yaw, pitch, held item, name] from a player.
@@ -86,10 +86,61 @@ func update_state(id: int, s: Array) -> void:
 	p["can_hit"] = bool(s[5]) if s.size() > 5 else true
 	if p["label"].text != str(s[4]):
 		p["label"].text = str(s[4])
+	var worn: Array = s[6] if s.size() > 6 and s[6] is Array else []
+	if worn != p["worn"]:
+		p["worn"] = worn.duplicate()
+		_dress(p, worn)
 	var item := int(s[3])
 	if item != int(p["item"]):
 		p["item"] = item
 		p["held"].texture = icon_for.call(item) if item > 0 and icon_for.is_valid() else null
+
+
+## Armour they wear, drawn over the figure: [head, chest, legs, feet] item ids (0 = none).
+## Iron is grey, diamond light blue; wings are two panels on the back.
+func _dress(p: Dictionary, worn: Array) -> void:
+	for part in p["armor_parts"]:
+		part.queue_free()
+	var parts: Array = []
+	var limbs: Array = p["limbs"]
+	var root: Node3D = p["node"]
+	for i in mini(worn.size(), 4):
+		var id := int(worn[i])
+		if id <= 0:
+			continue
+		if id == 176:                                  # wings
+			for side in [-1.0, 1.0]:
+				var w := _part(root, Vector3(0.42, 0.95, 0.04), Vector3(side * 0.24, 1.15, 0.2), Color(0.9, 0.9, 0.95))
+				w.rotation.y = side * 0.35
+				parts.append(w)
+			continue
+		var c := Color(0.35, 0.85, 0.85) if id >= 164 else Color(0.78, 0.8, 0.83)
+		match i:
+			0:
+				parts.append(_part(p["head"], Vector3(0.47, 0.24, 0.47), Vector3(0, 0.12, 0), c))
+			1:
+				parts.append(_part(root, Vector3(0.56, 0.6, 0.34), Vector3(0, 1.1, 0), c))
+				for j in [2, 3]:
+					parts.append(_part(limbs[j], Vector3(0.23, 0.3, 0.25), Vector3(0, -0.15, 0), c))
+			2:
+				for j in [0, 1]:
+					parts.append(_part(limbs[j], Vector3(0.25, 0.45, 0.28), Vector3(0, -0.23, 0), c.darkened(0.1)))
+			3:
+				for j in [0, 1]:
+					parts.append(_part(limbs[j], Vector3(0.26, 0.18, 0.3), Vector3(0, -0.62, 0.02), c.darkened(0.2)))
+	p["armor_parts"] = parts
+
+
+## How many armour pieces are drawn on a player (for tests).
+func armor_parts_of(id: int) -> int:
+	return (_players[id]["armor_parts"] as Array).size() if _players.has(id) else -1
+
+
+func armor_parts_total() -> int:
+	var n := 0
+	for id in _players:
+		n += (_players[id]["armor_parts"] as Array).size()
+	return n
 
 
 func remove(id: int) -> void:

@@ -2150,7 +2150,10 @@ func _update_net(delta: float) -> void:
 	_net_timer -= delta
 	if _net_timer <= 0.0:
 		_net_timer = 0.1
-		Net.send_state(player.position, player.yaw, player.pitch, inv.item_at(selected), not creative and not health.dead)
+		var worn := []
+		for slot in ["head", "chest", "legs", "feet"]:
+			worn.append(int(health.armor.get(slot, 0)))
+		Net.send_state(player.position, player.yaw, player.pitch, inv.item_at(selected), not creative and not health.dead, worn)
 	if Net.is_host():
 		_clock_timer -= delta
 		if _clock_timer <= 0.0:
@@ -2361,6 +2364,11 @@ func _apply_extras() -> void:
 			world.settings[q] = {"filter": int(e["filter"])}
 		if e.get("settings") is Dictionary:
 			world.settings[q] = (e["settings"] as Dictionary).duplicate()
+		if e.has("hive") and world.get_block(q.x, q.y, q.z) == 1991:
+			_new_hive(q)                                # its bees come with it
+			world.settings[q] = {"honey": int(e["hive"])}
+		if e.has("boat"):
+			boats.add(Vector3(q.x, float(q.y) - 0.4, q.z), float(e["boat"]))
 		if e.has("cart") and carts.is_track(world.get_block(q.x, q.y, q.z)):
 			carts.add(q, carts.links_of(world.get_block(q.x, q.y, q.z))[0], str(e["cart"]) == "chest")
 		for entry in e.get("animals", []):
@@ -3220,6 +3228,8 @@ func _factory_test(name: String) -> void:
 				_st["ft_wait"] = 1800
 			"cargo_line", "village", "old_town", "modern_city", "potion_lab", "music_box", "market_garden", "industrial_park", "food_factory":
 				_st["ft_wait"] = 1800
+			"bee_farm":
+				_st["ft_wait"] = 3000
 			"animal_farm":
 				for a in wildlife.animals:
 					if a.kind == "hen":
@@ -3253,6 +3263,9 @@ func _factory_test(name: String) -> void:
 		player.yaw = 0.0
 		player.rotation.y = 0.0
 		player.pitch = -0.55
+		if "--top" in OS.get_cmdline_user_args():          # testing: a high view down onto it
+			player.position = Vector3(c.x, box.end.y + 14.0, box.end.z + 10.0)
+			player.pitch = -0.95
 		player.camera.rotation.x = player.pitch
 	if t == 400 and _shot_path:
 		get_viewport().get_texture().get_image().save_png(_shot_path)
@@ -3329,8 +3342,9 @@ func _factory_test(name: String) -> void:
 	if t == int(_st.get("ft_wait", 600)):
 		var out := ""
 		match name:
-			"cobble_generator", "stone_factory", "obsidian_factory", "bakery", "grill_house", "metal_works", "animal_farm", "cargo_line", "village", "old_town", "modern_city", "potion_lab", "music_box", "market_garden", "industrial_park", "food_factory":
+			"cobble_generator", "stone_factory", "obsidian_factory", "bakery", "grill_house", "metal_works", "animal_farm", "cargo_line", "village", "old_town", "modern_city", "potion_lab", "music_box", "market_garden", "industrial_park", "food_factory", "bee_farm", "harbour":
 				var got := {}
+				out += "boats %d floating %d; " % [boats.boats.size(), boats.boats.filter(func(b): return boats.surface(b.pos) > -100.0).size()]
 				out += "notes played %d; " % power.notes_played
 				if name == "potion_lab":
 					inv.slots[selected] = [135, 1]
@@ -4010,7 +4024,7 @@ func _process_inner(delta: float) -> void:
 	if "--netlog" in OS.get_cmdline_user_args() and Engine.get_process_frames() % 120 == 0:
 		print("NETSTATE active=%s joined=%s host=%s peer=%s remote_world=%s" % [Net.active(), Net.joined, Net.hosting, multiplayer.multiplayer_peer, _remote_world])
 	if Net.active() and "--netlog" in OS.get_cmdline_user_args() and Engine.get_process_frames() % 120 == 0:
-		print("NET host=%s players=%d remote_edits=%d animals=%d chat=%d" % [Net.is_host(), remote_players.count(), _net_edits_in, wildlife.animals.size(), hud._chat_lines.size()])
+		print("NET host=%s players=%d remote_edits=%d animals=%d chat=%d armour parts seen %d" % [Net.is_host(), remote_players.count(), _net_edits_in, wildlife.animals.size(), hud._chat_lines.size(), remote_players.armor_parts_total()])
 	if "--netbot" in OS.get_cmdline_user_args() and spawned and not _st.has("netbot") and Net.active():
 		_st["netbot"] = true                            # testing: a friend builds a small tower
 		var bx := floori(player.position.x + 0.5) + 2
@@ -4019,6 +4033,7 @@ func _process_inner(delta: float) -> void:
 		for i in 5:
 			edit(Vector3i(bx, by + i, bz), 1600 + "HELLO".unicode_at(i) - 65)
 		print("NETBOT built HELLO at ", Vector3i(bx, by, bz))
+		health.armor = {"head": 160, "chest": 165, "feet": 163}     # the friend wears armour
 		Net.say("مرحبا من البوت")
 		Net.animal_drop.connect(func(st): print("NETBOT got a drop from the host: ", st))
 	if "--netbot" in OS.get_cmdline_user_args() and _st.has("netbot") and Engine.get_process_frames() % 20 == 0 and _remote_world:
