@@ -234,6 +234,7 @@ func _ready() -> void:
 
 	hud.minimap.world = world
 	weather = Weather.new()
+	weather.snow_line = world.SNOW_LINE - 12
 	add_child(weather)
 	remote_players = RemotePlayers.new()
 	remote_players.icon_for = hud.icon_for
@@ -772,6 +773,7 @@ func _read_controls() -> void:
 		player.look(touch.take_look() * float(I18n.settings["sensitivity"]))
 	if _test_move != Vector2.ZERO:
 		move = _test_move                              # testing: walking without a keyboard
+	jump = jump or _test_jump
 	player.move_input = move.limit_length(1.0)
 	player.jump_held = jump
 	player.vertical = vertical
@@ -926,6 +928,8 @@ func break_at(pos: Vector3i) -> void:
 	if creative:
 		return
 	health.exert(float(Items.survival["MINE"]))
+	if id == 1903 or Blocks.ores.any(func(o): return int(o[0]) == id):
+		gain_xp(3)                                     # ore dug out
 	var stacks := []
 	var drop := Items.drop_for(id) if m[1] else 0
 	if drop != 0:
@@ -1059,7 +1063,7 @@ func _wear(item: int) -> void:
 		# the piece you had on comes back to you (with its enchantment)
 		inv.slots[selected] = [int(old), 1, 0, "protection"] if old_bonus else [int(old), 1]
 	Sfx.play("place", 0.0, 0.8)
-	hud.flash(I18n.f("armor_on", [Items.name_of(item), health.armor_points()]))
+	hud.flash(I18n.t("glide_hint") if item == 176 else I18n.f("armor_on", [Items.name_of(item), health.armor_points()]))
 	_refresh_mode()
 
 
@@ -1279,6 +1283,7 @@ func _update_gear(delta: float) -> void:
 
 
 var _test_move := Vector2.ZERO
+var _test_jump := false
 
 # ---------------------------------------------------------------- signs, compass, enchanting
 var _sign_labels := {}               # Vector3i -> Label3D
@@ -1653,6 +1658,17 @@ func _update_signs(delta: float) -> void:
 		_refresh_mode()
 
 
+func gain_xp(n: int) -> void:
+	if creative:
+		return
+	var before := health.level()
+	health.xp += n
+	if health.level() > before:
+		hud.flash(I18n.f("level_up", health.level()))
+		Sfx.play("pop", 0.0, 1.8)
+	hud.show_bars(health, creative)
+
+
 func _open_enchant() -> void:
 	var item := inv.item_at(selected)
 	var options := []
@@ -1679,11 +1695,14 @@ func _enchant(index: int) -> void:
 	if item == 0 or index >= _ench_options.size():
 		return
 	var ruby := 114
-	if not creative and inv.count(ruby) < 3:
-		hud.flash(I18n.t("enchant_cost"))
-		return
 	if not creative:
-		inv.remove(ruby, 3)
+		if health.level() >= 3:
+			health.xp -= 45                            # three levels of experience
+		elif inv.count(ruby) >= 3:
+			inv.remove(ruby, 3)
+		else:
+			hud.flash(I18n.t("enchant_cost"))
+			return
 	var s: Array = inv.slots[selected]
 	var dur: int = int(s[2]) if s.size() > 2 else 0
 	inv.slots[selected] = [s[0], 1, dur, _ench_options[index]]
@@ -1816,6 +1835,8 @@ func attack(animal) -> void:
 	health.exert(float(Items.survival["ATTACK"]))
 	if Items.tools.has(item) and inv.wear(selected):
 		hud.flash(I18n.f("tool_broke", Items.name_of(item)))
+	if animal.dead and animal.hostile:
+		gain_xp(5)                                     # a night creature beaten
 	if not drop.is_empty():
 		if inv.add(drop[0], drop[1]) > 0:
 			hud.flash(I18n.t("inventory_full"))
@@ -2558,6 +2579,8 @@ func place_block(allow_use := true) -> void:
 		open_map()
 		return
 	if item == int(Items.S["FIREWORK"]):
+		if player.gliding:
+			player.glide_boost = 2.0                   # a push while gliding
 		_firework()
 		if not creative:
 			inv.use_one(selected)
@@ -3700,6 +3723,9 @@ func _update_health(delta: float) -> void:
 			health.fall_top = null
 	_last_position = player.position
 	var taken := health.tick(delta, moved, player.head_under_water() and not effects.has("water"))
+	player.glide_ok = health.armor.get("chest", 0) == 176
+	if player.gliding:
+		health.fall_top = null                         # gliding: no fall damage
 	if player.bounced:
 		player.bounced = false
 		health.fall_top = null                        # bounced on slime: no fall damage
@@ -4499,6 +4525,39 @@ func _process_inner(delta: float) -> void:
 		if _st_frame == 1500:
 			var g = _st["g"]
 			print("MOBS archer: %s; beetle: %s; wolf vs gloom: wolf bites %d, gloom health %d of 10, dead %s" % [_st["archer"], _st["beetle"], wildlife.bites, g.health, g.dead])
+			get_tree().quit()
+	if "--glidetest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: wings, experience, snow
+		if _st_frame == 5:
+			set_mode(false)
+			inv.slots[selected] = [176, 1]
+			_wear(176)
+			player.position += Vector3(0, 40, 0)
+			player.velocity = Vector3.ZERO
+			player.pitch = -0.25
+			player.camera.rotation.x = player.pitch
+			_st["start"] = player.position
+			_st["hp"] = health.health
+		if _st_frame == 40:
+			_test_jump = true
+		if _st_frame == 45:
+			_test_jump = false
+		if _st_frame == 50:
+			_st["gliding"] = player.gliding
+		if _st_frame == 400:
+			var moved := Vector2(player.position.x - _st["start"].x, player.position.z - _st["start"].z).length()
+			# experience from digging ore
+			var ore := Vector3i(floori(player.position.x + 0.5) + 2, floori(player.position.y), floori(player.position.z + 0.5))
+			edit(ore, int(Blocks.ores[1][0]), true, false)
+			inv.slots[selected] = [206, 1, 1500]
+			var xp0 := health.xp
+			break_at(ore)
+			weather.snow_line = 0
+			weather.set_weather("rain")
+			print("GLIDE gliding %s, flew %.0f blocks across while falling, health %d -> %d, experience %d -> %d (level %d)" % [
+				_st["gliding"], moved, _st["hp"], health.health, xp0, health.xp, health.level()])
+		if _st_frame == 700:
+			print("GLIDE snowing %s" % weather.snowing)
 			get_tree().quit()
 	if "--mobcount" in OS.get_cmdline_user_args() and spawned and Engine.get_process_frames() % 600 == 0:
 		var kinds := {}                                 # testing: which creatures are around

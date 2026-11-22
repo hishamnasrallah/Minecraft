@@ -33,6 +33,8 @@ var column_top: Callable
 
 var kind := "clear"
 var rain_amount := 0.0             # 0..1, smoothed
+var snow_line := 1 << 20           # above this height it snows instead of raining (the game sets it)
+var snowing := false
 var cloud_amount := 0.0            # 0..1, smoothed (0 = few clouds, 1 = overcast)
 var drift := 0.0                   # how far the clouds have drifted along +x (metres)
 var exposure := 1.0                # 1 under open sky, 0 deep underground (smoothed)
@@ -365,15 +367,18 @@ func _respawn(i: int, p: Vector3, anywhere: bool) -> void:
 func _update_rain(delta: float, p: Vector3, daylight: float) -> void:
 	if _rain == null:
 		return
+	snowing = p.y >= snow_line
 	var active := int(RAIN_N * rain_amount * minf(1.0, exposure * 3.0))
 	_rain.visible = active > 0
 	if active == 0:
 		return
 	var mm := _rain.multimesh
 	_rain.position = p
-	var vel := Vector3(_wind.x, -RAIN_SPEED, _wind.y)
+	var fall := RAIN_SPEED * (0.13 if snowing else 1.0)     # snowflakes drift down slowly
+	var vel := Vector3(_wind.x * (0.4 if snowing else 1.0), -fall, _wind.y * (0.4 if snowing else 1.0))
 	var sx := _wind.x / RAIN_SPEED
 	var sz := _wind.y / RAIN_SPEED
+	var tall := 0.14 if snowing else 1.0                    # a flake, not a streak
 	for i in active:
 		var d := _drops[i]
 		if d.y < -1e5:
@@ -394,7 +399,7 @@ func _update_rain(delta: float, p: Vector3, daylight: float) -> void:
 		_buf[o + 2] = 0.0
 		_buf[o + 3] = l.x
 		_buf[o + 4] = 0.0
-		_buf[o + 5] = shown
+		_buf[o + 5] = shown * tall
 		_buf[o + 6] = 0.0
 		_buf[o + 7] = l.y
 		_buf[o + 8] = 0.0
@@ -404,7 +409,7 @@ func _update_rain(delta: float, p: Vector3, daylight: float) -> void:
 	mm.buffer = _buf
 	mm.visible_instance_count = active
 	var light := 0.35 + 0.65 * clampf((daylight - 0.16) / 0.84, 0.0, 1.0)
-	_rain_mat.albedo_color = Color(0.72 * light, 0.78 * light, 0.9 * light, 0.5)
+	_rain_mat.albedo_color = Color(0.95 * light, 0.97 * light, 1.0 * light, 0.9) if snowing else Color(0.72 * light, 0.78 * light, 0.9 * light, 0.5)
 
 
 # ------------------------------------------------------------------------------ sound
@@ -432,7 +437,7 @@ func _update_sound() -> void:
 		var st: Variant = i18n.get("settings")
 		if st is Dictionary:
 			setting = float((st as Dictionary).get("sound", 0.8))
-	var v := rain_amount * exposure
+	var v := rain_amount * exposure * (0.0 if snowing else 1.0)
 	if v < 0.01 or setting <= 0.01:
 		if _sound.playing:
 			_sound.stop()

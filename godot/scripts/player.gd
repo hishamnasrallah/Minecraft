@@ -20,6 +20,9 @@ var flying := false
 var fast := false                   # sprint / fast flying
 var boost := 1.0                    # a swiftness potion: walk faster
 var bounced := false                # landed on a slime block (no fall damage)
+var glide_ok := false               # wearing wings (the game sets it)
+var gliding := false
+var glide_boost := 0.0              # seconds of firework push left
 var leap := 1.0                     # a leaping potion: jump higher
 var vertical := 0.0                 # flying: +1 up, -1 down
 var noclip := false
@@ -100,7 +103,21 @@ func _physics_process(delta: float) -> void:
 	var mask := 0 if noclip else 1
 	if collision_mask != mask:
 		collision_mask = mask
-	if flying:
+	if gliding and (flying or swimming or is_on_floor() or not glide_ok):
+		gliding = false
+	if not gliding and glide_ok and not flying and not is_on_floor() and velocity.y < -4.0 and jump_held:
+		gliding = true                       # spread the wings
+	if gliding:
+		# you glide where you look: diving speeds you up, a firework pushes you on
+		var look := -camera.global_transform.basis.z
+		var pitch_down := clampf(-look.y, -1.0, 1.0)
+		glide_boost = maxf(0.0, glide_boost - delta)
+		var sp := 9.0 + pitch_down * 9.0 + (16.0 if glide_boost > 0.0 else 0.0)
+		var flat := Vector3(look.x, 0, look.z).normalized()
+		velocity.x = flat.x * sp
+		velocity.z = flat.z * sp
+		velocity.y = look.y * sp if glide_boost > 0.0 else maxf(velocity.y - GRAVITY * 0.12 * delta, -2.5 - pitch_down * 8.0)
+	elif flying:
 		velocity.y = vertical * speed
 	elif on_ladder:
 		velocity.y = 3.0 if (move_input.y > 0.3 or jump_held) else maxf(velocity.y - GRAVITY * delta, -1.5)

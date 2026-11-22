@@ -347,7 +347,21 @@ func show_hotbar(inv: Inventory, selected: int, creative: bool) -> void:
 		item_label.text += "  • " + I18n.t("ench_" + str(s[3])).get_slice(":", 0)
 
 
+var xp_label: Label
+
+
 func show_bars(sv: Survival, creative: bool) -> void:
+	if xp_label == null:
+		xp_label = Label.new()
+		xp_label.add_theme_font_size_override("font_size", 18)
+		xp_label.add_theme_color_override("font_color", Color(0.6, 1.0, 0.4))
+		xp_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+		xp_label.add_theme_constant_override("outline_size", 4)
+		add_child(xp_label)
+	xp_label.visible = not creative and sv.xp > 0
+	xp_label.text = I18n.f("xp_level", sv.level())
+	if not hearts.is_empty():
+		xp_label.position = hearts[0].position + Vector2(0, -26)
 	var heart_icons := Survival.icons(sv.health, int(sv.K["MAX_HEALTH"]))
 	var food_icons := Survival.icons(sv.hunger, int(sv.K["MAX_HUNGER"]))
 	var max_air := float(sv.K["MAX_AIR"])

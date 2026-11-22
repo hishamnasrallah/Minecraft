@@ -652,6 +652,18 @@
    "en": "You drank: %s",
    "ar": "شربت: %s"
   },
+  "xp_level": {
+   "en": "Level %d",
+   "ar": "المستوى %d"
+  },
+  "level_up": {
+   "en": "Level up! %d",
+   "ar": "طلعت مستوى! %d"
+  },
+  "glide_hint": {
+   "en": "Wings on: jump while falling to glide; a firework speeds you up",
+   "ar": "لابس أجنحة: اقفز وإنت نازل لتطير، والألعاب النارية بتسرّعك"
+  },
   "hive_level": {
    "en": "Honey: %d of 5",
    "ar": "العسل: %d من 5"
@@ -697,8 +709,8 @@
    "ar": "امسك أداة أو سلاح أو درع أول"
   },
   "enchant_cost": {
-   "en": "You need 3 rubies",
-   "ar": "بدك 3 ياقوت"
+   "en": "You need 3 levels or 3 rubies",
+   "ar": "بدك 3 مستويات أو 3 ياقوت"
   },
   "ench_efficiency": {
    "en": "Efficiency: digs faster",
@@ -2247,6 +2259,7 @@
   "165": "درع صدر ألماس",
   "166": "بنطلون ألماس",
   "167": "جزمة ألماس",
+  "176": "أجنحة",
   "173": "ترس",
   "174": "ألعاب نارية",
   "171": "سماد عظم",

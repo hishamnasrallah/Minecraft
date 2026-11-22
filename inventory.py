@@ -33,11 +33,13 @@ SHIELD = 173
 FIREWORK, HONEY_BOTTLE = 174, 175
 # armour: item -> (slot, points); every point takes away 4% of the damage (at most 80%)
 ARMOR = {160: ("head", 2), 161: ("chest", 6), 162: ("legs", 5), 163: ("feet", 2),
-         164: ("head", 3), 165: ("chest", 8), 166: ("legs", 6), 167: ("feet", 3)}
+         164: ("head", 3), 165: ("chest", 8), 166: ("legs", 6), 167: ("feet", 3),
+         176: ("chest", 0)}                     # wings: worn on the back, you glide
 ARMOR_NAMES = {160: ("iron helmet", "iron_helmet"), 161: ("iron chestplate", "iron_chestplate"),
                162: ("iron leggings", "iron_leggings"), 163: ("iron boots", "iron_boots"),
                164: ("diamond helmet", "diamond_helmet"), 165: ("diamond chestplate", "diamond_chestplate"),
-               166: ("diamond leggings", "diamond_leggings"), 167: ("diamond boots", "diamond_boots")}
+               166: ("diamond leggings", "diamond_leggings"), 167: ("diamond boots", "diamond_boots"),
+               176: ("wings", "wings")}
 # potions: item -> (name, icon, effect, seconds); drunk from the hand, the bottle comes back
 POTIONS = {135: ("swiftness potion", "potion_swift", "swift", 90), 136: ("healing potion", "potion_heal", "heal", 0),
            137: ("night vision potion", "potion_night", "night", 120), 138: ("leaping potion", "potion_leap", "leap", 90),
@@ -360,6 +362,7 @@ RECIPES = [
     ({"planks": 6, "flowers": 3}, (1991, 1)),              # beehive
     ({59: 6, "wool": 1}, (1992, 6)),                        # scaffolding: reeds tied with wool
     ({PAPER: 1, COAL: 1, "wool": 1}, (FIREWORK, 3)),
+    ({FEATHER: 16, STAR_SHARD: 2}, (176, 1)),             # wings: feathers and star shards from the sky realm
     ({STICK: 8, "wool": 1}, (1970, 1)), ({STICK: 8, "flowers": 1}, (1974, 1)),   # paintings
     ({STICK: 8, 121: 1}, (1978, 1)), ({STICK: 8, 123: 1}, (1982, 1)),
     ({STICK: 8, 48: 1}, (1986, 1)),                        # item frame

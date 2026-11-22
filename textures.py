@@ -661,6 +661,18 @@ def firework(rng):
     return img
 
 
+def wings_icon(rng):
+    img = _blank()
+    for x in range(1, 15):
+        for y in range(2, 14):
+            left = x < 8
+            dx = (7 - x) if left else (x - 8)
+            if y < 3 + dx * 0.4 or y > 13 - dx * 0.6:
+                continue
+            _px(img, x, y, _shade((200, 210, 235), 1.0 - (y % 3) * 0.08))
+    return img
+
+
 def lava(rng):
     img = _noise(rng, (222, 92, 18), 0.08)
     for _ in range(7):                       # bright molten streaks
@@ -2536,7 +2548,7 @@ EXTRA_GENERATORS.update({
     "anvil_side": noise_tile((56, 56, 62), 0.1), "slime_block": slime_block, "bone_meal": bone_meal,
     "slimeball": _round_item((110, 210, 90)),
     **{f"painting_{n}": painting(n) for n in range(4)}, "item_frame": item_frame, "flower_pot": flower_pot,
-    "shield": shield_icon, "beehive_side": beehive_side, "beehive_top": noise_tile((220, 180, 100), 0.1),
+    "shield": shield_icon, "wings": wings_icon, "beehive_side": beehive_side, "beehive_top": noise_tile((220, 180, 100), 0.1),
     "scaffolding": scaffolding, "firework": firework, "honey_bottle": potion((240, 170, 30)),
     "compass": compass_icon, "map_item": map_icon, "paper": paper_icon, "enchant_top": enchant_top,
     "enchant_side": enchant_side,
