@@ -1080,17 +1080,18 @@ func _shoot() -> void:
 
 
 ## An arrow from `from` along `dir`: the player's hurt animals, an archer's hurt you.
-func _shoot_from(from: Vector3, dir: Vector3, hostile: bool) -> void:
+func _shoot_from(from: Vector3, dir: Vector3, hostile: bool, fireball := false) -> void:
 	var node := MeshInstance3D.new()
 	var bm := BoxMesh.new()
-	bm.size = Vector3(0.05, 0.05, 0.6)
+	bm.size = Vector3(0.4, 0.4, 0.4) if fireball else Vector3(0.05, 0.05, 0.6)
 	node.mesh = bm
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.6, 0.45, 0.28)
+	mat.albedo_color = Color(1.0, 0.55, 0.15) if fireball else Color(0.6, 0.45, 0.28)
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	node.material_override = mat
 	add_child(node)
-	_arrows.append({"pos": from, "vel": dir * (22.0 if hostile else 32.0), "node": node, "age": 0.0, "hostile": hostile})
+	_arrows.append({"pos": from, "vel": dir * (22.0 if hostile else 32.0), "node": node, "age": 0.0, "hostile": hostile,
+		"fire": fireball})
 	if hostile:
 		Sfx.play("click", -6.0, 0.5)
 
@@ -1105,7 +1106,7 @@ func _update_arrows(delta: float) -> void:
 		var done: bool = a["age"] > 6.0
 		if a.get("hostile", false):
 			if (player.position + Vector3(0, 0.9, 0)).distance_to(pos) < 0.7:
-				_take_damage(2, "arrow")                # an archer's arrow found you
+				_take_damage(3 if a.get("fire", false) else 2, "fireball" if a.get("fire", false) else "arrow")
 				done = true
 		for an in (wildlife.animals if not a.get("hostile", false) else []):   # an animal in the way
 			var centre: Vector3 = an.pos + Vector3(0, float(an.spec["height"]) * 0.5, 0)
@@ -1255,7 +1256,41 @@ func _get_off_horse() -> void:
 	player.velocity = Vector3.ZERO
 
 
+## The Ember Lord waits in the fire realm's fortress: it appears when you walk into the keep
+## (until it is beaten), and its health shows at the top of the screen.
+var _lord = null
+
+
+func _update_lord() -> void:
+	if world.dimension != "fire":
+		return
+	var p := player.position
+	if _lord == null and not world.player_data.get("fire_boss_dead", false) \
+			and p.x > WorldData.FORT_X + 2 and p.x < WorldData.FORT_X + WorldData.FORT_W - 2 \
+			and p.z > WorldData.FORT_Z + 2 and p.z < WorldData.FORT_Z + WorldData.FORT_W - 2 and absf(p.y - WorldData.FIRE_HALL) < 8:
+		_lord = Wildlife.Animal.new("ember_lord", Vector3(WorldData.FORT_X + WorldData.FORT_W / 2, WorldData.FIRE_HALL + 0.6, WorldData.FORT_Z + WorldData.FORT_W - 5))
+		wildlife.animals.append(_lord)
+		Sfx.play("hurt", 4.0, 0.4, 0.0)
+	if _lord == null:
+		return
+	if _lord.dead:
+		if _lord.killed:
+			world.player_data["fire_boss_dead"] = true
+			hud.flash(I18n.t("ember_lord_dead"))
+			gain_xp(100)
+			drops.spawn([1890, 8], _lord.pos + Vector3(0, 1, 0))
+		_lord = null
+		hud.hide_boss()
+		return
+	if _lord.pos.distance_to(p) < 40.0:
+		hud.show_boss(I18n.t("ember_lord"), float(_lord.health) / 150.0, 0)
+	else:
+		hud.hide_boss()
+
+
 func _update_gear(delta: float) -> void:
+	if Engine.get_process_frames() % 15 == 0:
+		_update_lord()
 	if not _arrows.is_empty():
 		_update_arrows(delta)
 	_update_rod(delta)
@@ -3685,7 +3720,7 @@ func _update_animals(delta: float) -> void:
 			var aim: Vector3 = sh[1] + Vector3(0, 1.2, 0)
 			var t: float = sh[0].distance_to(aim) / 22.0
 			aim.y += 0.5 * 14.0 * t * t
-			_shoot_from(sh[0], (aim - sh[0]).normalized(), true)
+			_shoot_from(sh[0], (aim - sh[0]).normalized(), true, sh[2] == "ember_lord")
 		wildlife.shots.clear()
 		for bpos in wildlife.booms:                    # bomb beetles
 			_explode(Vector3i(floori(bpos.x + 0.5), floori(bpos.y + 0.5), floori(bpos.z + 0.5)), 2.5)
@@ -4561,6 +4596,30 @@ func _process_inner(delta: float) -> void:
 				_st["gliding"], moved, _st["hp"], health.health, xp0, health.xp, health.level()])
 		if _st_frame == 700:
 			print("GLIDE snowing %s" % weather.snowing)
+			get_tree().quit()
+	if "--bosstest2" in OS.get_cmdline_user_args() and spawned and world.dimension == "fire":
+		_st_frame += 1                                  # testing: the Ember Lord in the fortress
+		if _st_frame == 30:
+			set_mode(false)
+			player.position = Vector3(WorldData.FORT_X + 6, WorldData.FIRE_HALL + 1.1, WorldData.FORT_Z + 6)
+			player.velocity = Vector3.ZERO
+			_st["hp"] = health.health
+		if _st_frame == 260 and _lord != null and _shot_path:
+			var to: Vector3 = _lord.pos + Vector3(0, 1.5, 0) - player.eye()
+			player.yaw = atan2(-to.x, -to.z)
+			player.pitch = atan2(to.y, Vector2(to.x, to.z).length())
+			player.look(Vector2.ZERO)
+		if _st_frame == 264 and _shot_path:
+			get_viewport().get_texture().get_image().save_png(_shot_path)
+		if _st_frame == 1400:
+			_st["seen"] = _lord != null
+			_st["hurt"] = _st["hp"] - health.health
+			_st["bar"] = hud.boss_box.visible
+			health.health = 20
+			if _lord != null:
+				_lord.hit(player.position, 500)
+		if _st_frame == 1460:
+			print("LORD appeared %s, health bar %s, its fire took %d health, beaten and remembered %s" % [_st["seen"], _st["bar"], _st["hurt"], world.player_data.get("fire_boss_dead", false)])
 			get_tree().quit()
 	if "--mobcount" in OS.get_cmdline_user_args() and spawned and Engine.get_process_frames() % 600 == 0:
 		var kinds := {}                                 # testing: which creatures are around

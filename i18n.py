@@ -178,6 +178,7 @@ UI = {
     "cause_lava": ("You fell into lava.", "وقعت بالحمم."),
     "cause_explosion": ("You were blown up.", "انفجر فيك الديناميت."),
     "cause_arrow": ("You were shot by an archer.", "أصابك سهم الرامي."),
+    "cause_fireball": ("The Ember Lord burnt you.", "حرقك سيّد الجمر."),
     "cause_fell from a high place": ("You fell from a high place.", "وقعت من مكان عالي."),
     # settings
     "settings": ("Settings", "الإعدادات"), "language": ("Language", "اللغة"),
@@ -232,6 +233,7 @@ UI = {
     "hint_brewer": ("Makes potions by itself: water bottles and an ingredient in at the top",
                     "بيعمل جرعات لحاله: قناني مي ومادة من فوق"),
     "drank": ("You drank: %s", "شربت: %s"),
+    "ember_lord": ("The Ember Lord", "سيّد الجمر"), "ember_lord_dead": ("You beat the Ember Lord!", "هزمت سيّد الجمر!"),
     "xp_level": ("Level %d", "المستوى %d"), "level_up": ("Level up! %d", "طلعت مستوى! %d"),
     "glide_hint": ("Wings on: jump while falling to glide; a firework speeds you up", "لابس أجنحة: اقفز وإنت نازل لتطير، والألعاب النارية بتسرّعك"),
     "hive_level": ("Honey: %d of 5", "العسل: %d من 5"), "guard_made": ("An iron guard! It protects you", "حارس حديد! بيحميك"),

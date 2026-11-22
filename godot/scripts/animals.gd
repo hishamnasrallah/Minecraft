@@ -116,13 +116,17 @@ const SPECIES := {
 	# a bee: flies round its hive and the flowers near it
 	"bee": {"speed": 2.0, "height": 0.3, "width": 0.3, "flee_range": 0.0, "swims": false, "group": [1, 1], "health": 3,
 		"move": "fly", "alt": [0.5, 2.5], "roam": 5.0},
+	# the ember lord: the boss of the fire realm's fortress; throws fireballs, lava does not hurt it
+	"ember_lord": {"speed": 1.4, "height": 3.6, "width": 1.6, "flee_range": 0.0, "swims": true, "group": [1, 1],
+		"health": 150, "hostile": true, "cap": "boss", "damage": 6, "reach": 2.4, "cooldown": 3.0, "sense": 30.0,
+		"shoots": true, "fireproof": true, "sun_proof": true},
 	"globlet": {"speed": 3.0, "height": 0.45, "width": 0.45, "flee_range": 0.0, "swims": true, "group": [1, 1], "health": 3,
 		"hostile": true, "cap": "hostile", "move": "hop", "hop": 6.0, "damage": 1, "reach": 1.1},
 }
 const DROPS := {"rabbit": [RAW_MEAT, 1, 1], "deer": [RAW_MEAT, 2, 3], "duck": [RAW_MEAT, 1, 2], "gloom": [COAL, 0, 2],
 	"woolly": [WOOL, 1, 2], "hen": [FEATHER, 1, 2], "goat": [RAW_MEAT, 1, 2], "frog": [0, 0, 0], "turtle": [0, 0, 0],
 	"lizard": [0, 0, 0], "fish": [RAW_FISH, 1, 1], "bird": [FEATHER, 0, 1], "butterfly": [0, 0, 0], "firefly": [0, 0, 0],
-	"bramble": [STICK, 1, 3], "glob": [172, 1, 2], "globlet": [SEEDS, 0, 1], "worker": [0, 0, 0], "cow": [RAW_MEAT, 1, 3], "cinder": [143, 0, 2], "pig": [RAW_MEAT, 1, 3], "horse": [0, 0, 0], "archer": [155, 0, 2], "guard": [30, 1, 2], "bee": [0, 0, 0], "beetle": [1951, 0, 1], "wolf": [0, 0, 0]}   # item, min, max
+	"bramble": [STICK, 1, 3], "glob": [172, 1, 2], "globlet": [SEEDS, 0, 1], "worker": [0, 0, 0], "cow": [RAW_MEAT, 1, 3], "cinder": [143, 0, 2], "pig": [RAW_MEAT, 1, 3], "horse": [0, 0, 0], "archer": [155, 0, 2], "guard": [30, 1, 2], "ember_lord": [111, 4, 6], "bee": [0, 0, 0], "beetle": [1951, 0, 1], "wolf": [0, 0, 0]}   # item, min, max
 # colour variants: woolly fleece = wool colour index (mostly naturals); see AnimalView.PALETTES
 const WOOL_COLOURS := [0, 0, 0, 0, 1, 1, 2, 3, 4, 4, 6, 7, 10, 12, 13, 14]
 const VARIANTS := {"rabbit": 2, "fish": 3, "butterfly": 4, "bird": 3, "worker": 3, "horse": 4}
@@ -294,7 +298,7 @@ class Animal:
 			if can_target and not dormant and dist < float(spec.get("sense", CHASE_RANGE)) and absf(player.y - pos.y) < 6:
 				state = "chase"
 				yaw = rad_to_deg(atan2(px, pz))
-				if spec.get("shoots", false):
+				if spec.get("shoots", false) and dist > float(spec.get("reach", ATTACK_RANGE)):
 					if dist < 16.0 and attack_cooldown <= 0:
 						wants_shoot = true              # an archer shoots from where it stands
 						attack_cooldown = float(spec.get("cooldown", 2.5))
@@ -370,7 +374,7 @@ class Animal:
 		var speed := 0.0
 		if state == "flee" or state == "chase":
 			speed = spec["speed"]
-			if spec.get("shoots", false) and player_dist < 8.0:
+			if kind == "archer" and player_dist < 8.0:
 				speed = 0.0                          # an archer keeps its distance
 			if fuse > 0:
 				speed = 0.0
@@ -551,7 +555,7 @@ var _game_ref: WeakRef = null
 var _game_check := 0.0
 var _lovers := []               # reused every frame
 var _born := []
-var _counts := {"land": 0, "fish": 0, "ambient": 0, "hostile": 0}
+var _counts := {"land": 0, "fish": 0, "ambient": 0, "hostile": 0, "boss": 0}
 var _player := Vector3.ZERO
 var _zoo := 0                   # testing: 1 = show every creature in a row (`-- --zoo`), 2 = done
 var _next_uid := 1
@@ -583,8 +587,8 @@ func update(dt: float, player: Vector3, daylight := 1.0, hostile := true, can_ta
 	var i := animals.size() - 1
 	while i >= 0:
 		var a: Animal = animals[i]
-		if a.frozen:
-			a.hidden = false
+		if a.frozen or (a.spec.get("cap", "") == "boss" and not a.dead and not world.is_loaded(cell(a.pos.x), cell(a.pos.z))):
+			a.hidden = false                       # a boss waits for its ground to load
 			i -= 1
 			continue
 		if a.uid == 0:
@@ -615,7 +619,7 @@ func update(dt: float, player: Vector3, daylight := 1.0, hostile := true, can_ta
 			a.acc = 0.0
 		if a.wants_shoot:
 			a.wants_shoot = false
-			shots.append([a.pos + Vector3(0, 1.5, 0), target])
+			shots.append([a.pos + Vector3(0, float(a.spec["height"]) * 0.75, 0), target, a.kind])
 		if a.fuse > 0:
 			a.fuse -= dt
 			if int(a.fuse * 6.0) % 2 == 0:

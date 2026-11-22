@@ -301,6 +301,21 @@ const MODELS := {
 		["wing", Vector3(0.06, 0.13, 0.0), Vector3(0.16, 0.02, 0.12), Color8(230, 240, 250)],
 		["wing", Vector3(-0.06, 0.13, 0.0), Vector3(0.16, 0.02, 0.12), Color8(230, 240, 250)],
 	],
+	"ember_lord": [
+		["body", Vector3(0.0, 1.9, 0.0), Vector3(1.3, 1.3, 0.8), Color8(80, 30, 24)],
+		["chest", Vector3(0.0, 2.0, 0.41), Vector3(0.8, 0.8, 0.02), Color8(140, 50, 30)],
+		["core", Vector3(0.0, 2.0, 0.43), Vector3(0.3, 0.3, 0.02), Color8(255, 150, 40)],
+		["head", Vector3(0.0, 2.95, 0.0), Vector3(0.7, 0.7, 0.7), Color8(80, 30, 24)],
+		["glow", Vector3(0.16, 3.0, 0.351), Vector3(0.16, 0.1, 0.02), Color8(255, 240, 120)],
+		["glow", Vector3(-0.16, 3.0, 0.351), Vector3(0.16, 0.1, 0.02), Color8(255, 240, 120)],
+		["horn", Vector3(0.35, 3.45, 0.0), Vector3(0.12, 0.4, 0.12), Color8(40, 30, 30)],
+		["horn", Vector3(-0.35, 3.45, 0.0), Vector3(0.12, 0.4, 0.12), Color8(40, 30, 30)],
+		["crown", Vector3(0.0, 3.33, 0.0), Vector3(0.72, 0.06, 0.72), Color8(255, 150, 40)],
+		["leg", Vector3(0.85, 2.5, 0.0), Vector3(0.35, 1.4, 0.35), Color8(140, 50, 30)],
+		["leg", Vector3(-0.85, 2.5, 0.0), Vector3(0.35, 1.4, 0.35), Color8(140, 50, 30)],
+		["leg", Vector3(0.35, 1.25, 0.0), Vector3(0.42, 1.25, 0.42), Color8(80, 30, 24)],
+		["leg", Vector3(-0.35, 1.25, 0.0), Vector3(0.42, 1.25, 0.42), Color8(80, 30, 24)],
+	],
 	# a worker: a person in a shirt of their trade's colour, overalls and a cap
 	"worker": [
 		["body", Vector3(0, 1.08, 0), Vector3(.5, .72, .28), VAR], ["bib", Vector3(0, .98, .145), Vector3(.34, .5, .02), PANTS],

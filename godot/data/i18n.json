@@ -400,6 +400,10 @@
    "en": "You were shot by an archer.",
    "ar": "أصابك سهم الرامي."
   },
+  "cause_fireball": {
+   "en": "The Ember Lord burnt you.",
+   "ar": "حرقك سيّد الجمر."
+  },
   "cause_fell from a high place": {
    "en": "You fell from a high place.",
    "ar": "وقعت من مكان عالي."
@@ -651,6 +655,14 @@
   "drank": {
    "en": "You drank: %s",
    "ar": "شربت: %s"
+  },
+  "ember_lord": {
+   "en": "The Ember Lord",
+   "ar": "سيّد الجمر"
+  },
+  "ember_lord_dead": {
+   "en": "You beat the Ember Lord!",
+   "ar": "هزمت سيّد الجمر!"
   },
   "xp_level": {
    "en": "Level %d",
