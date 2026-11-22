@@ -628,6 +628,11 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 				return [[Vector3(-.5, -.22, -.45), Vector3(-.42, .3, .45)]]
 			var board := [Vector3(-.45, 0.0, -.04), Vector3(.45, .5, .04)] if sf % 2 == 0 else [Vector3(-.04, 0.0, -.45), Vector3(.04, .5, .45)]
 			return [[Vector3(-.04, -.5, -.04), Vector3(.04, 0.0, .04)], board]
+		"campfire":
+			return [[Vector3(-.5, -.5, -.5), Vector3(.5, -.3, .5)], [Vector3(-.22, -.3, -.22), Vector3(.22, .15, .22)]]
+		"anvil":
+			return [[Vector3(-.35, -.5, -.35), Vector3(.35, -.3, .35)], [Vector3(-.15, -.3, -.15), Vector3(.15, .1, .15)],
+				[Vector3(-.5, .1, -.3), Vector3(.5, .5, .3)]]
 		"lantern":
 			return [[Vector3(-.19, -.5, -.19), Vector3(.19, -.06, .19)], [Vector3(-.12, -.06, -.12), Vector3(.12, .06, .12)]]
 		"fence":

@@ -438,3 +438,30 @@ func test_tnt_trapdoor_iron_door_by_power() -> String:
 	var bottom: bool = Blocks.defs[_id(w, 0, 40, 6)]["door"]["open"]
 	var top: bool = Blocks.defs[_id(w, 0, 41, 6)]["door"]["open"]
 	return "" if bottom and top else "the plate should open both halves of the iron door"
+
+
+func test_composter_makes_bone_meal_and_thrower_uses_it() -> String:
+	var s := _setup()
+	var w: WorldData = s[0]
+	var p: Power = s[1]
+	var grown := []
+	p.fertilize = func(q: Vector3i) -> bool:
+		grown.append(q)
+		return true
+	w.set_block(0, 40, 0, 1962, true, false)        # composter
+	w.containers[Vector3i(0, 40, 0)] = [[120, 14]]  # 14 seeds -> 2 bone meal
+	for i in 60:
+		_run(p, 1)
+	var meal := 0
+	for st in Inventory.from_data(w.containers.get(Vector3i(0, 40, 0)), 27).slots:
+		if st != null and int(st[0]) == 171:
+			meal += int(st[1])
+	if meal != 2:
+		return "bone meal from 14 seeds: %d (should be 2)" % meal
+	w.set_block(0, 40, 3, 1833, true, false)        # thrower facing +x
+	w.containers[Vector3i(0, 40, 3)] = [[171, 3]]
+	w.set_block(0, 40, 4, 1704, true, false)        # a button beside it
+	_run(p, 3)
+	p.press_button(Vector3i(0, 40, 4))
+	_run(p, 5)
+	return "" if grown == [Vector3i(1, 40, 3)] else "the thrower should spread bone meal in front: %s" % [grown]

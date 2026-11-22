@@ -19,6 +19,7 @@ var swimming := false
 var flying := false
 var fast := false                   # sprint / fast flying
 var boost := 1.0                    # a swiftness potion: walk faster
+var bounced := false                # landed on a slime block (no fall damage)
 var leap := 1.0                     # a leaping potion: jump higher
 var vertical := 0.0                 # flying: +1 up, -1 down
 var noclip := false
@@ -120,7 +121,13 @@ func _physics_process(delta: float) -> void:
 	if noclip:
 		position += velocity * delta
 	else:
+		var falling := velocity.y
 		move_and_slide()
+		if falling < -4.0 and is_on_floor() and not flying:
+			var under := world.get_block(_cell(position.x), _cell(position.y - 0.6), _cell(position.z))
+			if under == 1965:
+				velocity.y = -falling * 0.85      # a slime block: bounce back up
+				bounced = true
 	if position.y < -20:
 		position = world.spawn_point()
 		velocity = Vector3.ZERO

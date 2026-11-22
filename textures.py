@@ -518,6 +518,57 @@ def enchant_side(rng):
     return img
 
 
+def composter_side(rng):
+    img = boards((150, 104, 60))(rng)
+    for y in (3, 12):
+        for x in range(TILE):
+            _px(img, x, y, (100, 70, 40))
+    return img
+
+
+def composter_top(rng, full=False):
+    img = _blank()
+    for x in range(TILE):
+        for y in range(TILE):
+            edge = x < 2 or y < 2 or x > 13 or y > 13
+            if edge:
+                _px(img, x, y, (130, 90, 52))
+            else:
+                _px(img, x, y, _shade((230, 226, 200) if full else (90, 70, 40), 1 + rng.uniform(-0.15, 0.1)))
+    return img
+
+
+def campfire_side(rng):
+    img = _blank()
+    for x in range(TILE):
+        for y in range(10, 14):
+            _px(img, x, y, (110, 80, 50) if (x // 4) % 2 else (90, 64, 40))
+    for x in range(3, 13):
+        for y in range(2, 10):
+            if abs(x - 8) < (10 - y) * 0.7:
+                _px(img, x, y, (255, 200 - (10 - y) * 12, 40))
+    return img
+
+
+def bone_meal(rng):
+    img = _blank()
+    for _ in range(14):
+        x, y = rng.randrange(4, 12), rng.randrange(5, 13)
+        _px(img, x, y, (240, 238, 228))
+    return img
+
+
+def slime_block(rng):
+    img = Image.new("RGBA", (TILE, TILE))
+    for x in range(TILE):
+        for y in range(TILE):
+            edge = x in (0, 15) or y in (0, 15)
+            inner = 4 <= x <= 11 and 4 <= y <= 11
+            c = (80, 190, 70) if edge or inner else (120, 220, 100)
+            img.putpixel((x, y), c + (200,))
+    return img
+
+
 def lava(rng):
     img = _noise(rng, (222, 92, 18), 0.08)
     for _ in range(7):                       # bright molten streaks
@@ -2387,6 +2438,11 @@ EXTRA_GENERATORS.update({
     "iron_door_top": iron_door(True), "iron_door_bottom": iron_door(False), "trapdoor": trapdoor,
     "lantern": lantern, "barrel_side": barrel_side, "barrel_top": barrel_top, "tnt_side": tnt_side,
     "tnt_top": tnt_top, "tnt_bottom": tnt_top, "tnt_lit": noise_tile((250, 240, 230), 0.05), "shears": shears,
+    "composter_side": composter_side, "composter_top": composter_top,
+    "composter_top_full": lambda rng: composter_top(rng, True), "campfire_top": noise_tile((90, 60, 36), 0.2),
+    "campfire_side": campfire_side, "anvil_top": noise_tile((70, 70, 76), 0.08),
+    "anvil_side": noise_tile((56, 56, 62), 0.1), "slime_block": slime_block, "bone_meal": bone_meal,
+    "slimeball": _round_item((110, 210, 90)),
     "compass": compass_icon, "map_item": map_icon, "paper": paper_icon, "enchant_top": enchant_top,
     "enchant_side": enchant_side,
     "bow": bow_icon, "arrow": arrow_icon, "boat": boat_icon, "fishing_rod": rod_icon, "saddle": saddle_icon,

@@ -301,6 +301,7 @@ func _ready() -> void:
 	power.spawn_drop = func(st: Array, p: Vector3) -> void: _drop_from_machine(st, p)
 	power.feed_animal = func(at: Vector3, item: int) -> int: return wildlife.feed_near(at, item)
 	power.explode = func(p: Vector3i) -> void: _explode(p)
+	power.fertilize = func(p: Vector3i) -> bool: return fertilize(p)
 	power.break_drops = func(id: int) -> Array:
 		var d := Items.drop_for(id)
 		var out := [[d, 1]] if d != 0 else []
@@ -842,7 +843,8 @@ func tap_world(pos: Vector2) -> void:
 	elif Items.placeable.has(item) or Items.food.has(item) or Items.plant.has(item) or _is_hoe(item) \
 			or item in [int(Items.S["BUCKET"]), int(Items.S["WATER_BUCKET"]), int(Items.S["LAVA_BUCKET"]), CART, CHEST_CART] \
 			or Items.potions.has(item) or item == int(Items.S["GLASS_BOTTLE"]) or Items.armor.has(item) \
-			or item in [int(Items.S["BOW"]), int(Items.S["FISHING_ROD"]), int(Items.S["BOAT"]), int(Items.S["MAP_ITEM"])]:
+			or item in [int(Items.S["BOW"]), int(Items.S["FISHING_ROD"]), int(Items.S["BOAT"]), int(Items.S["MAP_ITEM"]),
+				int(Items.S["BONE_MEAL"])]:
 		place_block()
 	elif not hit.is_empty():
 		var id := world.get_block(hit["pos"].x, hit["pos"].y, hit["pos"].z)
@@ -1271,6 +1273,94 @@ var _test_move := Vector2.ZERO
 # ---------------------------------------------------------------- signs, compass, enchanting
 var _sign_labels := {}               # Vector3i -> Label3D
 var _compass_on := false
+var _campfires := {}                 # campfire -> [[raw item, seconds left], ...]
+
+
+## Bone meal on a crop makes it grow two stages, on a sapling it grows into a tree, on grass
+## it brings out flowers and tall grass around. True if it did something.
+func fertilize(p: Vector3i) -> bool:
+	var b := world.get_block(p.x, p.y, p.z)
+	var c = Blocks.defs.get(b, {}).get("crop")
+	if c is Dictionary:
+		if int(c["next"]) == 0:
+			return false
+		var ripe := b - int(c["stage"]) + 3
+		edit(p, mini(b + 2, ripe), true, false)
+		debris.burst(Vector3(p), 5, 1.0)
+		Sfx.play("dig_soft", -4.0, 1.4)
+		return true
+	if Items.sapling_trees.has(b):
+		if _grow_tree(p, Items.sapling_trees[b]):
+			Sfx.play("dig_soft", -4.0, 1.2)
+			return true
+		return false
+	if b == 1:
+		for i in 8:
+			var q := p + Vector3i(randi_range(-2, 2), 1, randi_range(-2, 2))
+			if world.get_block(q.x, q.y, q.z) == 0 and world.get_block(q.x, q.y - 1, q.z) == 1:
+				edit(q, [51, 51, 51, 53, 54, 55, 56][randi() % 7], true, false)
+		return true
+	return false
+
+
+func _cook(pos: Vector3i) -> bool:
+	var item := inv.item_at(selected)
+	if not item in [103, 126, 144]:
+		return false
+	var list: Array = _campfires.get(pos, [])
+	if list.size() >= 4:
+		return true
+	list.append([item, 8.0])
+	_campfires[pos] = list
+	if not creative:
+		inv.use_one(selected)
+		_refresh_mode()
+	hud.flash(I18n.f("cooking", Items.name_of(item)))
+	Sfx.play("splash", -8.0, 1.8)
+	return true
+
+
+func _update_campfires(delta: float) -> void:
+	for p in _campfires.keys():
+		if world.get_block(p.x, p.y, p.z) != 1963:
+			_campfires.erase(p)
+			continue
+		var list: Array = _campfires[p]
+		for e in list.duplicate():
+			e[1] -= delta
+			if e[1] <= 0:
+				list.erase(e)
+				var cooked: int = {103: 104, 126: 127, 144: 145}[int(e[0])]
+				drops.spawn([cooked, 1], Vector3(p) + Vector3(0, 0.6, 0), Vector3(0, 2.0, 0))
+				Sfx.play("pop", -4.0)
+		if list.is_empty():
+			_campfires.erase(p)
+
+
+## The anvil mends the held tool by a quarter with one piece of its material.
+func _repair() -> void:
+	var s = inv.slots[selected]
+	if s == null or s.size() < 3 or not Items.tools.has(int(s[0])):
+		hud.flash(I18n.t("anvil_need"))
+		return
+	var t: Dictionary = Items.tools[int(s[0])]
+	var full := int(t["durability"])
+	if int(s[2]) >= full:
+		hud.flash(I18n.t("anvil_need"))
+		return
+	var tier := str(t["name"]).get_slice(" ", 0)
+	var mat = {"wooden": "planks", "stone": 22, "iron": 106, "diamond": 111}.get(tier, 106)
+	if not creative:
+		if inv.count(mat) < 1:
+			hud.flash(I18n.t("anvil_need"))
+			return
+		inv.remove(mat, 1)
+	s = inv.slots[selected]
+	s[2] = mini(full, int(s[2]) + ceili(full / 4.0))
+	inv.slots[selected] = s
+	Sfx.play("dig_stone", 0.0, 1.6)
+	hud.flash(I18n.f("repaired", Items.name_of(int(s[0]))))
+	hud.show_hotbar(inv, selected, creative)
 var _sign_t := 0.0
 var _sign_edit: Control
 var _sign_line: LineEdit
@@ -1573,7 +1663,7 @@ func _overlaps_player(p: Vector3i, id: int) -> bool:
 
 func _usable(id: int) -> bool:
 	var d: Dictionary = Blocks.defs.get(id, {})
-	return d.has("door") or d.get("container", false) or id == 62 or id == 47 or d.has("sign") or id == 1961 \
+	return d.has("door") or d.get("container", false) or id == 62 or id == 47 or d.has("sign") or id in [1961, 1963, 1964] \
 		or power.kind_of(id) in ["switch", "button", "not", "and", "or", "xor", "delay", "comparator", "crafter", "collector", "timer", "counter", "note"]
 
 
@@ -1601,6 +1691,11 @@ func use_block(pos: Vector3i) -> bool:
 		return true
 	if id == 1961:
 		_open_enchant()
+		return true
+	if id == 1963 and _cook(pos):
+		return true
+	if id == 1964:
+		_repair()
 		return true
 	if d.has("door") and d["door"].get("iron", false):
 		hud.flash(I18n.t("iron_door_hint"))             # opens only by power, like the original
@@ -2244,6 +2339,11 @@ func place_block(allow_use := true) -> void:
 	if item == int(Items.S["MAP_ITEM"]):
 		open_map()
 		return
+	if item == int(Items.S["BONE_MEAL"]) and not hit.is_empty():
+		if fertilize(hit["pos"]) and not creative:
+			inv.use_one(selected)
+			_refresh_mode()
+		return
 	if item == int(Items.S["FISHING_ROD"]):
 		_fish()
 		return
@@ -2611,6 +2711,8 @@ func _cargo() -> void:
 
 func _update_carts(delta: float) -> void:
 	_update_gear(delta)
+	if not _campfires.is_empty():
+		_update_campfires(delta)
 	_update_signs(delta)
 	if carts.carts.is_empty():
 		return
@@ -3350,6 +3452,9 @@ func _update_health(delta: float) -> void:
 			health.fall_top = null
 	_last_position = player.position
 	var taken := health.tick(delta, moved, player.head_under_water() and not effects.has("water"))
+	if player.bounced:
+		player.bounced = false
+		health.fall_top = null                        # bounced on slime: no fall damage
 	taken += health.track_fall(player.position.y, player.is_on_floor() or player.on_ladder, player.swimming)
 	# lava burns: 3 points a second while you stand in it
 	var body := Vector3i(floori(player.position.x + 0.5), floori(player.position.y + 0.5), floori(player.position.z + 0.5))
@@ -4013,6 +4118,46 @@ func _process_inner(delta: float) -> void:
 		if _st_frame == 40:
 			print("SIGN labels %d, texts %s, enchanted pickaxe: %s, compass says: %s" % [_sign_labels.size(),
 				_sign_labels.values().map(func(l): return l.text), _st["en"], hud.mode_label.text])
+	if "--toolstest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: bone meal, campfire, anvil, slime
+		if not _st.has("to"):
+			_st["to"] = Vector3i(floori(player.position.x + 0.5), floori(player.position.y), floori(player.position.z + 0.5))
+		var o: Vector3i = _st["to"]
+		if _st_frame == 5:
+			set_mode(false)
+			var e := {}
+			for x in range(-4, 8):
+				for z in range(-4, 8):
+					e[o + Vector3i(x, -1, z)] = 3
+					for y in range(0, 12):
+						e[o + Vector3i(x, y, z)] = 0
+			e[o + Vector3i(2, -1, 0)] = 970               # farmland with a seedling
+			e[o + Vector3i(2, 0, 0)] = 971
+			e[o + Vector3i(4, 0, 0)] = 1963              # campfire
+			e[o + Vector3i(6, 0, 0)] = 1964              # anvil
+			e[o + Vector3i(0, -1, 5)] = 1965             # a slime block
+			_rebuild(world.bulk_set(e)[0])
+			inv.slots[selected] = [171, 4]
+			fertilize(o + Vector3i(2, 0, 0))
+			fertilize(o + Vector3i(2, 0, 0))
+			_st["crop"] = world.get_block(o.x + 2, o.y, o.z)
+			inv.slots[selected] = [103, 1]
+			_st["cooking"] = _cook(o + Vector3i(4, 0, 0))
+			_st["drops0"] = drops.drops.size()
+			inv.slots[selected] = [205, 1, 100]
+			inv.add(106, 2)
+			_repair()
+			_st["repair"] = inv.slots[selected][2]
+			player.position = Vector3(o.x, o.y + 9.0, o.z + 5)  # fall onto the slime
+			player.velocity = Vector3.ZERO
+			_st["maxv"] = 0.0
+			_st["hp"] = health.health
+		if _st_frame > 5 and _st_frame < 400:
+			_st["maxv"] = maxf(_st["maxv"], player.velocity.y)
+		if _st_frame == 400:
+			print("TOOLS bone meal grew the crop to %d (ripe 974); campfire took meat %s and gave cooked meat %s; anvil mended the pickaxe 100 -> %d; bounced up at %.1f, health %d -> %d" % [
+				_st["crop"], _st["cooking"], drops.drops.any(func(d): return int(d["stack"][0]) == 104), _st["repair"], _st["maxv"], _st["hp"], health.health])
+			get_tree().quit()
 	if "--mobcount" in OS.get_cmdline_user_args() and spawned and Engine.get_process_frames() % 600 == 0:
 		var kinds := {}                                 # testing: which creatures are around
 		for a in wildlife.animals:

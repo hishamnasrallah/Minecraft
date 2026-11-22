@@ -126,7 +126,7 @@ func _rebuild_lists() -> void:
 	_lists_dirty = false
 	_comps = []
 	_comp_of = {}
-	_item_movers = {"collector": [], "smelter": [], "crafter": [], "brewer": []}
+	_item_movers = {"collector": [], "smelter": [], "crafter": [], "brewer": [], "composter": []}
 	_watch = {}
 	_comparators = []
 	for p in parts:
@@ -681,6 +681,13 @@ func _throw(p: Vector3i, d: Vector3i) -> void:
 			Sfx.play("dig_soft", -6.0)
 			return
 		if item == _bucket("MILK_BUCKET"):
+			continue
+		if item == 171:
+			if not into_box and fertilize.is_valid() and fertilize.call(q):
+				mine.use_one(i)
+				world.containers[p] = mine.to_data()
+				changed_containers[p] = true
+				return
 			continue                                   # milk stays in (a collector below takes it)
 		# food for an animal standing in front: it eats it (and wants to breed); one that is
 		# full is left alone and the food stays in
@@ -744,7 +751,9 @@ func _container(p: Vector3i) -> Inventory:
 	return Inventory.from_data(world.containers.get(p), 27)
 
 
-var _item_movers := {"collector": [], "smelter": [], "crafter": [], "brewer": []}
+var _item_movers := {"collector": [], "smelter": [], "crafter": [], "brewer": [], "composter": []}
+var fertilize: Callable                # func(pos) -> bool   bone meal from a thrower
+var compost := {}                       # composter -> scraps put in so far (7 make bone meal)
 var _turn := {}                      # collector -> the slot above it takes from next
 var busy_until := {}
 var counts := {}                      # counter -> pulses counted so far
@@ -753,19 +762,28 @@ var fans_on := {}                     # fan -> the way it blows (the game moves 
 var notes_played := 0
 var fuses := {}                       # lit TNT -> the time it blows up
 var explode: Callable                 # func(pos: Vector3i) -> void   the game's explosion                 # smelter / crafter Vector3i -> time it stops showing it works
-const LIT_TWIN := {1747: 1748, 1748: 1748, 1868: 1869, 1869: 1869, 1884: 1885, 1885: 1885}
-const COLD_TWIN := {1747: 1747, 1748: 1747, 1868: 1868, 1869: 1868, 1884: 1884, 1885: 1884}
+const LIT_TWIN := {1747: 1748, 1748: 1748, 1868: 1869, 1869: 1869, 1884: 1885, 1885: 1885, 1962: 1966, 1966: 1966}
+const COLD_TWIN := {1747: 1747, 1748: 1747, 1868: 1868, 1869: 1868, 1884: 1884, 1885: 1884, 1962: 1962, 1966: 1962}
 
 
 func _move_items() -> void:
 	for p in _item_movers["collector"]:
 		if world.is_loaded(p.x, p.z):
 			_collect(p)
-	for kind in ["smelter", "crafter", "brewer"]:
+	for kind in ["smelter", "crafter", "brewer", "composter"]:
 		for p in _item_movers[kind]:
 			if not world.is_loaded(p.x, p.z):
 				continue
-			if _has_items(p) and (_craft(p) if kind == "crafter" else _station(p, "furnace" if kind == "smelter" else "brew")):
+			var worked := false
+			if _has_items(p):
+				match kind:
+					"crafter":
+						worked = _craft(p)
+					"composter":
+						worked = _compost(p)
+					_:
+						worked = _station(p, "furnace" if kind == "smelter" else "brew")
+			if worked:
 				busy_until[p] = now + 1.3
 			# a working machine shows it: the fire burns, the crafting grid glows
 			var id := world.get_block(p.x, p.y, p.z)
@@ -811,7 +829,7 @@ func _show(p: Vector3i, on: bool) -> void:
 ## Smelters and crafters take things in at the top (slots 0-17) and give them out below (18-26).
 func _is_maker(q: Vector3i) -> bool:
 	var k: String = parts.get(q, "")
-	return k == "smelter" or k == "crafter" or k == "brewer"
+	return k == "smelter" or k == "crafter" or k == "brewer" or k == "composter"
 
 
 func _has_items(p: Vector3i) -> bool:
@@ -912,6 +930,40 @@ func take_drop(p: Vector3i, stack: Array):
 	world.containers[p] = inv.to_data()
 	changed_containers[p] = true
 	return left
+
+
+## Plant scraps in, one at a time; every 7th makes bone meal in the output slots.
+const COMPOSTABLE := [120, 121, 123, 144, 146, 147, 148, 149, 151, 152, 105, 53, 54, 55, 56, 57, 58, 5]
+
+
+func _compost(p: Vector3i) -> bool:
+	var inv := _container(p)
+	for i in 18:
+		var s = inv.slots[i]
+		if s == null:
+			continue
+		var it := int(s[0])
+		if not (it in COMPOSTABLE or Blocks.defs.get(it, {}).get("leaves", false) or Items.sapling_trees.has(it)):
+			continue
+		var n := int(compost.get(p, 0)) + 1
+		if n >= 7:
+			var out := -1
+			for j in range(18, 27):
+				var o = inv.slots[j]
+				if o == null or (int(o[0]) == 171 and int(o[1]) < 64):
+					out = j
+					break
+			if out == -1:
+				return false                            # the output is full
+			var cur = inv.slots[out]
+			inv.slots[out] = [171, 1 + (int(cur[1]) if cur != null else 0)]
+			n = 0
+		compost[p] = n
+		inv.use_one(i)
+		world.containers[p] = inv.to_data()
+		changed_containers[p] = true
+		return true
+	return false
 
 
 func _station(p: Vector3i, station: String) -> bool:

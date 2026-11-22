@@ -340,6 +340,18 @@ for _f in range(4):
 # the enchanting table: a tool or armour in your hand and 3 rubies make it better
 block(1961, "enchanting table", ("enchant_top", "enchant_side", "obsidian"), FUNCTIONAL, 5.0, "pickaxe", 1,
       emit=7, shape="slab")
+# the composter turns plant scraps into bone meal (by itself, like the smelter)
+block(1962, "composter", ("composter_top", "composter_side", "composter_side"), FUNCTIONAL, 1.0, "axe", container=True,
+      logic=dict(kind="composter"))
+block(1966, "composter", ("composter_top_full", "composter_side", "composter_side"), FUNCTIONAL, 1.0, "axe",
+      container=True, creative=False, drop=1962, logic=dict(kind="composter", on=True))
+# a campfire: light, and it cooks the raw food you put on it
+block(1963, "campfire", ("campfire_top", "campfire_side", "campfire_side"), FUNCTIONAL, 1.0, "axe", emit=15,
+      shape="campfire", solid=False)
+# the anvil mends a worn tool with one ingot (plank, cobblestone, ingot or diamond) of its kind
+block(1964, "anvil", ("anvil_top", "anvil_side", "anvil_side"), FUNCTIONAL, 5.0, "pickaxe", 1, shape="anvil")
+# a slime block: you bounce on it
+block(1965, "slime block", "slime_block", BUILDING, 0.0, translucent=True)
 block(1948, "glass pane", "glass", BUILDING, 0.3, drop=None, shape="pane")
 block(1949, "lantern", "lantern", FUNCTIONAL, 1.0, "pickaxe", shape="lantern", emit=15, solid=False)
 block(1950, "barrel", ("barrel_top", "barrel_side", "barrel_top"), FUNCTIONAL, 2.5, "axe", container=True)
