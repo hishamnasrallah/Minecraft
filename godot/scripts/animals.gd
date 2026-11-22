@@ -62,6 +62,11 @@ const SPECIES := {
 	# a big, calm grazer with patches; an empty bucket gets milk from a grown one
 	"cow": {"speed": 1.4, "height": 1.3, "width": 0.9, "flee_range": 0.0, "swims": false, "group": [2, 4], "health": 10,
 		"food": [WHEAT], "call": "moo"},
+	"pig": {"speed": 1.5, "height": 0.9, "width": 0.7, "flee_range": 0.0, "swims": false, "group": [2, 3], "health": 8,
+		"food": [CARROT, 144], "call": ""},
+	# a horse: tame it with apples, put a saddle on it and ride it
+	"horse": {"speed": 3.0, "height": 1.9, "width": 0.9, "flee_range": 0.0, "swims": false, "group": [2, 3], "health": 15,
+		"food": [APPLE, WHEAT], "call": ""},
 	"goat": {"speed": 2.2, "height": 1.1, "width": 0.6, "flee_range": 2.5, "swims": false, "group": [1, 3], "health": 7,
 		"food": [WHEAT], "call": "bleat", "climb": 2},
 	"frog": {"speed": 2.2, "height": 0.35, "width": 0.4, "flee_range": 2.5, "swims": true, "group": [1, 3], "health": 2,
@@ -102,11 +107,11 @@ const SPECIES := {
 const DROPS := {"rabbit": [RAW_MEAT, 1, 1], "deer": [RAW_MEAT, 2, 3], "duck": [RAW_MEAT, 1, 2], "gloom": [COAL, 0, 2],
 	"woolly": [WOOL, 1, 2], "hen": [FEATHER, 1, 2], "goat": [RAW_MEAT, 1, 2], "frog": [0, 0, 0], "turtle": [0, 0, 0],
 	"lizard": [0, 0, 0], "fish": [RAW_FISH, 1, 1], "bird": [FEATHER, 0, 1], "butterfly": [0, 0, 0], "firefly": [0, 0, 0],
-	"bramble": [STICK, 1, 3], "glob": [0, 0, 0], "globlet": [SEEDS, 0, 1], "worker": [0, 0, 0], "cow": [RAW_MEAT, 1, 3], "cinder": [143, 0, 2]}   # item, min, max
+	"bramble": [STICK, 1, 3], "glob": [0, 0, 0], "globlet": [SEEDS, 0, 1], "worker": [0, 0, 0], "cow": [RAW_MEAT, 1, 3], "cinder": [143, 0, 2], "pig": [RAW_MEAT, 1, 3], "horse": [0, 0, 0]}   # item, min, max
 # colour variants: woolly fleece = wool colour index (mostly naturals); see AnimalView.PALETTES
 const WOOL_COLOURS := [0, 0, 0, 0, 1, 1, 2, 3, 4, 4, 6, 7, 10, 12, 13, 14]
-const VARIANTS := {"rabbit": 2, "fish": 3, "butterfly": 4, "bird": 3, "worker": 3}
-const NIGHT_RESTERS := ["woolly", "hen", "goat", "deer", "cow"]
+const VARIANTS := {"rabbit": 2, "fish": 3, "butterfly": 4, "bird": 3, "worker": 3, "horse": 4}
+const NIGHT_RESTERS := ["woolly", "hen", "goat", "deer", "cow", "pig", "horse"]
 const AROUND := [Vector2i(4, 0), Vector2i(-4, 0), Vector2i(0, 4), Vector2i(0, -4), Vector2i(3, 3), Vector2i(-3, -3)]
 
 static var held_item := 0       # what the player is holding (food makes animals follow)
@@ -147,6 +152,8 @@ class Animal:
 	var killed := false            # died from the player's hits (not despawned)
 	var burn := 0.0                # time spent in lava since the last burn
 	var sheared := 0.0             # a woolly sheep's fleece growing back (seconds)
+	var saddled := false           # a horse with a saddle: it can be ridden
+	var drive := 0.0               # being ridden: -1..1, how hard the rider pushes on
 	var farm := false              # lives on a farm (came with a library building): kept, but stays home
 	var carry := {}                # a worker's harvest: item -> count
 	var job_t := 0.0
@@ -257,6 +264,8 @@ class Animal:
 		return []
 
 	func think(dt: float, player: Vector3, can_target := true) -> void:
+		if state == "ride":
+			return                                 # the rider decides
 		var px := player.x - pos.x
 		var pz := player.z - pos.z
 		var dist := sqrt(px * px + pz * pz)
@@ -338,6 +347,8 @@ class Animal:
 			speed = spec["speed"]
 		elif state == "walk":
 			speed = spec["speed"] * 0.45
+		elif state == "ride":
+			speed = spec["speed"] * 2.2 * drive
 		elif state == "follow":
 			speed = spec["speed"] * (1.0 if player_dist > 12.0 else 0.6) if player_dist > 1.8 else 0.0
 		if age > 0:
@@ -942,7 +953,7 @@ func save_pets() -> Array:
 	var out := []
 	for a in animals + parked:
 		if a.tame and not a.dead and not a.hostile:
-			out.append([a.kind, a.pos.x, a.pos.y, a.pos.z, a.variant, a.age, a.health, a.farm])
+			out.append([a.kind, a.pos.x, a.pos.y, a.pos.z, a.variant, a.age, a.health, a.farm, a.saddled])
 	return out
 
 
@@ -967,6 +978,7 @@ func load_pets(list) -> void:
 		a.health = int(p[6])
 		a.tame = true
 		a.farm = p.size() >= 8 and bool(p[7])
+		a.saddled = p.size() >= 9 and bool(p[8])
 		a.home = a.pos
 		if world.is_loaded(cell(a.pos.x), cell(a.pos.z)):
 			animals.append(a)
@@ -1074,7 +1086,7 @@ func pick_kind(x: int, z: int) -> Array:
 		return ["frog", y, -1]
 	if trees >= 2:
 		return [["deer", "deer", "rabbit", "hen"].pick_random(), y, -1]   # forest
-	return [["woolly", "woolly", "cow", "cow", "hen", "hen", "rabbit", "deer"].pick_random(), y, -1]   # meadow
+	return [["woolly", "woolly", "cow", "cow", "pig", "horse", "hen", "hen", "rabbit", "deer"].pick_random(), y, -1]   # meadow
 
 
 func try_spawn(player: Vector3) -> Array:

@@ -648,6 +648,50 @@
    "en": "You drank: %s",
    "ar": "شربت: %s"
   },
+  "armor_on": {
+   "en": "Wearing: %s (armour %d)",
+   "ar": "لبست: %s (الحماية %d)"
+  },
+  "no_arrows": {
+   "en": "No arrows",
+   "ar": "ما في أسهم"
+  },
+  "boat_hint": {
+   "en": "Tap the boat to get in or out; walk forward to row",
+   "ar": "اكبس على القارب لتطلع أو تنزل، وامشِ لقدّام لتجدّف"
+  },
+  "boat_needs_water": {
+   "en": "Put a boat on water",
+   "ar": "حط القارب على المي"
+  },
+  "fish_cast": {
+   "en": "Waiting for a bite... tap when it pulls",
+   "ar": "استنى لتعلق سمكة... اكبس لما تشد"
+  },
+  "fish_bite": {
+   "en": "A bite! Tap now!",
+   "ar": "علقت! اكبس هلأ!"
+  },
+  "fish_missed": {
+   "en": "It got away",
+   "ar": "هربت"
+  },
+  "fish_needs_water": {
+   "en": "Cast into water",
+   "ar": "ارمي بالمي"
+  },
+  "saddled": {
+   "en": "Saddled: tap it with an empty hand to ride",
+   "ar": "انسرج: اكبس عليه بإيد فاضية لتركب"
+  },
+  "horse_tame_first": {
+   "en": "Feed it apples until it trusts you",
+   "ar": "طعميه تفاح لحتى يأمنلك"
+  },
+  "riding_hint": {
+   "en": "Walk to ride; tap the horse again to get off",
+   "ar": "امشِ ليمشي، واكبس عليه مرة تانية لتنزل"
+  },
   "iron_door_hint": {
    "en": "An iron door opens with power: a button, switch or plate",
    "ar": "الباب الحديد بيفتح بالكهربا: زر أو مفتاح أو بلاطة ضغط"
@@ -2080,6 +2124,19 @@
   "151": "بذور بطيخ",
   "149": "يقطين",
   "153": "مقص",
+  "154": "قوس",
+  "155": "سهم",
+  "156": "قارب",
+  "157": "صنّارة",
+  "158": "سرج",
+  "160": "خوذة حديد",
+  "161": "درع صدر حديد",
+  "162": "بنطلون حديد",
+  "163": "جزمة حديد",
+  "164": "خوذة ألماس",
+  "165": "درع صدر ألماس",
+  "166": "بنطلون ألماس",
+  "167": "جزمة ألماس",
   "129": "قدّاحة",
   "133": "قنينة زجاج",
   "134": "قنينة مي",

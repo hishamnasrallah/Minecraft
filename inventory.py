@@ -26,6 +26,14 @@ EMBER_SHARD, FIRE_STRIKER = 143, 129
 from blocks import POTATO, BEETROOT, BEET_SEEDS, PUMPKIN_SEEDS, PUMPKIN, MELON_SEEDS, MELON_SLICE  # noqa: E402
 BAKED_POTATO, PUMPKIN_PIE = 145, 150
 SHEARS = 153
+BOW, ARROW, BOAT, FISHING_ROD, SADDLE = 154, 155, 156, 157, 158
+# armour: item -> (slot, points); every point takes away 4% of the damage (at most 80%)
+ARMOR = {160: ("head", 2), 161: ("chest", 6), 162: ("legs", 5), 163: ("feet", 2),
+         164: ("head", 3), 165: ("chest", 8), 166: ("legs", 6), 167: ("feet", 3)}
+ARMOR_NAMES = {160: ("iron helmet", "iron_helmet"), 161: ("iron chestplate", "iron_chestplate"),
+               162: ("iron leggings", "iron_leggings"), 163: ("iron boots", "iron_boots"),
+               164: ("diamond helmet", "diamond_helmet"), 165: ("diamond chestplate", "diamond_chestplate"),
+               166: ("diamond leggings", "diamond_leggings"), 167: ("diamond boots", "diamond_boots")}
 # potions: item -> (name, icon, effect, seconds); drunk from the hand, the bottle comes back
 POTIONS = {135: ("swiftness potion", "potion_swift", "swift", 90), 136: ("healing potion", "potion_heal", "heal", 0),
            137: ("night vision potion", "potion_night", "night", 120), 138: ("leaping potion", "potion_leap", "leap", 90),
@@ -58,7 +66,9 @@ OTHER_ITEMS = {BUCKET: ("bucket", "bucket"), WATER_BUCKET: ("water bucket", "wat
                CHEST_CART: ("chest cart", "chest_cart"),
                EMBER_SHARD: ("ember shard", "ember_shard"), BEET_SEEDS: ("beetroot seeds", "beet_seeds"),
                PUMPKIN_SEEDS: ("pumpkin seeds", "pumpkin_seeds"), MELON_SEEDS: ("melon seeds", "melon_seeds"),
-               PUMPKIN: ("pumpkin", "pumpkin"), SHEARS: ("shears", "shears"), FIRE_STRIKER: ("fire striker", "fire_striker"),
+               PUMPKIN: ("pumpkin", "pumpkin"), SHEARS: ("shears", "shears"),
+               BOW: ("bow", "bow"), ARROW: ("arrow", "arrow"), BOAT: ("boat", "boat"),
+               FISHING_ROD: ("fishing rod", "fishing_rod"), SADDLE: ("saddle", "saddle"), **ARMOR_NAMES, FIRE_STRIKER: ("fire striker", "fire_striker"),
                GLASS_BOTTLE: ("glass bottle", "glass_bottle"), WATER_BOTTLE: ("water bottle", "water_bottle"),
                **{p: (v[0], v[1]) for p, v in POTIONS.items()}}
 
@@ -167,7 +177,8 @@ def attack_damage(item):
 
 
 def max_stack(item):
-    return 1 if item in TOOLS or item in (WATER_BUCKET, LAVA_BUCKET, MILK_BUCKET, FIRE_STRIKER, SHEARS) else 16 if item == BUCKET else STACK_SIZE
+    return 1 if item in TOOLS or item in (WATER_BUCKET, LAVA_BUCKET, MILK_BUCKET, FIRE_STRIKER, SHEARS, BOW,
+                                         BOAT, FISHING_ROD, SADDLE, *ARMOR) else 16 if item == BUCKET else STACK_SIZE
 
 
 def new_stack(item, amount):
@@ -334,6 +345,13 @@ RECIPES = [
     ({"planks": 6, "logs": 1}, (1950, 1)),                 # barrel
     ({6: 4, COAL: 5}, (1951, 1)),                          # TNT: sand and coal powder
     ({IRON_INGOT: 2}, (SHEARS, 1)),
+    ({STICK: 3, "wool": 1}, (BOW, 1)),
+    ({STICK: 1, FEATHER: 1, 22: 1}, (ARROW, 4)),
+    ({"planks": 5}, (BOAT, 1)),
+    ({STICK: 3, "wool": 1, IRON_INGOT: 1}, (FISHING_ROD, 1)),
+    ({"wool": 3, IRON_INGOT: 1}, (SADDLE, 1)),
+    ({IRON_INGOT: 5}, (160, 1)), ({IRON_INGOT: 8}, (161, 1)), ({IRON_INGOT: 7}, (162, 1)), ({IRON_INGOT: 4}, (163, 1)),
+    ({DIAMOND: 5}, (164, 1)), ({DIAMOND: 8}, (165, 1)), ({DIAMOND: 7}, (166, 1)), ({DIAMOND: 4}, (167, 1)),
     ({"rock": 4, COPPER_INGOT: 2, 1726: 1}, (1906, 1)),     # timer: a delay gate in a box
     ({"rock": 4, COPPER_INGOT: 2, 1700: 2}, (1908, 1)),     # counter
     ({"planks": 8, COPPER_INGOT: 1}, (1910, 1)),           # note block

@@ -184,7 +184,7 @@ func test_biome_spawning() -> String:
 	for i in 60:
 		seen[meadow.pick_kind(5, 5)[0]] = true
 	for k in seen:
-		if not k in ["woolly", "hen", "rabbit", "deer", "cow"]:
+		if not k in ["woolly", "hen", "rabbit", "deer", "cow", "pig", "horse"]:
 			return "odd meadow creature " + k
 	var sand := _flat(g)
 	for x in range(-16, 32):

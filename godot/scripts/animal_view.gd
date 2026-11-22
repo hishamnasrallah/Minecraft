@@ -59,6 +59,7 @@ const PALETTES := {
 	"fish": [Color8(240, 138, 40), Color8(184, 198, 208), Color8(70, 122, 204)],
 	"bird": [Color8(66, 116, 204), Color8(204, 66, 52), Color8(134, 102, 70)],
 	"butterfly": [Color8(250, 210, 50), Color8(246, 132, 36), Color8(80, 150, 250), Color8(244, 244, 236)],
+	"horse": [Color8(122, 80, 48), Color8(60, 46, 38), Color8(224, 214, 196), Color8(160, 96, 52)],
 	"worker": [Color8(86, 150, 64), Color8(128, 132, 142), Color8(238, 234, 222)],   # farmer, smith, baker
 }
 const SKIN := Color8(214, 170, 132)
@@ -204,6 +205,36 @@ const MODELS := {
 		["glow", Vector3(-0.18, 0.5, 0.405), Vector3(0.14, 0.1, 0.02), Color8(255, 220, 90)],
 		["mouth", Vector3(0.0, 0.25, 0.405), Vector3(0.36, 0.06, 0.02), Color8(255, 100, 30)],
 	],
+	"pig": [
+		["body", Vector3(0.0, 0.45, 0.0), Vector3(0.6, 0.5, 0.9), Color8(232, 166, 166)],
+		["head", Vector3(0.0, 0.6, 0.55), Vector3(0.5, 0.45, 0.4), Color8(232, 166, 166)],
+		["snout", Vector3(0.0, 0.52, 0.77), Vector3(0.24, 0.16, 0.06), Color8(212, 124, 132)],
+		["eye", Vector3(0.13, 0.68, 0.751), Vector3(0.06, 0.06, 0.02), Color8(31, 26, 23)],
+		["eye", Vector3(-0.13, 0.68, 0.751), Vector3(0.06, 0.06, 0.02), Color8(31, 26, 23)],
+		["ear", Vector3(0.17, 0.86, 0.5), Vector3(0.12, 0.1, 0.06), Color8(212, 124, 132)],
+		["ear", Vector3(-0.17, 0.86, 0.5), Vector3(0.12, 0.1, 0.06), Color8(212, 124, 132)],
+		["tail", Vector3(0.0, 0.6, -0.47), Vector3(0.06, 0.06, 0.06), Color8(212, 124, 132)],
+		["leg", Vector3(0.17, 0.25, 0.3), Vector3(0.16, 0.25, 0.16), Color8(232, 166, 166)],
+		["leg", Vector3(-0.17, 0.25, 0.3), Vector3(0.16, 0.25, 0.16), Color8(232, 166, 166)],
+		["leg", Vector3(0.17, 0.25, -0.3), Vector3(0.16, 0.25, 0.16), Color8(232, 166, 166)],
+		["leg", Vector3(-0.17, 0.25, -0.3), Vector3(0.16, 0.25, 0.16), Color8(232, 166, 166)],
+	],
+	"horse": [
+		["body", Vector3(0.0, 1.1, 0.0), Vector3(0.6, 0.6, 1.3), VAR],
+		["neck", Vector3(0.0, 1.5, 0.6), Vector3(0.3, 0.6, 0.3), VAR],
+		["head", Vector3(0.0, 1.8, 0.85), Vector3(0.3, 0.3, 0.55), VAR],
+		["muzzle", Vector3(0.0, 1.72, 1.1), Vector3(0.26, 0.2, 0.06), VAR2],
+		["mane", Vector3(0.0, 1.65, 0.48), Vector3(0.1, 0.7, 0.2), Color8(52, 36, 26)],
+		["eye", Vector3(0.151, 1.85, 0.9), Vector3(0.02, 0.06, 0.06), Color8(31, 26, 23)],
+		["eye", Vector3(-0.151, 1.85, 0.9), Vector3(0.02, 0.06, 0.06), Color8(31, 26, 23)],
+		["ear", Vector3(0.09, 2.0, 0.7), Vector3(0.06, 0.14, 0.06), VAR],
+		["ear", Vector3(-0.09, 2.0, 0.7), Vector3(0.06, 0.14, 0.06), VAR],
+		["tail", Vector3(0.0, 1.15, -0.7), Vector3(0.12, 0.55, 0.1), Color8(52, 36, 26)],
+		["leg", Vector3(0.2, 0.8, 0.45), Vector3(0.18, 0.8, 0.18), VAR],
+		["leg", Vector3(-0.2, 0.8, 0.45), Vector3(0.18, 0.8, 0.18), VAR],
+		["leg", Vector3(0.2, 0.8, -0.45), Vector3(0.18, 0.8, 0.18), VAR],
+		["leg", Vector3(-0.2, 0.8, -0.45), Vector3(0.18, 0.8, 0.18), VAR],
+	],
 	# a worker: a person in a shirt of their trade's colour, overalls and a cap
 	"worker": [
 		["body", Vector3(0, 1.08, 0), Vector3(.5, .72, .28), VAR], ["bib", Vector3(0, .98, .145), Vector3(.34, .5, .02), PANTS],
@@ -315,7 +346,12 @@ static func _boxes(list: Array) -> ArrayMesh:
 	return mesh
 
 
+const SHEARED := 99                # a woolly sheep's "colour" while its fleece grows back
+
+
 static func variant_colour(kind: String, variant: int) -> Color:
+	if kind == "woolly" and variant == SHEARED:
+		return Color8(214, 184, 160)         # bare pink-brown skin
 	if kind == "woolly":
 		var dyes: Array = Blocks.dyes
 		if variant >= 0 and variant < dyes.size():
@@ -362,11 +398,15 @@ static func meshes_for(kind: String, variant: int) -> Array:
 	return out
 
 
+var shorn := false                  # drawn without its fleece
+
+
 func _init(a) -> void:
 	animal = a
 	_setup()
 	add_child(body)
-	var m: Array = meshes_for(a.kind, a.variant)
+	shorn = a.kind == "woolly" and a.sheared > 0
+	var m: Array = meshes_for(a.kind, SHEARED if shorn else a.variant)
 	_still = MeshInstance3D.new()
 	_still.mesh = m[0]
 	body.add_child(_still)

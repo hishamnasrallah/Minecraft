@@ -40,9 +40,22 @@ func exert(amount: float) -> void:
 		hunger = maxi(0, hunger - 1)
 
 
+var armor := {}                  # slot ("head", "chest", "legs", "feet") -> the piece worn
+
+
+## Armour points: every point takes away 4% of a hit (at most 80%).
+func armor_points() -> int:
+	var n := 0
+	for slot in armor:
+		n += int(Items.armor.get(int(armor[slot]), {}).get("points", 0))
+	return n
+
+
 func damage(amount: int, why: String) -> bool:
 	if dead or amount <= 0:
 		return false
+	if not why in ["starved", "drowned", "void", "fall"] and not armor.is_empty():
+		amount = maxi(1, roundi(amount * (1.0 - minf(0.8, armor_points() * 0.04))))
 	health = maxi(0, health - amount)
 	if health == 0:
 		dead = true
@@ -109,7 +122,7 @@ func track_fall(y: float, on_ground: bool, in_water: bool) -> int:
 
 
 func to_data() -> Dictionary:
-	return {"health": health, "hunger": hunger, "exhaustion": exhaustion}
+	return {"health": health, "hunger": hunger, "exhaustion": exhaustion, "armor": armor}
 
 
 static func from_data(data) -> Survival:
@@ -118,6 +131,10 @@ static func from_data(data) -> Survival:
 		s.health = maxi(1, int(data.get("health", s.health)))
 		s.hunger = int(data.get("hunger", s.hunger))
 		s.exhaustion = float(data.get("exhaustion", 0.0))
+		var ar = data.get("armor", {})
+		if ar is Dictionary:
+			for slot in ar:
+				s.armor[str(slot)] = int(ar[slot])
 	return s
 
 

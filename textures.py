@@ -397,6 +397,77 @@ def shears(rng):
     return img
 
 
+def bow_icon(rng):
+    img = _blank()
+    for i in range(12):
+        x = 3 + i
+        y = 13 - i
+        bend = int(2.2 * math.sin(math.pi * i / 11))
+        _px(img, x - bend, y - bend, (130, 90, 50))
+    for i in range(12):
+        _px(img, 3 + i, 13 - i, (230, 230, 230))           # the string
+    return img
+
+
+def arrow_icon(rng):
+    img = _blank()
+    for i in range(10):
+        _px(img, 3 + i, 12 - i, (150, 110, 70))
+    for x, y in ((12, 3), (13, 2), (13, 3), (12, 2), (14, 1)):
+        _px(img, x, y, (200, 200, 206))
+    for x, y in ((2, 13), (3, 14), (2, 12), (4, 14), (1, 13)):
+        _px(img, x, y, (240, 240, 240))
+    return img
+
+
+def boat_icon(rng):
+    img = _blank()
+    for x in range(1, 15):
+        for y in range(8, 13):
+            if y == 12 and x in (1, 14):
+                continue
+            edge = y == 8 or x in (1, 14)
+            _px(img, x, y, (110, 76, 44) if edge else _shade((160, 116, 70), 1 + rng.uniform(-0.08, 0.08)))
+    return img
+
+
+def rod_icon(rng):
+    img = _blank()
+    for i in range(12):
+        _px(img, 2 + i, 13 - i, (120, 84, 50))
+    for y in range(3, 12):
+        _px(img, 14, y, (220, 220, 220))
+    _px(img, 14, 12, (200, 40, 40))
+    return img
+
+
+def saddle_icon(rng):
+    img = _blank()
+    for x in range(3, 13):
+        for y in range(5, 10):
+            _px(img, x, y, (140, 80, 40) if y > 5 else (110, 60, 30))
+    for y in range(9, 14):
+        _px(img, 4, y, (90, 60, 40))
+        _px(img, 11, y, (90, 60, 40))
+    return img
+
+
+def armour_icon(piece, colour):
+    shapes = {"helmet": [(x, y) for x in range(3, 13) for y in range(3, 9) if not (5 <= x <= 10 and y >= 6)],
+              "chestplate": [(x, y) for x in range(2, 14) for y in range(2, 14) if not (6 <= x <= 9 and y <= 4)
+                             and not ((x <= 3 or x >= 12) and y >= 7)],
+              "leggings": [(x, y) for x in range(3, 13) for y in range(2, 15) if not (7 <= x <= 8 and y >= 6)],
+              "boots": [(x, y) for x in list(range(2, 7)) + list(range(9, 14)) for y in range(8, 14)
+                        if not (y <= 10 and x in (2, 13))]}
+
+    def gen(rng):
+        img = _blank()
+        for x, y in shapes[piece]:
+            _px(img, x, y, _shade(colour, 1 + rng.uniform(-0.1, 0.1)))
+        return img
+    return gen
+
+
 def lava(rng):
     img = _noise(rng, (222, 92, 18), 0.08)
     for _ in range(7):                       # bright molten streaks
@@ -2266,6 +2337,9 @@ EXTRA_GENERATORS.update({
     "iron_door_top": iron_door(True), "iron_door_bottom": iron_door(False), "trapdoor": trapdoor,
     "lantern": lantern, "barrel_side": barrel_side, "barrel_top": barrel_top, "tnt_side": tnt_side,
     "tnt_top": tnt_top, "tnt_bottom": tnt_top, "tnt_lit": noise_tile((250, 240, 230), 0.05), "shears": shears,
+    "bow": bow_icon, "arrow": arrow_icon, "boat": boat_icon, "fishing_rod": rod_icon, "saddle": saddle_icon,
+    **{f"{m}_{p}": armour_icon(p, c) for m, c in (("iron", (214, 214, 220)), ("diamond", (90, 220, 225)))
+       for p in ("helmet", "chestplate", "leggings", "boots")},
     "timer_face": timer_face, "timer_face_on": lambda rng: timer_face(rng, True),
     "counter_face": counter_face, "counter_face_on": lambda rng: counter_face(rng, True),
     "note_block": note_block, "fan_face": fan_face, "fan_face_on": lambda rng: fan_face(rng, True),

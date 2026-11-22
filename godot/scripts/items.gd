@@ -6,6 +6,7 @@ var names := {}             # id -> name
 var icons := {}             # id -> atlas tile
 var tools := {}             # id -> {kind, speed, durability, name, level}
 var food := {}              # id -> hunger points
+var armor := {}             # armour piece -> {"slot", "points"}
 var groups := {}            # "planks" -> [ids]
 var potions := {}           # potion item -> {"effect", "seconds"}
 var returns := {}           # ingredient -> what is left of it after crafting (milk bucket -> bucket)
@@ -39,6 +40,8 @@ func _init() -> void:
 		food[int(k)] = int(d["food"][k])
 	for g in d["groups"]:
 		groups[g] = d["groups"][g].map(func(v): return int(v))
+	for k in d.get("armor", {}):
+		armor[int(k)] = d["armor"][k]
 	for k in d.get("potions", {}):
 		potions[int(k)] = d["potions"][k]
 	for k in d.get("returns", {}):

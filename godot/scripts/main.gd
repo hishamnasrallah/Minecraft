@@ -180,6 +180,10 @@ func _ready() -> void:
 	far_land.distance = 0 if Boot.safe_mode else int(I18n.settings.get("far_distance", 512))
 	add_child(far_land)
 	carts.load_data(world.player_data.get("carts", []))
+	boats = Boats.new()
+	boats.world = world
+	add_child(boats)
+	boats.load_data(world.player_data.get("boats", []))
 
 	Boot.stage("player")
 	player = Player.new()
@@ -765,6 +769,8 @@ func _read_controls() -> void:
 		if touch.up_held or touch.down_held:
 			vertical = float(touch.up_held) - float(touch.down_held)
 		player.look(touch.take_look() * float(I18n.settings["sensitivity"]))
+	if _test_move != Vector2.ZERO:
+		move = _test_move                              # testing: walking without a keyboard
 	player.move_input = move.limit_length(1.0)
 	player.jump_held = jump
 	player.vertical = vertical
@@ -814,7 +820,10 @@ func tap_world(pos: Vector2) -> void:
 	if _boss_in_sight():
 		_hit_boss()
 		return
-	if _cart_action():
+	if _horse != null and inv.item_at(selected) != int(Items.S["BOW"]):
+		_get_off_horse()                       # a tap while riding: get off (a bow still shoots)
+		return
+	if _cart_action() or _boat_action():
 		return
 	var animal = looked_at_animal()        # the crosshair decides, not where the finger tapped
 	var item := inv.item_at(selected)
@@ -832,7 +841,8 @@ func tap_world(pos: Vector2) -> void:
 		pass
 	elif Items.placeable.has(item) or Items.food.has(item) or Items.plant.has(item) or _is_hoe(item) \
 			or item in [int(Items.S["BUCKET"]), int(Items.S["WATER_BUCKET"]), int(Items.S["LAVA_BUCKET"]), CART, CHEST_CART] \
-			or Items.potions.has(item) or item == int(Items.S["GLASS_BOTTLE"]):
+			or Items.potions.has(item) or item == int(Items.S["GLASS_BOTTLE"]) or Items.armor.has(item) \
+			or item in [int(Items.S["BOW"]), int(Items.S["FISHING_ROD"]), int(Items.S["BOAT"])]:
 		place_block()
 	elif not hit.is_empty():
 		var id := world.get_block(hit["pos"].x, hit["pos"].y, hit["pos"].z)
@@ -1024,6 +1034,233 @@ func _small_setting(pos: Vector3i, mk: String) -> int:
 	return int(st.get("pitch", 0))
 
 
+# ---------------------------------------------------------------- bow, armour, boats, fishing, horses
+var boats: Boats
+var _boat = null                     # the boat you sit in
+var _horse = null                    # the horse you ride
+var _arrows := []                    # [{pos, vel, node, age}]
+var _rod := {}                       # fishing: {"at": Vector3, "bite": seconds left, "ready": seconds, "node"}
+
+
+func _wear(item: int) -> void:
+	var slot := str(Items.armor[item]["slot"])
+	var old = health.armor.get(slot)
+	health.armor[slot] = item
+	inv.use_one(selected)
+	if old != null:
+		inv.add(int(old), 1)                          # the piece you had on comes back to you
+	Sfx.play("place", 0.0, 0.8)
+	hud.flash(I18n.f("armor_on", [Items.name_of(item), health.armor_points()]))
+	_refresh_mode()
+
+
+func _shoot() -> void:
+	var arrow := int(Items.S["ARROW"])
+	if not creative:
+		if inv.count(arrow) <= 0:
+			hud.flash(I18n.t("no_arrows"))
+			return
+		inv.remove(arrow, 1)
+		hud.show_hotbar(inv, selected, creative)
+	var dir := aim_dir()
+	var node := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.05, 0.05, 0.6)
+	node.mesh = bm
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.6, 0.45, 0.28)
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	node.material_override = mat
+	add_child(node)
+	_arrows.append({"pos": player.eye() + dir * 0.6, "vel": dir * 32.0, "node": node, "age": 0.0})
+	Sfx.play("click", 0.0, 0.6)
+
+
+func _update_arrows(delta: float) -> void:
+	for a in _arrows.duplicate():
+		a["age"] += delta
+		var vel: Vector3 = a["vel"]
+		vel.y -= 14.0 * delta
+		a["vel"] = vel
+		var pos: Vector3 = a["pos"] + vel * delta
+		var done: bool = a["age"] > 6.0
+		for an in wildlife.animals:                 # an animal in the way
+			var centre: Vector3 = an.pos + Vector3(0, float(an.spec["height"]) * 0.5, 0)
+			if centre.distance_to(pos) < float(an.spec["width"]) * 0.6 + 0.35:
+				var drop: Array = an.hit(pos - vel.normalized(), 6)
+				if not drop.is_empty():
+					drops.spawn(drop, an.pos + Vector3(0, 0.5, 0))
+				Sfx.play("hurt", -4.0, 1.6)
+				done = true
+				break
+		if not done and boss != null and not boss.dead and boss.global_position.distance_to(pos) < 3.0:
+			boss.hit(6)
+			done = true
+		if not done and world.solid_at(floori(pos.x + 0.5), floori(pos.y + 0.5), floori(pos.z + 0.5)):
+			done = true                               # stuck in a block: it can be picked up again
+			if not creative:
+				drops.spawn([int(Items.S["ARROW"]), 1], a["pos"])
+		a["pos"] = pos
+		var n: MeshInstance3D = a["node"]
+		n.position = pos
+		if vel.length() > 0.1:
+			n.look_at(pos + vel, Vector3.UP if absf(vel.normalized().y) < 0.99 else Vector3.RIGHT)
+		if done:
+			n.queue_free()
+			_arrows.erase(a)
+
+
+func _fish() -> void:
+	if not _rod.is_empty():
+		# reel in: a fish if it bit just now
+		if float(_rod.get("ready", 0.0)) > 0.0:
+			var roll := randf()
+			var catch: int = 126 if roll < 0.75 else (127 if roll < 0.85 else ([114, 111, 106][randi() % 3] if roll < 0.92 else 125))
+			if inv.add(catch, 1) > 0:
+				drops.spawn([catch, 1], player.position)
+			hud.flash(I18n.f("got", Items.name_of(catch)))
+			Sfx.play("splash", 0.0, 1.2)
+			hud.show_hotbar(inv, selected, creative)
+		_rod["node"].queue_free()
+		_rod = {}
+		return
+	var wt := target(true)
+	if wt.is_empty() or not Blocks.is_water(world.get_block(wt["pos"].x, wt["pos"].y, wt["pos"].z)):
+		hud.flash(I18n.t("fish_needs_water"))
+		return
+	var bob := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.12
+	sm.height = 0.24
+	bob.mesh = sm
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.9, 0.15, 0.15)
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bob.material_override = mat
+	add_child(bob)
+	var at := Vector3(wt["pos"]) + Vector3(0, 0.42, 0)
+	bob.position = at
+	_rod = {"at": at, "bite": randf_range(4.0, 12.0), "ready": 0.0, "node": bob}
+	Sfx.play("splash", -4.0, 1.4)
+	hud.flash(I18n.t("fish_cast"))
+
+
+func _update_rod(delta: float) -> void:
+	if _rod.is_empty():
+		return
+	if inv.item_at(selected) != int(Items.S["FISHING_ROD"]) or player.position.distance_to(_rod["at"]) > 24.0:
+		_rod["node"].queue_free()                     # put the rod away or walked off
+		_rod = {}
+		return
+	var bob: MeshInstance3D = _rod["node"]
+	if float(_rod["ready"]) > 0.0:
+		_rod["ready"] = float(_rod["ready"]) - delta
+		bob.position = _rod["at"] + Vector3(0, -0.15 + sin(Time.get_ticks_msec() / 40.0) * 0.05, 0)
+		if float(_rod["ready"]) <= 0.0:
+			hud.flash(I18n.t("fish_missed"))
+			_rod["bite"] = randf_range(4.0, 12.0)
+		return
+	bob.position = _rod["at"] + Vector3(0, sin(Time.get_ticks_msec() / 400.0) * 0.03, 0)
+	_rod["bite"] = float(_rod["bite"]) - delta
+	if float(_rod["bite"]) <= 0.0:
+		_rod["ready"] = 2.5                            # a bite: tap within 2.5 s
+		Sfx.play("splash", 0.0, 0.9)
+		hud.flash(I18n.t("fish_bite"))
+		buzz(80)
+
+
+func _boat_action() -> bool:
+	if boats.boats.is_empty():
+		return false
+	var hit_b: Array = boats.ray_boat(player.eye(), aim_dir(), reach())
+	if hit_b.is_empty():
+		return false
+	var b = hit_b[0]
+	if use_touch and touch.mine_mode:
+		if b == _boat:
+			_leave_boat()
+		boats.remove(b)
+		if not creative:
+			drops.spawn([int(Items.S["BOAT"]), 1], b.pos + Vector3(0, 0.5, 0))
+		return true
+	if b == _boat:
+		_leave_boat()
+	else:
+		if _riding != null:
+			_get_out()
+		_boat = b
+		b.rider = true
+		player.riding = true
+		player.flying = false
+		hud.flash(I18n.t("boat_hint"))
+	return true
+
+
+func _leave_boat() -> void:
+	if _boat == null:
+		return
+	_boat.rider = false
+	var b = _boat
+	_boat = null
+	player.riding = false
+	for d in [Vector3(1, 0, 0), Vector3(-1, 0, 0), Vector3(0, 0, 1), Vector3(0, 0, -1)]:
+		var q: Vector3 = b.pos + d * 1.2
+		var c := Vector3i(floori(q.x + 0.5), floori(q.y + 0.5), floori(q.z + 0.5))
+		if world.solid_at(c.x, c.y, c.z) and not world.solid_at(c.x, c.y + 1, c.z) and not world.solid_at(c.x, c.y + 2, c.z):
+			player.position = Vector3(c.x, c.y + 0.5, c.z)       # step onto the shore
+			break
+	player.velocity = Vector3.ZERO
+
+
+func _get_on_horse(a) -> void:
+	_horse = a
+	a.state = "ride"
+	player.riding = true
+	player.flying = false
+	hud.flash(I18n.t("riding_hint"))
+
+
+func _get_off_horse() -> void:
+	if _horse == null:
+		return
+	var a = _horse
+	_horse = null
+	a.state = "idle"
+	a.drive = 0.0
+	player.riding = false
+	player.position = a.pos + Vector3(cos(deg_to_rad(a.yaw)) * 1.2, 0.2, -sin(deg_to_rad(a.yaw)) * 1.2)
+	player.velocity = Vector3.ZERO
+
+
+func _update_gear(delta: float) -> void:
+	if not _arrows.is_empty():
+		_update_arrows(delta)
+	_update_rod(delta)
+	if not boats.boats.is_empty():
+		var drive := player.move_input.y if _boat != null else 0.0
+		if _boat != null and player.jump_held:
+			player.jump_held = false
+			_leave_boat()
+		boats.update(delta, player.yaw, drive)
+		if _boat != null:
+			player.position = _boat.pos + Vector3(0, -0.25, 0)
+		if Engine.get_process_frames() % 10 == 0:
+			boats.set_light(shown_light)
+	if _horse != null:
+		if _horse.dead or not wildlife.animals.has(_horse):
+			_get_off_horse()
+			return
+		if player.jump_held:
+			player.jump_held = false
+			_get_off_horse()
+			return
+		_horse.yaw = rad_to_deg(player.yaw + PI)       # it goes where you look
+		_horse.drive = player.move_input.y
+		player.position = _horse.pos + Vector3(0, 0.95, 0)
+
+
+var _test_move := Vector2.ZERO
+
 var _trader = null
 
 
@@ -1085,6 +1322,21 @@ func _explode(c: Vector3i) -> void:
 
 func attack(animal) -> void:
 	var item := inv.item_at(selected)
+	if animal.kind == "horse" and Items.attack_damage(item) <= 1:
+		if not animal.tame and not animal.wants_food(item):
+			hud.flash(I18n.t("horse_tame_first"))
+			return
+		if item == int(Items.S["SADDLE"]) and animal.tame and not animal.saddled:
+			animal.saddled = true
+			if not creative:
+				inv.use_one(selected)
+				_refresh_mode()
+			Sfx.play("place")
+			hud.flash(I18n.t("saddled"))
+			return
+		if animal.saddled and animal.age <= 0 and not animal.wants_food(item):
+			_get_on_horse(animal)
+			return
 	if item == int(Items.S["SHEARS"]) and animal.kind == "woolly" and animal.age <= 0:
 		if animal.sheared > 0:
 			return
@@ -1815,6 +2067,28 @@ func place_block(allow_use := true) -> void:
 	if Items.potions.has(item):
 		drink(item)
 		return
+	if Items.armor.has(item):
+		_wear(item)
+		return
+	if item == int(Items.S["BOW"]):
+		_shoot()
+		return
+	if item == int(Items.S["FISHING_ROD"]):
+		_fish()
+		return
+	if item == int(Items.S["BOAT"]):
+		var bt := target(true)
+		if not bt.is_empty() and Blocks.is_water(world.get_block(bt["pos"].x, bt["pos"].y, bt["pos"].z)):
+			var at := Vector3(bt["pos"]) + Vector3(0, 0.35, 0)
+			boats.add(at, player.yaw)
+			Sfx.play("place")
+			hud.flash(I18n.t("boat_hint"))
+			if not creative:
+				inv.use_one(selected)
+				_refresh_mode()
+		else:
+			hud.flash(I18n.t("boat_needs_water"))
+		return
 	if item == int(Items.S["GLASS_BOTTLE"]):
 		var wt := target(true)
 		if not wt.is_empty() and Blocks.is_water(world.get_block(wt["pos"].x, wt["pos"].y, wt["pos"].z)):
@@ -2158,6 +2432,7 @@ func _cargo() -> void:
 
 
 func _update_carts(delta: float) -> void:
+	_update_gear(delta)
 	if carts.carts.is_empty():
 		return
 	var drive := 0.0
@@ -2869,6 +3144,9 @@ func _update_animals(delta: float) -> void:
 	var alive := {}
 	for a in wildlife.animals:
 		alive[a] = true
+		if animal_views.has(a) and a.kind == "woolly" and animal_views[a].shorn != (a.sheared > 0):
+			animal_views[a].queue_free()                   # sheared, or its fleece grew back
+			animal_views.erase(a)
 		if not animal_views.has(a):
 			var v := AnimalView.new(a)
 			add_child(v)
@@ -3426,6 +3704,95 @@ func _process_inner(delta: float) -> void:
 				_st["trap"], not _st["iron"], _st["wool"], wall_left, world.get_block(o.x + 2, o.y, o.z + 3) == 0])
 			if _shot_path:
 				get_viewport().get_texture().get_image().save_png(_shot_path)
+			get_tree().quit()
+	if "--geartest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: armour, bow, boat, fishing, horse
+		if not _st.has("go"):
+			_st["go"] = Vector3i(floori(player.position.x + 0.5), floori(player.position.y), floori(player.position.z + 0.5))
+		var o: Vector3i = _st["go"]
+		if _st_frame == 5:
+			set_mode(false)
+			var e := {}
+			for x in range(-3, 20):
+				for z in range(-10, 14):
+					e[o + Vector3i(x, -1, z)] = 3
+					for y in range(0, 5):
+						e[o + Vector3i(x, y, z)] = 0
+			for x in range(8, 18):                      # a pond
+				for z in range(4, 12):
+					e[o + Vector3i(x, -1, z)] = 10
+					e[o + Vector3i(x, -2, z)] = 3
+			_rebuild(world.bulk_set(e)[0])
+			player.position = Vector3(o.x, o.y + 0.5, o.z)
+			inv.slots[selected] = [161, 1]
+			_wear(161)
+			var before := health.health
+			health.damage(10, "gloom")
+			_st["armor"] = "armour %d, a hit of 10 took %d" % [health.armor_points(), before - health.health]
+			health.health = 20
+			var pig := Wildlife.Animal.new("pig", Vector3(o) + Vector3(0, -0.5, -6))
+			wildlife.animals.append(pig)
+			_st["pig"] = pig
+			player.yaw = 0.0
+			player.rotation.y = 0.0
+			player.pitch = -0.05
+			player.camera.rotation.x = player.pitch
+			inv.slots[selected] = [int(Items.S["BOW"]), 1]
+			inv.add(int(Items.S["ARROW"]), 8)
+		if _st_frame == 30:
+			var to: Vector3 = _st["pig"].pos + Vector3(0, 0.45, 0) - player.eye()
+			player.pitch = atan2(to.y, Vector2(to.x, to.z).length()) + 0.02   # aim at it
+			player.camera.rotation.x = player.pitch
+		if _st_frame == 32:
+			_shoot()
+		if _st_frame == 70:
+			var pig = _st["pig"]
+			_st["bow"] = "pig health %d of 8 (dead %s)" % [pig.health, pig.dead]
+			# the boat: on the pond, in it, row forward
+			var b = boats.add(Vector3(o) + Vector3(10, -0.65, 6), 0.0)
+			_boat = b
+			b.rider = true
+			player.riding = true
+			player.yaw = -PI / 2                         # look +x
+			player.rotation.y = player.yaw
+			_st["b0"] = b.pos
+		if _st_frame > 70 and _st_frame < 160:
+			_test_move = Vector2(0, 1)
+		if _st_frame == 160:
+			_test_move = Vector2.ZERO
+			_st["boat"] = "rowed %.1f blocks" % (_boat.pos - _st["b0"]).length()
+			_leave_boat()
+			inv.slots[selected] = [int(Items.S["FISHING_ROD"]), 1]
+			player.position = Vector3(o.x + 7, o.y + 0.5, o.z + 8)
+			player.pitch = -0.7
+			player.camera.rotation.x = player.pitch
+			_fish()
+			_st["cast"] = not _rod.is_empty()
+			if not _rod.is_empty():
+				_rod["bite"] = 0.2
+		if _st_frame == 200:
+			var fish_before := inv.count(126) + inv.count(127) + inv.count(114) + inv.count(111) + inv.count(106) + inv.count(125)
+			_fish()
+			var fish_after := inv.count(126) + inv.count(127) + inv.count(114) + inv.count(111) + inv.count(106) + inv.count(125)
+			_st["fish"] = "cast %s, caught %d" % [_st["cast"], fish_after - fish_before]
+			var horse := Wildlife.Animal.new("horse", Vector3(o) + Vector3(2, -0.5, 2))
+			horse.tame = true
+			wildlife.animals.append(horse)
+			inv.slots[selected] = [int(Items.S["SADDLE"]), 1]
+			attack(horse)
+			inv.slots[selected] = null
+			attack(horse)
+			_st["h"] = horse
+			_st["h0"] = horse.pos
+			_st["riding"] = _horse == horse
+			player.yaw = PI                              # look +z
+		if _st_frame > 200 and _st_frame < 300:
+			_test_move = Vector2(0, 1)
+		if _st_frame == 300:
+			_test_move = Vector2.ZERO
+			var h = _st["h"]
+			print("GEAR %s; bow: %s; boat: %s; fishing: %s; horse saddled %s, ridden %s, rode %.1f blocks" % [
+				_st["armor"], _st["bow"], _st["boat"], _st["fish"], h.saddled, _st["riding"], (h.pos - _st["h0"]).length()])
 			get_tree().quit()
 	if "--mobcount" in OS.get_cmdline_user_args() and spawned and Engine.get_process_frames() % 600 == 0:
 		var kinds := {}                                 # testing: which creatures are around
@@ -4151,6 +4518,7 @@ func save_game() -> void:
 	var data: Dictionary = world.player_data.duplicate()
 	data["pets"] = wildlife.save_pets()
 	data["carts"] = carts.save_data()
+	data["boats"] = boats.save_data()
 	data["position"] = [player.position.x, player.position.y + 0.1, player.position.z]
 	data["inventory"] = inv.to_data()
 	data["survival"] = health.to_data()
