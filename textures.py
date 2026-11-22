@@ -1326,6 +1326,72 @@ def lily_pad(rng):
     return img
 
 
+def candle(wax):
+    def gen(rng):
+        img = _blank()
+        for x in range(6, 10):
+            for y in range(6, 16):
+                _px(img, x, y, _shade(wax, (0.85 if x == 9 else 1.05 if x == 6 else 1.0) + rng.uniform(-0.04, 0.04)))
+        _px(img, 7, 5, (40, 34, 30))                       # the wick
+        return img
+    return gen
+
+
+def candle_top(rng):
+    img = _blank()
+    for x in range(6, 10):
+        for y in range(6, 10):
+            _px(img, x, y, (236, 226, 200))
+    for x, y, c in ((7, 7, (255, 240, 150)), (8, 7, (255, 200, 80)), (7, 8, (255, 200, 80)), (8, 8, (255, 160, 50))):
+        _px(img, x, y, c)
+    return img
+
+
+def chain(rng):
+    img = _blank()
+    for y in range(TILE):
+        link = (y // 4) % 2
+        for x in (6, 9) if link == 0 else (7, 8):
+            _px(img, x, y, _shade((70, 74, 88), 1 + rng.uniform(-0.1, 0.1)))
+        if y % 4 in (0, 3):
+            for x in range(6, 10):
+                _px(img, x, y, (90, 94, 108))
+    return img
+
+
+def bamboo(rng):
+    img = Image.new("RGB", (TILE, TILE))
+    for x in range(TILE):
+        for y in range(TILE):
+            f = 1.0 + (0.12 if x % 8 in (2, 3) else 0) - (0.15 if x % 8 == 7 else 0)
+            img.putpixel((x, y), _shade((110, 170, 60), f * (1 + rng.uniform(-0.04, 0.04))))
+    for x in range(TILE):                                    # the joints
+        img.putpixel((x, 4), _shade((70, 120, 40), 1.0))
+        img.putpixel((x, 12), _shade((70, 120, 40), 1.0))
+    return img
+
+
+def bamboo_top(rng):
+    img = Image.new("RGB", (TILE, TILE))
+    for x in range(TILE):
+        for y in range(TILE):
+            img.putpixel((x, y), _shade((170, 200, 110), 1 + rng.uniform(-0.05, 0.05)))
+    return img
+
+
+def vines(rng):
+    img = _blank()
+    for x0 in (2, 7, 12):
+        x = x0
+        for y in range(TILE):
+            x += rng.choice((-1, 0, 0, 1))
+            x = max(0, min(TILE - 1, x))
+            _px(img, x, y, _shade((50, 110, 40), 1 + rng.uniform(-0.12, 0.12)))
+            if rng.random() < 0.45:
+                _px(img, max(0, min(TILE - 1, x + rng.choice((-1, 1)))), y, _shade((70, 140, 50), 1 + rng.uniform(-0.1, 0.1)))
+    return img
+
+
 def cactus(rng):
     img = Image.new("RGB", (TILE, TILE))
     for x in range(TILE):
@@ -1464,6 +1530,9 @@ EXTRA_GENERATORS = {
     "red_mushroom": mushroom((200, 40, 36), (240, 240, 240)), "brown_mushroom": mushroom((140, 100, 70)),
     "reeds": reeds, "cactus": cactus, "cactus_top": cactus_top,
     "seagrass": seagrass, "kelp": kelp, "lily_pad": lily_pad,
+    "candle_white": candle((236, 230, 214)), "candle_red": candle((200, 50, 50)), "candle_blue": candle((60, 90, 200)),
+    "candle_yellow": candle((236, 196, 60)), "candle_top": candle_top, "chain": chain,
+    "bamboo": bamboo, "bamboo_top": bamboo_top, "vines": vines,
     "coral_red": coral((220, 70, 80)), "coral_yellow": coral((236, 200, 60)), "coral_blue": coral((70, 120, 230)),
     "coral_block_red": coral_block((200, 60, 70)), "coral_block_yellow": coral_block((220, 186, 56)),
     "coral_block_blue": coral_block((60, 104, 210)),

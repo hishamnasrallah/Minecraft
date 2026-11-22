@@ -375,6 +375,17 @@ for _i, _c in enumerate(("red", "yellow", "blue")):
           sea_plant=True, family="coral")
     block(CORAL_BLOCKS[_i], f"{_c} coral block", f"coral_block_{_c}", NATURAL, 1.5, "pickaxe", family="coral_block")
 block(LILY_PAD, "lily pad", "lily_pad", PLANTS, 0.0, shape=CARPET, solid=False)
+# candles (lit, four colours), a hanging chain, climbing vines (on a wall like a ladder:
+# 2010 + facing) and bamboo stalks
+CANDLES, CHAIN, BAMBOO, VINES = (2002, 2003, 2004, 2005), 2006, 2007, 2010
+for _i, _c in enumerate(("white", "red", "blue", "yellow")):
+    block(CANDLES[_i], f"{_c} candle", ("candle_top", f"candle_{_c}", f"candle_{_c}"), FUNCTIONAL, 0.1,
+          shape="candle", solid=False, emit=11, family="candle")
+block(CHAIN, "chain", "chain", FUNCTIONAL, 2.0, "pickaxe", shape="chain", solid=False)
+block(BAMBOO, "bamboo", ("bamboo_top", "bamboo", "bamboo_top"), PLANTS, 0.5, "axe", shape="bamboo")
+for _f in range(4):
+    block(VINES + _f, "vines", "vines", PLANTS, 0.2, shape=LADDER, solid=False, facing=_f, creative=_f == 0,
+          drop=VINES, climbable=True)
 block(1948, "glass pane", "glass", BUILDING, 0.3, drop=None, shape="pane")
 block(1949, "lantern", "lantern", FUNCTIONAL, 1.0, "pickaxe", shape="lantern", emit=15, solid=False)
 block(1950, "barrel", ("barrel_top", "barrel_side", "barrel_top"), FUNCTIONAL, 2.5, "axe", container=True)

@@ -38,7 +38,7 @@ NAMES_AR = {
     "stick": "عصا", "stone": "حجر", "stone bricks": "طوب حجري", "tall grass": "عشب طويل", "tiles": "بلاط",
     "tin ingot": "سبيكة قصدير", "tin ore": "خام قصدير", "torch": "شعلة", "water": "ماء",
     "water bucket": "سطل ماء", "lava bucket": "سطل حمم", "milk bucket": "سطل حليب", "glass bottle": "قنينة زجاج", "iron door": "باب حديد", "trapdoor": "باب أرضي", "fence gate": "بوابة سياج",
-    "glass pane": "لوح زجاج", "seagrass": "عشب بحري", "kelp": "طحلب بحري", "red coral": "مرجان أحمر", "yellow coral": "مرجان أصفر", "blue coral": "مرجان أزرق", "red coral block": "بلوك مرجان أحمر", "yellow coral block": "بلوك مرجان أصفر", "blue coral block": "بلوك مرجان أزرق", "lily pad": "ورقة زنبق الماء", "lantern": "فانوس", "barrel": "برميل", "TNT": "ديناميت", "shears": "مقص", "wings": "أجنحة", "beehive": "خلية نحل", "scaffolding": "سقالة", "firework": "ألعاب نارية", "honey bottle": "قنينة عسل", "painting": "لوحة رسم", "item frame": "برواز", "flower pot": "أصيص ورد", "shield": "ترس", "composter": "كمبوستر", "campfire": "نار مخيم", "anvil": "سندان", "slime block": "بلوك سلايم",
+    "glass pane": "لوح زجاج", "seagrass": "عشب بحري", "kelp": "طحلب بحري", "red coral": "مرجان أحمر", "yellow coral": "مرجان أصفر", "blue coral": "مرجان أزرق", "red coral block": "بلوك مرجان أحمر", "yellow coral block": "بلوك مرجان أصفر", "blue coral block": "بلوك مرجان أزرق", "lily pad": "ورقة زنبق الماء", "white candle": "شمعة بيضاء", "red candle": "شمعة حمراء", "blue candle": "شمعة زرقاء", "yellow candle": "شمعة صفراء", "chain": "جنزير", "bamboo": "خيزران", "vines": "عريشة", "lantern": "فانوس", "barrel": "برميل", "TNT": "ديناميت", "shears": "مقص", "wings": "أجنحة", "beehive": "خلية نحل", "scaffolding": "سقالة", "firework": "ألعاب نارية", "honey bottle": "قنينة عسل", "painting": "لوحة رسم", "item frame": "برواز", "flower pot": "أصيص ورد", "shield": "ترس", "composter": "كمبوستر", "campfire": "نار مخيم", "anvil": "سندان", "slime block": "بلوك سلايم",
     "bone meal": "سماد عظم", "slimeball": "كرة سلايم", "sign": "لوحة كتابة", "enchanting table": "طاولة التعويذ", "compass": "بوصلة", "map": "خريطة",
     "paper": "ورق", "bow": "قوس", "arrow": "سهم", "boat": "قارب", "fishing rod": "صنّارة", "saddle": "سرج",
     "iron helmet": "خوذة حديد", "iron chestplate": "درع صدر حديد", "iron leggings": "بنطلون حديد", "iron boots": "جزمة حديد",
@@ -92,7 +92,7 @@ COLORS_F_AR = ["بيضاء", "رمادية فاتحة", "رمادية", "سود�
 # variant families shown collapsed in the creative menu: family -> (English, Arabic)
 FAMILIES = {
     "concrete": ("Concrete", "خرسانة"), "terracotta": ("Terracotta", "فخار"),
-    "glazed_tiles": ("Glazed tiles", "بلاط مزجّج"), "carpet": ("Carpets", "سجاد"), "coral": ("Coral", "مرجان"), "coral_block": ("Coral blocks", "بلوكات مرجان"), "wool": ("Wool", "صوف"),
+    "glazed_tiles": ("Glazed tiles", "بلاط مزجّج"), "carpet": ("Carpets", "سجاد"), "coral": ("Coral", "مرجان"), "candle": ("Candles", "شموع"), "coral_block": ("Coral blocks", "بلوكات مرجان"), "wool": ("Wool", "صوف"),
     "stained_glass": ("Stained glass", "زجاج ملوّن"), "logs": ("Logs", "جذوع"), "planks": ("Planks", "ألواح"),
     "leaves": ("Leaves", "أوراق"), "fences": ("Fences", "أسيجة"), "saplings": ("Saplings", "شتلات"),
     "rocks": ("Rocks", "صخور"), "cobblestone": ("Cobblestone", "حجر مرصوف"),
@@ -236,7 +236,7 @@ UI = {
     "ember_lord": ("The Ember Lord", "سيّد الجمر"), "ember_lord_dead": ("You beat the Ember Lord!", "هزمت سيّد الجمر!"),
     "xp_level": ("Level %d", "المستوى %d"), "level_up": ("Level up! %d", "طلعت مستوى! %d"),
     "glide_hint": ("Wings on: jump while falling to glide; a firework speeds you up", "لابس أجنحة: اقفز وإنت نازل لتطير، والألعاب النارية بتسرّعك"),
-    "hive_level": ("Honey: %d of 5", "العسل: %d من 5"), "guard_made": ("An iron guard! It protects you", "حارس حديد! بيحميك"),
+    "hive_level": ("Honey: %d of 5", "العسل: %d من 5"), "guard_made": ("An iron guard! It protects you", "حارس حديد! بيحميك"), "snowman_made": ("A snowman! It throws snowballs at monsters", "رجل ثلج! بيرمي كرات ثلج عالوحوش"),
     "hint_composter": ("Turns seeds, crops and leaves into bone meal by itself", "بيحوّل البذور والزرع والورق لسماد عظم لحاله"),
     "cooking": ("Cooking: %s", "عم ينطبخ: %s"), "repaired": ("Repaired: %s", "تصلّح: %s"),
     "anvil_need": ("Hold a worn tool and have its material", "امسك أداة مستهلكة ومعك من مادتها"),

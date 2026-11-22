@@ -122,10 +122,11 @@ const SPECIES := {
 		"shoots": true, "fireproof": true, "sun_proof": true},
 	"jellyfish": {"speed": 0.6, "height": 0.7, "width": 0.5, "flee_range": 0.0, "swims": true, "group": [1, 3], "health": 2,
 		"move": "swim", "cap": "fish"},                 # drifts in deep water and glows in the dark
+	"snowman": {"speed": 0.9, "height": 1.8, "width": 0.7, "flee_range": 0.0, "swims": false, "group": [1, 1], "health": 8},
 	"globlet": {"speed": 3.0, "height": 0.45, "width": 0.45, "flee_range": 0.0, "swims": true, "group": [1, 1], "health": 3,
 		"hostile": true, "cap": "hostile", "move": "hop", "hop": 6.0, "damage": 1, "reach": 1.1},
 }
-const DROPS := {"jellyfish": [172, 0, 1], "rabbit": [RAW_MEAT, 1, 1], "deer": [RAW_MEAT, 2, 3], "duck": [RAW_MEAT, 1, 2], "gloom": [COAL, 0, 2],
+const DROPS := {"snowman": [16, 1, 2], "jellyfish": [172, 0, 1], "rabbit": [RAW_MEAT, 1, 1], "deer": [RAW_MEAT, 2, 3], "duck": [RAW_MEAT, 1, 2], "gloom": [COAL, 0, 2],
 	"woolly": [WOOL, 1, 2], "hen": [FEATHER, 1, 2], "goat": [RAW_MEAT, 1, 2], "frog": [0, 0, 0], "turtle": [0, 0, 0],
 	"lizard": [0, 0, 0], "fish": [RAW_FISH, 1, 1], "bird": [FEATHER, 0, 1], "butterfly": [0, 0, 0], "firefly": [0, 0, 0],
 	"bramble": [STICK, 1, 3], "glob": [172, 1, 2], "globlet": [SEEDS, 0, 1], "worker": [0, 0, 0], "cow": [RAW_MEAT, 1, 3], "cinder": [143, 0, 2], "pig": [RAW_MEAT, 1, 3], "horse": [0, 0, 0], "archer": [155, 0, 2], "guard": [30, 1, 2], "ember_lord": [111, 4, 6], "bee": [0, 0, 0], "beetle": [1951, 0, 1], "wolf": [0, 0, 0]}   # item, min, max
@@ -557,6 +558,7 @@ var _game_ref: WeakRef = null
 var _game_check := 0.0
 var _lovers := []               # reused every frame
 var _born := []
+var snowballs: Array = []                 # [from, at] thrown by snowmen this frame
 var _counts := {"land": 0, "fish": 0, "ambient": 0, "hostile": 0, "boss": 0}
 var _player := Vector3.ZERO
 var _zoo := 0                   # testing: 1 = show every creature in a row (`-- --zoo`), 2 = done
@@ -633,6 +635,8 @@ func update(dt: float, player: Vector3, daylight := 1.0, hostile := true, can_ta
 				booms.append(a.pos + Vector3(0, 0.4, 0))
 		if (a.kind == "wolf" or a.kind == "guard") and a.tame and not a.dead:
 			_wolf(a, dt)
+		if a.kind == "snowman" and not a.dead:
+			_snowman(a, dt)
 		if a.wants_attack:
 			if target_peer == 0:
 				damage += int(a.spec.get("damage", ATTACK_DAMAGE))
@@ -806,6 +810,26 @@ func _wolf(w: Animal, dt: float) -> void:
 		best.hit(w.pos, 4 if w.kind == "wolf" else 9)
 		bites += 1
 		_sound("hurt" if false else "pop", best.pos.distance_squared_to(_player), -6.0, 0.7)
+
+
+## A snowman stands guard and throws snowballs at the nearest monster within 12 blocks.
+func _snowman(s: Animal, dt: float) -> void:
+	s.bite_cd -= dt
+	if s.bite_cd > 0:
+		return
+	var best: Animal = null
+	var best_d := 144.0
+	for a: Animal in animals:
+		if a.hostile and not a.dead:
+			var d := a.pos.distance_squared_to(s.pos)
+			if d < best_d:
+				best = a
+				best_d = d
+	if best == null:
+		return
+	s.bite_cd = 1.0
+	s.yaw = rad_to_deg(atan2(best.pos.x - s.pos.x, best.pos.z - s.pos.z))
+	snowballs.append([s.pos + Vector3(0, 1.1, 0), best.pos + Vector3(0, float(best.spec["height"]) * 0.5, 0)])
 
 
 ## A worker's job, twice a second. Farmers: walk to a ripe crop near home, harvest it, plant

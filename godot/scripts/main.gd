@@ -1080,18 +1080,18 @@ func _shoot() -> void:
 
 
 ## An arrow from `from` along `dir`: the player's hurt animals, an archer's hurt you.
-func _shoot_from(from: Vector3, dir: Vector3, hostile: bool, fireball := false) -> void:
+func _shoot_from(from: Vector3, dir: Vector3, hostile: bool, fireball := false, snow := false) -> void:
 	var node := MeshInstance3D.new()
 	var bm := BoxMesh.new()
-	bm.size = Vector3(0.4, 0.4, 0.4) if fireball else Vector3(0.05, 0.05, 0.6)
+	bm.size = Vector3(0.4, 0.4, 0.4) if fireball else (Vector3(0.22, 0.22, 0.22) if snow else Vector3(0.05, 0.05, 0.6))
 	node.mesh = bm
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(1.0, 0.55, 0.15) if fireball else Color(0.6, 0.45, 0.28)
+	mat.albedo_color = Color(1.0, 0.55, 0.15) if fireball else (Color(0.96, 0.97, 1.0) if snow else Color(0.6, 0.45, 0.28))
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	node.material_override = mat
 	add_child(node)
-	_arrows.append({"pos": from, "vel": dir * (22.0 if hostile else 32.0), "node": node, "age": 0.0, "hostile": hostile,
-		"fire": fireball})
+	_arrows.append({"pos": from, "vel": dir * (22.0 if hostile or snow else 32.0), "node": node, "age": 0.0, "hostile": hostile,
+		"fire": fireball, "snow": snow})
 	if hostile:
 		Sfx.play("click", -6.0, 0.5)
 
@@ -1110,8 +1110,12 @@ func _update_arrows(delta: float) -> void:
 				done = true
 		for an in (wildlife.animals if not a.get("hostile", false) else []):   # an animal in the way
 			var centre: Vector3 = an.pos + Vector3(0, float(an.spec["height"]) * 0.5, 0)
+			if a.get("snow", false) and not an.hostile:
+				continue                              # snowballs only hit monsters
 			if centre.distance_to(pos) < float(an.spec["width"]) * 0.6 + 0.35:
-				var drop: Array = an.hit(pos - vel.normalized(), 6)
+				var drop: Array = an.hit(pos - vel.normalized(), 3 if a.get("snow", false) else 6)
+				if a.get("snow", false):
+					snow_hits += 1
 				if not drop.is_empty():
 					drops.spawn(drop, an.pos + Vector3(0, 0.5, 0))
 				Sfx.play("hurt", -4.0, 1.6)
@@ -1122,7 +1126,7 @@ func _update_arrows(delta: float) -> void:
 			done = true
 		if not done and world.solid_at(floori(pos.x + 0.5), floori(pos.y + 0.5), floori(pos.z + 0.5)):
 			done = true                               # stuck in a block: it can be picked up again
-			if not creative:
+			if not creative and not a.get("snow", false):
 				drops.spawn([int(Items.S["ARROW"]), 1], a["pos"])
 		a["pos"] = pos
 		var n: MeshInstance3D = a["node"]
@@ -1259,6 +1263,7 @@ func _get_off_horse() -> void:
 ## The Ember Lord waits in the fire realm's fortress: it appears when you walk into the keep
 ## (until it is beaten), and its health shows at the top of the screen.
 var _lord = null
+var snow_hits := 0                    # snowballs that hit a monster (tests)
 
 
 func _update_lord() -> void:
@@ -1348,6 +1353,23 @@ func _try_guard(top: Vector3i) -> void:
 			Sfx.play("dig_stone", 0.0, 0.6)
 			hud.flash(I18n.t("guard_made"))
 			return
+
+
+## Two snow blocks with a pumpkin on top come alive as a snowman.
+func _try_snowman(top: Vector3i) -> bool:
+	var body := top + Vector3i(0, -1, 0)
+	var base := top + Vector3i(0, -2, 0)
+	if world.get_block(body.x, body.y, body.z) != 16 or world.get_block(base.x, base.y, base.z) != 16:
+		return false
+	_rebuild(world.bulk_set({top: 0, body: 0, base: 0})[0])
+	var s := Wildlife.Animal.new("snowman", Vector3(base) + Vector3(0, -0.4, 0))
+	s.tame = true
+	s.farm = true                                     # it stays where it was made
+	wildlife.animals.append(s)
+	debris.burst(Vector3(body), 16, 1.0)
+	Sfx.play("dig_soft", 0.0, 1.2)
+	hud.flash(I18n.t("snowman_made"))
+	return true
 
 
 func _new_hive(pos: Vector3i) -> void:
@@ -2756,7 +2778,7 @@ func place_block(allow_use := true) -> void:
 			var f := _ladder_facing(hit["pos"], hit["normal"], pos)
 			if f < 0:
 				return                                # a ladder needs a wall behind it
-			id = 500 + f
+			id = (2010 if item >= 2010 and item <= 2013 else 500) + f      # a ladder or vines
 		"trapdoor", "fence_gate":
 			id = item + _facing() * 2
 		"door":
@@ -2769,7 +2791,7 @@ func place_block(allow_use := true) -> void:
 			_refresh_mode()
 			return
 	if edit(pos, id):
-		if id == 951:
+		if id == 951 and not _try_snowman(pos):
 			_try_guard(pos)
 		if id == 1991:
 			_new_hive(pos)
@@ -3744,6 +3766,13 @@ func _update_animals(delta: float) -> void:
 			aim.y += 0.5 * 14.0 * t * t
 			_shoot_from(sh[0], (aim - sh[0]).normalized(), true, sh[2] == "ember_lord")
 		wildlife.shots.clear()
+		for sb in wildlife.snowballs:                  # snowmen throw at monsters
+			var aim2: Vector3 = sb[1]
+			var t2: float = sb[0].distance_to(aim2) / 22.0
+			aim2.y += 0.5 * 14.0 * t2 * t2
+			var dir2: Vector3 = (aim2 - sb[0]).normalized()
+			_shoot_from(sb[0] + dir2 * 0.6, dir2, false, false, true)
+		wildlife.snowballs.clear()
 		for bpos in wildlife.booms:                    # bomb beetles
 			_explode(Vector3i(floori(bpos.x + 0.5), floori(bpos.y + 0.5), floori(bpos.z + 0.5)), 2.5)
 		wildlife.booms.clear()
@@ -4485,6 +4514,56 @@ func _process_inner(delta: float) -> void:
 		if _st_frame == 40:
 			print("SIGN labels %d, texts %s, enchanted pickaxe: %s, compass says: %s, shown in frame/pot %d, a hit of 10 with the shield took %d" % [_sign_labels.size(),
 				_sign_labels.values().map(func(l): return l.text), _st["en"], hud.mode_label.text, _shown.size(), _st["shield"]])
+	if "--decortest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: snowman, candles, chain, bamboo, vines
+		if _st_frame == 30:
+			set_mode(true)
+			var o := Vector3i(floori(player.position.x + 0.5), floori(player.position.y) + 6, floori(player.position.z + 0.5) - 6)
+			for x in range(-6, 7):
+				for z in range(-6, 7):
+					edit(o + Vector3i(x, -1, z), 41, true, false)
+					for y in range(0, 6):
+						edit(o + Vector3i(x, y, z), 0, true, false)
+			# the snowman: snow, snow, then a pumpkin placed on top the normal way
+			edit(o + Vector3i(0, 0, 0), 16, true, false)
+			edit(o + Vector3i(0, 1, 0), 16, true, false)
+			inv.slots[selected] = [951, 1]
+			_forced_hit = {"pos": o + Vector3i(0, 1, 0), "normal": Vector3i(0, 1, 0)}
+			place_block(false)
+			_forced_hit = {}
+			var sm := 0
+			for a in wildlife.animals:
+				sm += int(a.kind == "snowman")
+			_st["snowman"] = sm
+			_st["snow_gone"] = world.get_block(o.x, o.y, o.z) == 0
+			var m := Wildlife.Animal.new("globlet", Vector3(o) + Vector3(5, 0.1, 3))
+			wildlife.animals.append(m)
+			_st["monster"] = m
+			# decorations: candles on a wall top, a chain with a lantern, bamboo, vines on a wall
+			for x in range(-5, -1):
+				edit(o + Vector3i(x, 0, -4), 41, true, false)
+			for i in 4:
+				edit(o + Vector3i(-5 + i, 1, -4), 2002 + i, true, false)
+			edit(o + Vector3i(-3, 4, -2), 41, true, false)
+			edit(o + Vector3i(-3, 3, -2), 2006, true, false)
+			edit(o + Vector3i(-3, 2, -2), 2006, true, false)
+			edit(o + Vector3i(-3, 1, -2), 1949, true, false)
+			for y in 4:
+				edit(o + Vector3i(3, y, -4), 2007, true, false)
+				edit(o + Vector3i(4, y, -4), 2007, true, false)
+				edit(o + Vector3i(-1, y, -5), 41, true, false)
+				edit(o + Vector3i(-1, y, -4), 2010, true, false)    # vines hanging on the wall at z-5
+			player.position = Vector3(o) + Vector3(0, 1.5, 6)
+			player.yaw = 0.0
+			player.look(Vector2(0, 0.25))
+			_st["o"] = o
+		if _st_frame == 360:
+			if _shot_path:
+				get_viewport().get_texture().get_image().save_png(_shot_path)
+			var m: Wildlife.Animal = _st["monster"]
+			var lit: int = Blocks.emit[2002]
+			print("DECOR snowman made %d, blocks used up %s, snowballs hit %d, monster hurt %s; candle light %s; vines climbable %s" % [_st["snowman"], _st["snow_gone"], snow_hits, m.dead or m.health < int(m.spec["health"]), lit, Blocks.defs[2010].get("climbable", false)])
+			get_tree().quit()
 	if "--toolstest" in OS.get_cmdline_user_args() and spawned:
 		_st_frame += 1                                  # testing: bone meal, campfire, anvil, slime
 		if not _st.has("to"):
