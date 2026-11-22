@@ -309,6 +309,94 @@ def fan_face(rng, lit=False):
     return img
 
 
+def iron_door(top):
+    def gen(rng):
+        img = _noise(rng, (196, 198, 204), 0.05).convert("RGBA")
+        for i in range(TILE):
+            for j in (0, TILE - 1):
+                img.putpixel((j, i), (140, 142, 150, 255))
+        if top:
+            for x in range(3, 13):
+                for y in range(3, 9):
+                    img.putpixel((x, y), (0, 0, 0, 0) if (x + y) % 5 else (150, 150, 158, 255))
+        else:
+            for x in range(3, 13):
+                img.putpixel((x, 6), (150, 152, 160, 255))
+                img.putpixel((x, 11), (150, 152, 160, 255))
+        return img
+    return gen
+
+
+def trapdoor(rng):
+    img = boards((150, 110, 66))(rng).convert("RGBA")
+    for x in range(TILE):
+        for y in range(TILE):
+            if 3 <= x <= 12 and 3 <= y <= 12 and (x in (3, 12) or y in (3, 12) or x == y or x + y == 15):
+                img.putpixel((x, y), (100, 70, 40, 255))
+            elif 4 <= x <= 11 and 4 <= y <= 11 and (x + y) % 4 == 0:
+                img.putpixel((x, y), (0, 0, 0, 0))
+    return img
+
+
+def lantern(rng):
+    img = _blank()
+    for x in range(5, 11):
+        for y in range(5, 15):
+            edge = x in (5, 10) or y in (5, 14)
+            _px(img, x, y, (60, 62, 70) if edge else (255, 210, 110))
+    for y in range(1, 5):
+        _px(img, 7, y, (70, 72, 80))
+        _px(img, 8, y, (70, 72, 80))
+    return img
+
+
+def barrel_side(rng):
+    img = boards((140, 96, 56))(rng)
+    for y in (2, 13):
+        for x in range(TILE):
+            _px(img, x, y, (80, 80, 86))
+    return img
+
+
+def barrel_top(rng):
+    img = rings((170, 124, 74), (120, 84, 48), (90, 64, 40))(rng)
+    for x in range(5, 11):
+        _px(img, x, 7, (40, 30, 24))
+        _px(img, x, 8, (40, 30, 24))
+    return img
+
+
+def tnt_side(rng):
+    img = _noise(rng, (200, 50, 40), 0.06)
+    for x in range(TILE):
+        for y in range(5, 11):
+            img.putpixel((x, y), (232, 226, 210))
+    # T N T in a 3 x 4 pixel font on the white band
+    letters = {"T": ((0, 0), (1, 0), (2, 0), (1, 1), (1, 2), (1, 3)),
+               "N": ((0, 0), (0, 1), (0, 2), (0, 3), (1, 1), (2, 2), (3, 0), (3, 1), (3, 2), (3, 3))}
+    for x0, ch in ((2, "T"), (6, "N"), (11, "T")):
+        for dx, dy in letters[ch]:
+            img.putpixel((x0 + dx, 6 + dy), (30, 30, 30))
+    return img
+
+
+def tnt_top(rng):
+    img = _noise(rng, (190, 46, 38), 0.06)
+    for x, y in ((7, 7), (8, 7), (7, 8), (8, 8)):
+        img.putpixel((x, y), (40, 40, 40))
+    return img
+
+
+def shears(rng):
+    img = _blank()
+    for i in range(7):
+        _px(img, 4 + i, 4 + i, (200, 202, 210))
+        _px(img, 11 - i, 4 + i, (200, 202, 210))
+    for x, y in ((3, 12), (4, 12), (3, 13), (11, 12), (12, 12), (12, 13)):
+        _px(img, x, y, (170, 40, 40))
+    return img
+
+
 def lava(rng):
     img = _noise(rng, (222, 92, 18), 0.08)
     for _ in range(7):                       # bright molten streaks
@@ -2175,6 +2263,9 @@ EXTRA_GENERATORS.update({
     "cart": cart_icon, "chest_cart": chest_cart_icon,
     "ember_rock": ember_rock, "ember_bricks": ember_bricks, "ember_ore": ember_ore, "ash_sand": ash_sand,
     "magma": magma, "fire_portal": fire_portal, "ember_shard": ember_shard, "fire_striker": fire_striker,
+    "iron_door_top": iron_door(True), "iron_door_bottom": iron_door(False), "trapdoor": trapdoor,
+    "lantern": lantern, "barrel_side": barrel_side, "barrel_top": barrel_top, "tnt_side": tnt_side,
+    "tnt_top": tnt_top, "tnt_bottom": tnt_top, "tnt_lit": noise_tile((250, 240, 230), 0.05), "shears": shears,
     "timer_face": timer_face, "timer_face_on": lambda rng: timer_face(rng, True),
     "counter_face": counter_face, "counter_face_on": lambda rng: counter_face(rng, True),
     "note_block": note_block, "fan_face": fan_face, "fan_face_on": lambda rng: fan_face(rng, True),

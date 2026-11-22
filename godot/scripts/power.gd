@@ -215,6 +215,8 @@ func update(delta: float) -> void:
 	if parts.is_empty():
 		return
 	now += delta
+	if not fuses.is_empty():
+		_burn_fuses()
 	_acc += delta
 	if _acc < TICK:
 		return
@@ -427,7 +429,7 @@ func _tick(comp: Dictionary) -> bool:
 				changed = true
 	# 4. users: lamps, pushers, breakers and the doors next to this circuit
 	var users := {}
-	for k in ["lamp", "pusher", "sticky", "breaker", "booster", "thrower", "counter", "note", "fan"]:
+	for k in ["lamp", "pusher", "sticky", "breaker", "booster", "thrower", "counter", "note", "fan", "tnt"]:
 		for p in _list(k):
 			users[p] = k
 	for p in comp["doors"]:
@@ -446,6 +448,9 @@ func _tick(comp: Dictionary) -> bool:
 		if on != before:
 			changed = true
 		match kind:
+			"tnt":
+				if on and not before:
+					prime(p)
 			"counter":
 				if on and not before:
 					var need := int(world.settings.get(p, {}).get("count", 3)) if world.settings.get(p) is Dictionary else 3
@@ -591,6 +596,9 @@ func _powered(p: Vector3i) -> bool:
 
 
 func _toggle_door(p: Vector3i, id: int) -> void:
+	if Blocks.defs[id]["door"].get("single", false):
+		set_block.call(p, id - 1 if Blocks.defs[id]["door"]["open"] else id + 1)   # a trapdoor or gate
+		return
 	var top: bool = Blocks.defs[id]["door"]["top"]
 	var other := p + (Vector3i(0, -1, 0) if top else Vector3i(0, 1, 0))
 	for q in [p, other]:
@@ -742,7 +750,9 @@ var busy_until := {}
 var counts := {}                      # counter -> pulses counted so far
 var counter_out := {}                 # counter -> time its output pulse ends
 var fans_on := {}                     # fan -> the way it blows (the game moves things)
-var notes_played := 0                 # smelter / crafter Vector3i -> time it stops showing it works
+var notes_played := 0
+var fuses := {}                       # lit TNT -> the time it blows up
+var explode: Callable                 # func(pos: Vector3i) -> void   the game's explosion                 # smelter / crafter Vector3i -> time it stops showing it works
 const LIT_TWIN := {1747: 1748, 1748: 1748, 1868: 1869, 1869: 1869, 1884: 1885, 1885: 1885}
 const COLD_TWIN := {1747: 1747, 1748: 1747, 1868: 1868, 1869: 1868, 1884: 1884, 1885: 1884}
 
@@ -766,6 +776,27 @@ func _move_items() -> void:
 
 static func _bucket(name: String) -> int:
 	return int(Items.S[name])
+
+
+## Light a TNT block: it flashes and hisses, and blows up a little later.
+func prime(p: Vector3i, fuse := 3.0) -> void:
+	if fuses.has(p):
+		return
+	fuses[p] = now + fuse
+	if world.get_block(p.x, p.y, p.z) == 1951:
+		set_block.call(p, 1952)
+	Sfx.play("splash", -6.0, 1.8)
+
+
+func _burn_fuses() -> void:
+	for p in fuses.keys():
+		if fuses[p] <= now:
+			fuses.erase(p)
+			if explode.is_valid() and world.get_block(p.x, p.y, p.z) in [1951, 1952]:
+				explode.call(p)
+		elif world.get_block(p.x, p.y, p.z) in [1951, 1952]:
+			# it flashes while it burns
+			set_block.call(p, 1952 if int((fuses[p] - now) * 4.0) % 2 == 0 else 1951)
 
 
 ## A timer, counter or fan shows when it is on (its lit twin).

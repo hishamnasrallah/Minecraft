@@ -146,6 +146,7 @@ class Animal:
 	var dead := false
 	var killed := false            # died from the player's hits (not despawned)
 	var burn := 0.0                # time spent in lava since the last burn
+	var sheared := 0.0             # a woolly sheep's fleece growing back (seconds)
 	var farm := false              # lives on a farm (came with a library building): kept, but stays home
 	var carry := {}                # a worker's harvest: item -> count
 	var job_t := 0.0
@@ -640,6 +641,8 @@ func update(dt: float, player: Vector3, daylight := 1.0, hostile := true, can_ta
 func _tick_passive(a: Animal, dt: float, d2: float, daylight: float, game) -> void:
 	if a.age > 0:
 		a.age = maxf(0.0, a.age - dt)
+	if a.sheared > 0:
+		a.sheared -= dt
 	if a.breed_cd > 0:
 		a.breed_cd -= dt
 	if a.love > 0:

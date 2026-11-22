@@ -406,3 +406,35 @@ func test_note_block_and_fan() -> String:
 	if p.fans_on.get(Vector3i(0, 40, 3)) != Vector3i(0, 1, 0):
 		return "the fan should blow up: %s" % [p.fans_on]
 	return "" if _id(w, 0, 40, 3) == 1921 else "the fan should show it spins: %d" % _id(w, 0, 40, 3)
+
+
+func test_tnt_trapdoor_iron_door_by_power() -> String:
+	var s := _setup()
+	var w: WorldData = s[0]
+	var p: Power = s[1]
+	var boom := []
+	p.explode = func(q: Vector3i) -> void: boom.append(q)
+	w.set_block(0, 40, 0, 1951, true, false)        # TNT
+	w.set_block(1, 40, 0, 1704, true, false)        # a button beside it
+	w.set_block(0, 40, 3, 1932, true, false)        # a trapdoor, shut
+	w.set_block(1, 40, 3, 1702, true, false)        # a switch beside it
+	w.set_block(0, 40, 6, 1924, true, false)        # an iron door (bottom, top)
+	w.set_block(0, 41, 6, 1925, true, false)
+	w.set_block(1, 40, 6, 1706, true, false)        # a plate beside it
+	_run(p, 3)
+	p.press_button(Vector3i(1, 40, 0))
+	_run(p, 5)
+	if not p.fuses.has(Vector3i(0, 40, 0)):
+		return "the button should light the TNT"
+	_run(p, 30)
+	if boom != [Vector3i(0, 40, 0)]:
+		return "the TNT should blow up about 3 s after it was lit: %s" % [boom]
+	w.set_block(1, 40, 3, 1703, true, false)
+	_run(p, 4)
+	if not Blocks.defs[_id(w, 0, 40, 3)]["door"]["open"]:
+		return "the switch should open the trapdoor"
+	p.set_inputs({Vector3i(1, 40, 6): true}, p.is_day)
+	_run(p, 4)
+	var bottom: bool = Blocks.defs[_id(w, 0, 40, 6)]["door"]["open"]
+	var top: bool = Blocks.defs[_id(w, 0, 41, 6)]["door"]["open"]
+	return "" if bottom and top else "the plate should open both halves of the iron door"

@@ -296,6 +296,7 @@ func _ready() -> void:
 	power.set_block = func(p: Vector3i, id: int) -> void: edit(p, id, true, false)
 	power.spawn_drop = func(st: Array, p: Vector3) -> void: _drop_from_machine(st, p)
 	power.feed_animal = func(at: Vector3, item: int) -> int: return wildlife.feed_near(at, item)
+	power.explode = func(p: Vector3i) -> void: _explode(p)
 	power.break_drops = func(id: int) -> Array:
 		var d := Items.drop_for(id)
 		var out := [[d, 1]] if d != 0 else []
@@ -1039,8 +1040,58 @@ func _open_trades(w) -> void:
 	w.yaw = rad_to_deg(atan2(player.position.x - w.pos.x, player.position.z - w.pos.z))
 
 
+## TNT goes off: the blocks within 3.5 blocks break (not bedrock, obsidian or fluids), other
+## TNT nearby is lit with a short fuse, and it hurts and pushes anyone close.
+func _explode(c: Vector3i) -> void:
+	var r := 3.5
+	var edits := {}
+	for dx in range(-4, 5):
+		for dy in range(-4, 5):
+			for dz in range(-4, 5):
+				var q := c + Vector3i(dx, dy, dz)
+				if Vector3(dx, dy, dz).length() > r + randf_range(-0.6, 0.2):
+					continue
+				var b := world.get_block(q.x, q.y, q.z)
+				if b == 0 or Blocks.fluid[b] != 0 or Blocks.hardness[b] < 0 or Blocks.hardness[b] >= 10.0:
+					continue
+				if (b == 1951 or b == 1952) and q != c:
+					power.prime(q, randf_range(0.3, 0.8))      # a chain reaction
+					continue
+				edits[q] = 0
+				if not creative and randf() < 0.25:
+					var dr := Items.drop_for(b)
+					if dr != 0:
+						drops.spawn([dr, 1], Vector3(q))
+	edits[c] = 0
+	if edits.size() > 1:
+		for i in mini(edits.size(), 6):
+			var k: Vector3i = edits.keys().pick_random()
+			debris.burst(Vector3(k), 3, 1.0)
+	_rebuild(world.bulk_set(edits)[0])
+	Sfx.play("dig_stone", 4.0, 0.45, 0.0)
+	Sfx.play("hurt", 0.0, 0.5, 0.0)
+	var cp := Vector3(c)
+	var d := player.position + Vector3(0, 0.9, 0) - cp
+	if d.length() < 7.0:
+		player.velocity += d.normalized() * (7.0 - d.length()) * 2.0
+		if not creative:
+			_take_damage(int((7.0 - d.length()) * 2.0), "explosion")
+	for a in wildlife.animals:
+		var ad: Vector3 = a.pos - cp
+		if ad.length() < 6.0:
+			a.hit(cp, int((6.0 - ad.length()) * 3.0))
+	buzz(60)
+
+
 func attack(animal) -> void:
 	var item := inv.item_at(selected)
+	if item == int(Items.S["SHEARS"]) and animal.kind == "woolly" and animal.age <= 0:
+		if animal.sheared > 0:
+			return
+		animal.sheared = 120.0                          # the fleece grows back in two minutes
+		drops.spawn([70 + animal.variant, randi_range(1, 3)], animal.pos + Vector3(0, 0.8, 0))
+		Sfx.play("dig_soft", -2.0, 1.4)
+		return
 	if animal.kind == "worker" and Items.attack_damage(item) <= 1:
 		_open_trades(animal)
 		return
@@ -1130,6 +1181,14 @@ func use_block(pos: Vector3i) -> bool:
 	if mk == "crafter" or mk == "collector":
 		_panel_pos = pos
 		_open_crafter_panel(pos, id)
+		return true
+	if d.has("door") and d["door"].get("iron", false):
+		hud.flash(I18n.t("iron_door_hint"))             # opens only by power, like the original
+		return true
+	if d.has("door") and d["door"].get("single", false):
+		edit(pos, id - 1 if d["door"]["open"] else id + 1, true, false)
+		Sfx.play("dig_wood", -3.0, 0.8 if d["door"]["open"] else 1.15)
+		buzz(12)
 		return true
 	if d.has("door"):
 		var other_y: int = pos.y - 1 if d["door"]["top"] else pos.y + 1
@@ -1747,6 +1806,9 @@ func place_block(allow_use := true) -> void:
 	if item == 131 and not hit.is_empty():
 		_open_portal(hit["pos"])
 		return
+	if item == int(Items.S["FIRE_STRIKER"]) and not hit.is_empty() and world.get_block(hit["pos"].x, hit["pos"].y, hit["pos"].z) == 1951:
+		power.prime(hit["pos"])                       # light the TNT
+		return
 	if item == int(Items.S["FIRE_STRIKER"]) and not hit.is_empty():
 		_open_portal(hit["pos"], true)
 		return
@@ -1845,6 +1907,8 @@ func place_block(allow_use := true) -> void:
 			if f < 0:
 				return                                # a ladder needs a wall behind it
 			id = 500 + f
+		"trapdoor", "fence_gate":
+			id = item + _facing() * 2
 		"door":
 			var above := pos + Vector3i(0, 1, 0)
 			if not _replaceable(above) or _overlaps_player(above, 512) or not _solid_at(pos - Vector3i(0, 1, 0)):
@@ -3309,6 +3373,60 @@ func _process_inner(delta: float) -> void:
 			print("FIRE portal opened: ", world.get_block(o.x, o.y + 1, o.z + 1) == WorldData.FIRE["PORTAL"])
 			player.position = Vector3(o.x, o.y + 0.5, o.z + 1)
 			_portal_lock = false
+	if "--blockstest" in OS.get_cmdline_user_args() and spawned:
+		_st_frame += 1                                  # testing: TNT, trapdoor, iron door, panes, shears
+		if not _st.has("bo"):
+			_st["bo"] = Vector3i(floori(player.position.x + 0.5), floori(player.position.y), floori(player.position.z + 0.5)) + Vector3i(-6, 0, 5)
+		var o: Vector3i = _st["bo"]
+		if _st_frame == 5:
+			set_mode(true)
+			var e := {}
+			for x in range(-2, 14):
+				for z in range(-2, 8):
+					e[o + Vector3i(x, -1, z)] = 3
+					for y in range(0, 6):
+						e[o + Vector3i(x, y, z)] = 0
+			for x in range(0, 5):                       # a stone wall with TNT in front of it
+				for y in range(0, 3):
+					e[o + Vector3i(x, y, 4)] = 3
+			e[o + Vector3i(2, 0, 3)] = 1951
+			e[o + Vector3i(7, 0, 2)] = 1932             # a trapdoor
+			e[o + Vector3i(9, 0, 2)] = 1924             # an iron door
+			e[o + Vector3i(9, 1, 2)] = 1925
+			for x in range(11, 14):
+				e[o + Vector3i(x, 0, 2)] = 1948         # glass panes in a row
+			e[o + Vector3i(7, 0, 5)] = 1949             # a lantern
+			_rebuild(world.bulk_set(e)[0])
+			var sheep := Wildlife.Animal.new("woolly", Vector3(o + Vector3i(5, 0, 0)) + Vector3(0, -0.4, 0))
+			wildlife.animals.append(sheep)
+			_st["sheep"] = sheep
+			player.position = Vector3(o.x + 6, o.y + 0.5, o.z - 4)
+			player.yaw = PI
+			player.rotation.y = PI
+			player.pitch = -0.3
+			player.camera.rotation.x = player.pitch
+		if _st_frame == 10:
+			use_block(o + Vector3i(7, 0, 2))
+			_st["trap"] = Blocks.defs[world.get_block(o.x + 7, o.y, o.z + 2)]["door"]["open"]
+			use_block(o + Vector3i(9, 0, 2))
+			_st["iron"] = Blocks.defs[world.get_block(o.x + 9, o.y, o.z + 2)]["door"]["open"]
+			inv.slots[selected] = [int(Items.S["SHEARS"]), 1]
+			var before := drops.drops.size()
+			attack(_st["sheep"])
+			_st["wool"] = drops.drops.size() > before
+			power.prime(o + Vector3i(2, 0, 3))
+		if _st_frame == 40 and _shot_path:
+			get_viewport().get_texture().get_image().save_png(_shot_path.replace(".png", "_before.png"))
+		if _st_frame == 10 + 60 * 5:
+			var wall_left := 0
+			for x in range(0, 5):
+				for y in range(0, 3):
+					wall_left += int(world.get_block(o.x + x, o.y + y, o.z + 4) == 3)
+			print("BLOCKS trapdoor opened by a tap %s, iron door stayed shut %s, shears gave wool %s, wall blocks left after the TNT %d of 15, TNT gone %s" % [
+				_st["trap"], not _st["iron"], _st["wool"], wall_left, world.get_block(o.x + 2, o.y, o.z + 3) == 0])
+			if _shot_path:
+				get_viewport().get_texture().get_image().save_png(_shot_path)
+			get_tree().quit()
 	if "--mobcount" in OS.get_cmdline_user_args() and spawned and Engine.get_process_frames() % 600 == 0:
 		var kinds := {}                                 # testing: which creatures are around
 		for a in wildlife.animals:

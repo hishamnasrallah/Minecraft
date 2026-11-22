@@ -151,7 +151,7 @@ func set_block(x: int, y: int, z: int, id: int, force := false, flood := true) -
 	var touched := [Vector3i(x, y, z)]
 	if id == 0:
 		var door = Blocks.defs.get(old, {}).get("door")
-		if door != null:                  # a door is two blocks: remove the other half too
+		if door != null and not door.get("single", false):   # a door is two blocks: remove the other half too
 			var oy := y - 1 if door["top"] else y + 1
 			if Blocks.defs.get(get_block(x, oy, z), {}).has("door"):
 				_edit(x, oy, z, 0)

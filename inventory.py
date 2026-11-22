@@ -25,6 +25,7 @@ GLASS_BOTTLE, WATER_BOTTLE = 133, 134
 EMBER_SHARD, FIRE_STRIKER = 143, 129
 from blocks import POTATO, BEETROOT, BEET_SEEDS, PUMPKIN_SEEDS, PUMPKIN, MELON_SEEDS, MELON_SLICE  # noqa: E402
 BAKED_POTATO, PUMPKIN_PIE = 145, 150
+SHEARS = 153
 # potions: item -> (name, icon, effect, seconds); drunk from the hand, the bottle comes back
 POTIONS = {135: ("swiftness potion", "potion_swift", "swift", 90), 136: ("healing potion", "potion_heal", "heal", 0),
            137: ("night vision potion", "potion_night", "night", 120), 138: ("leaping potion", "potion_leap", "leap", 90),
@@ -57,7 +58,7 @@ OTHER_ITEMS = {BUCKET: ("bucket", "bucket"), WATER_BUCKET: ("water bucket", "wat
                CHEST_CART: ("chest cart", "chest_cart"),
                EMBER_SHARD: ("ember shard", "ember_shard"), BEET_SEEDS: ("beetroot seeds", "beet_seeds"),
                PUMPKIN_SEEDS: ("pumpkin seeds", "pumpkin_seeds"), MELON_SEEDS: ("melon seeds", "melon_seeds"),
-               PUMPKIN: ("pumpkin", "pumpkin"), FIRE_STRIKER: ("fire striker", "fire_striker"),
+               PUMPKIN: ("pumpkin", "pumpkin"), SHEARS: ("shears", "shears"), FIRE_STRIKER: ("fire striker", "fire_striker"),
                GLASS_BOTTLE: ("glass bottle", "glass_bottle"), WATER_BOTTLE: ("water bottle", "water_bottle"),
                **{p: (v[0], v[1]) for p, v in POTIONS.items()}}
 
@@ -166,7 +167,7 @@ def attack_damage(item):
 
 
 def max_stack(item):
-    return 1 if item in TOOLS or item in (WATER_BUCKET, LAVA_BUCKET, MILK_BUCKET, FIRE_STRIKER) else 16 if item == BUCKET else STACK_SIZE
+    return 1 if item in TOOLS or item in (WATER_BUCKET, LAVA_BUCKET, MILK_BUCKET, FIRE_STRIKER, SHEARS) else 16 if item == BUCKET else STACK_SIZE
 
 
 def new_stack(item, amount):
@@ -325,6 +326,14 @@ RECIPES = [
     ({IRON_INGOT: 5}, (CART, 1)),
     ({CART: 1, 48: 1}, (CHEST_CART, 1)),
     ({GLASS: 3}, (GLASS_BOTTLE, 3)),
+    ({IRON_INGOT: 6}, (1924, 1)),                          # iron door
+    ({"planks": 6}, (1932, 2)),                            # trapdoors
+    ({"planks": 2, STICK: 4}, (1940, 1)),                  # fence gate
+    ({GLASS: 6}, (1948, 16)),                              # glass panes
+    ({IRON_INGOT: 1, 50: 1}, (1949, 1)),                   # lantern: a torch in iron
+    ({"planks": 6, "logs": 1}, (1950, 1)),                 # barrel
+    ({6: 4, COAL: 5}, (1951, 1)),                          # TNT: sand and coal powder
+    ({IRON_INGOT: 2}, (SHEARS, 1)),
     ({"rock": 4, COPPER_INGOT: 2, 1726: 1}, (1906, 1)),     # timer: a delay gate in a box
     ({"rock": 4, COPPER_INGOT: 2, 1700: 2}, (1908, 1)),     # counter
     ({"planks": 8, COPPER_INGOT: 1}, (1910, 1)),           # note block

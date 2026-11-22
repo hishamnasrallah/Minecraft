@@ -45,6 +45,9 @@ static func rotate_block(id: int) -> int:
 			return id if id < 1810 else 1810 + (id - 1810 + 1) % 4
 		"door":
 			return id + 4 if int(d["door"]["axis"]) == 0 else id - 4
+		"trapdoor", "fence_gate":
+			var df: int = int(d["door"]["facing"])
+			return id - df * 2 + ((df + 1) % 4) * 2
 	return id
 
 

@@ -312,6 +312,32 @@ WOODS["oak"]["door"] = 510
 for _i in range(510, 518):
     DOORS[_i]["base"] = 510
 family("doors", [w["door"] for w in WOODS.values()])
+# the iron door: the same layout; it only opens by power (a button, switch or plate), not by hand
+for axis in (0, 1):
+    for is_open in (0, 1):
+        for top in (0, 1):
+            i = 1924 + axis * 4 + is_open * 2 + top
+            DOORS[i] = dict(axis=axis, open=is_open, top=top, base=1924, iron=True)
+            block(i, "iron door", ("iron_door_top" if top else "iron_door_bottom"), FUNCTIONAL, 5.0, "pickaxe", 1,
+                  shape=DOOR, creative=i == 1924, drop=1924 if not top else None, door=DOORS[i])
+# single-block "doors": trapdoors (1932 + facing*2 + open) and fence gates (1940 + facing*2 + open)
+for _f in range(4):
+    for is_open in (0, 1):
+        i = 1932 + _f * 2 + is_open
+        DOORS[i] = dict(axis=_f % 2, open=is_open, top=0, base=1932, single=True, facing=_f)
+        block(i, "trapdoor", "trapdoor", FUNCTIONAL, 2.0, "axe", shape="trapdoor", creative=i == 1932, drop=1932,
+              door=DOORS[i], facing=_f, solid=not is_open)
+        i = 1940 + _f * 2 + is_open
+        DOORS[i] = dict(axis=_f % 2, open=is_open, top=0, base=1940, single=True, facing=_f)
+        block(i, "fence gate", "planks", FUNCTIONAL, 2.0, "axe", shape="fence_gate", creative=i == 1940, drop=1940,
+              door=DOORS[i], facing=_f, solid=not is_open)
+block(1948, "glass pane", "glass", BUILDING, 0.3, drop=None, shape="pane")
+block(1949, "lantern", "lantern", FUNCTIONAL, 1.0, "pickaxe", shape="lantern", emit=15, solid=False)
+block(1950, "barrel", ("barrel_top", "barrel_side", "barrel_top"), FUNCTIONAL, 2.5, "axe", container=True)
+# TNT: lit by power or a fire striker; it hisses and flashes for 3 s, then blows up the blocks around
+block(1951, "TNT", ("tnt_top", "tnt_side", "tnt_bottom"), FUNCTIONAL, 0.0, logic=dict(kind="tnt"))
+block(1952, "TNT", ("tnt_lit", "tnt_lit", "tnt_lit"), FUNCTIONAL, 0.0, creative=False, drop=1951, emit=10,
+      logic=dict(kind="tnt", on=True))
 
 # ---------------------------------------------------------------- farming
 # hoe a grass / dirt block into farmland, plant seeds or a carrot on it, and it grows in 4 stages
@@ -578,4 +604,5 @@ FACING_VECTORS = [(0, 1), (1, 0), (0, -1), (-1, 0)]   # (dx, dz) for facing 0..3
 
 def toggled_door(block_id):
     """The same door half, opened if it was closed and closed if it was open."""
-    return block_id - 2 if DOORS[block_id]["open"] else block_id + 2
+    step = 1 if DOORS[block_id].get("single") else 2     # trapdoors and gates: open is the next id
+    return block_id - step if DOORS[block_id]["open"] else block_id + step

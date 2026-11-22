@@ -580,6 +580,45 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 			if door_axis[id] == 0:
 				return [[Vector3(-.5, -.5, -.5), Vector3(-.32, .5, .5)]] if door_open[id] else [[Vector3(-.5, -.5, -.09), Vector3(.5, .5, .09)]]
 			return [[Vector3(-.5, -.5, -.5), Vector3(.5, .5, -.32)]] if door_open[id] else [[Vector3(-.09, -.5, -.5), Vector3(.09, .5, .5)]]
+		"trapdoor":
+			if not door_open[id]:
+				return [[Vector3(-.5, -.5, -.5), Vector3(.5, -.32, .5)]]     # shut: a lid on the floor
+			match facing[id]:                                               # open: up against its hinge side
+				0: return [[Vector3(-.5, -.5, .32), Vector3(.5, .5, .5)]]
+				1: return [[Vector3(.32, -.5, -.5), Vector3(.5, .5, .5)]]
+				2: return [[Vector3(-.5, -.5, -.5), Vector3(.5, .5, -.32)]]
+			return [[Vector3(-.5, -.5, -.5), Vector3(-.32, .5, .5)]]
+		"fence_gate":
+			var across_x: bool = facing[id] % 2 == 0                        # facing +z / -z: the gate runs along x
+			var gb := []
+			for s in [-1, 1]:                                               # the two posts
+				gb.append([Vector3(.4375 * s - .0625, -.5, -.0625), Vector3(.4375 * s + .0625, .45, .0625)] if across_x
+					else [Vector3(-.0625, -.5, .4375 * s - .0625), Vector3(.0625, .45, .4375 * s + .0625)])
+			if not door_open[id]:
+				for ys in [[.1, .32], [-.25, -.05]]:                        # shut: two rails between them
+					gb.append([Vector3(-.375, ys[0], -.05), Vector3(.375, ys[1], .05)] if across_x
+						else [Vector3(-.05, ys[0], -.375), Vector3(.05, ys[1], .375)])
+			else:
+				for s in [-1, 1]:                                           # open: swung back
+					gb.append([Vector3(.4375 * s - .05, -.25, 0), Vector3(.4375 * s + .05, .32, .4)] if across_x
+						else [Vector3(0, -.25, .4375 * s - .05), Vector3(.4, .32, .4375 * s + .05)])
+			return gb
+		"pane":
+			var pb := [[Vector3(-.0625, -.5, -.0625), Vector3(.0625, .5, .0625)]]
+			var linked := false
+			for dd in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				var nb := world.get_block(x + dd.x, y, z + dd.y)
+				if nb == id or (nb != 0 and transparent[nb] == 0):
+					linked = true
+					if dd.x != 0:
+						pb.append([Vector3(0.0 if dd.x > 0 else -.5, -.5, -.0625), Vector3(.5 if dd.x > 0 else 0.0, .5, .0625)])
+					else:
+						pb.append([Vector3(-.0625, -.5, 0.0 if dd.y > 0 else -.5), Vector3(.0625, .5, .5 if dd.y > 0 else 0.0)])
+			if not linked:                                                  # alone: a pane across x
+				pb.append([Vector3(-.5, -.5, -.0625), Vector3(.5, .5, .0625)])
+			return pb
+		"lantern":
+			return [[Vector3(-.19, -.5, -.19), Vector3(.19, -.06, .19)], [Vector3(-.12, -.06, -.12), Vector3(.12, .06, .12)]]
 		"fence":
 			var boxes := [[Vector3(-.125, -.5, -.125), Vector3(.125, .5, .125)]]
 			for dd in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
