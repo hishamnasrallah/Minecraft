@@ -38,7 +38,7 @@ NAMES_AR = {
     "stick": "عصا", "stone": "حجر", "stone bricks": "طوب حجري", "tall grass": "عشب طويل", "tiles": "بلاط",
     "tin ingot": "سبيكة قصدير", "tin ore": "خام قصدير", "torch": "شعلة", "water": "ماء",
     "water bucket": "سطل ماء", "lava bucket": "سطل حمم", "milk bucket": "سطل حليب", "glass bottle": "قنينة زجاج", "iron door": "باب حديد", "trapdoor": "باب أرضي", "fence gate": "بوابة سياج",
-    "glass pane": "لوح زجاج", "lantern": "فانوس", "barrel": "برميل", "TNT": "ديناميت", "shears": "مقص", "composter": "كمبوستر", "campfire": "نار مخيم", "anvil": "سندان", "slime block": "بلوك سلايم",
+    "glass pane": "لوح زجاج", "lantern": "فانوس", "barrel": "برميل", "TNT": "ديناميت", "shears": "مقص", "painting": "لوحة رسم", "item frame": "برواز", "flower pot": "أصيص ورد", "shield": "ترس", "composter": "كمبوستر", "campfire": "نار مخيم", "anvil": "سندان", "slime block": "بلوك سلايم",
     "bone meal": "سماد عظم", "slimeball": "كرة سلايم", "sign": "لوحة كتابة", "enchanting table": "طاولة التعويذ", "compass": "بوصلة", "map": "خريطة",
     "paper": "ورق", "bow": "قوس", "arrow": "سهم", "boat": "قارب", "fishing rod": "صنّارة", "saddle": "سرج",
     "iron helmet": "خوذة حديد", "iron chestplate": "درع صدر حديد", "iron leggings": "بنطلون حديد", "iron boots": "جزمة حديد",

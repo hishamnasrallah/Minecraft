@@ -569,6 +569,70 @@ def slime_block(rng):
     return img
 
 
+def painting(n):
+    """Four little pictures of our own: a sunset over the sea, a mountain, a flower, a night sky."""
+    def gen(rng):
+        img = Image.new("RGB", (TILE, TILE))
+        for x in range(TILE):
+            for y in range(TILE):
+                frame = x in (0, 15) or y in (0, 15)
+                if frame:
+                    c = (120, 84, 48)
+                elif n == 0:
+                    c = (250, 150 - y * 6, 80) if y < 9 else (40, 90, 170)
+                    if (x - 8) ** 2 + (y - 9) ** 2 < 9 and y < 9:
+                        c = (255, 220, 90)
+                elif n == 1:
+                    c = (130, 190, 240) if y < 16 - min(x, 15 - x) * 1.6 else (90, 110, 120)
+                    if y < 6 - abs(x - 8) * 0.0 and y > 16 - min(x, 15 - x) * 1.6:
+                        c = (240, 240, 245)
+                elif n == 2:
+                    c = (230, 220, 190)
+                    if (x - 8) ** 2 + (y - 6) ** 2 < 8:
+                        c = (220, 60, 90)
+                    if x == 8 and y > 8:
+                        c = (60, 140, 60)
+                else:
+                    c = (20, 24, 60)
+                    if rng.random() < 0.06:
+                        c = (255, 255, 220)
+                    if (x - 11) ** 2 + (y - 4) ** 2 < 5:
+                        c = (240, 236, 200)
+                img.putpixel((x, y), c)
+        return img
+    return gen
+
+
+def item_frame(rng):
+    img = boards((150, 110, 66))(rng)
+    for x in range(3, 13):
+        for y in range(3, 13):
+            img.putpixel((x, y), (122, 86, 52))
+    return img
+
+
+def flower_pot(rng):
+    img = _blank()
+    for x in range(4, 12):
+        for y in range(6, 15):
+            _px(img, x, y, (170, 90, 60) if y > 6 else (130, 70, 46))
+    return img
+
+
+def shield_icon(rng):
+    img = _blank()
+    for x in range(3, 13):
+        for y in range(2, 14):
+            if y > 10 and abs(x - 7.5) > 13 - y:
+                continue
+            edge = x in (3, 12) or y == 2
+            _px(img, x, y, (150, 152, 160) if edge else (140, 100, 60))
+    for y in range(3, 13):
+        _px(img, 7, y, (150, 152, 160))
+        _px(img, 8, y, (150, 152, 160))
+    return img
+
+
 def lava(rng):
     img = _noise(rng, (222, 92, 18), 0.08)
     for _ in range(7):                       # bright molten streaks
@@ -2443,6 +2507,8 @@ EXTRA_GENERATORS.update({
     "campfire_side": campfire_side, "anvil_top": noise_tile((70, 70, 76), 0.08),
     "anvil_side": noise_tile((56, 56, 62), 0.1), "slime_block": slime_block, "bone_meal": bone_meal,
     "slimeball": _round_item((110, 210, 90)),
+    **{f"painting_{n}": painting(n) for n in range(4)}, "item_frame": item_frame, "flower_pot": flower_pot,
+    "shield": shield_icon,
     "compass": compass_icon, "map_item": map_icon, "paper": paper_icon, "enchant_top": enchant_top,
     "enchant_side": enchant_side,
     "bow": bow_icon, "arrow": arrow_icon, "boat": boat_icon, "fishing_rod": rod_icon, "saddle": saddle_icon,

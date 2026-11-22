@@ -647,6 +647,14 @@ func shape_boxes(id: int, x: int, y: int, z: int) -> Array:
 				return [[Vector3(-.5, -.22, -.45), Vector3(-.42, .3, .45)]]
 			var board := [Vector3(-.45, 0.0, -.04), Vector3(.45, .5, .04)] if sf % 2 == 0 else [Vector3(-.04, 0.0, -.45), Vector3(.04, .5, .45)]
 			return [[Vector3(-.04, -.5, -.04), Vector3(.04, 0.0, .04)], board]
+		"painting":
+			match facing[id]:                              # flat against the wall on side `facing`
+				0: return [[Vector3(-.5, -.5, .44), Vector3(.5, .5, .5)]]
+				1: return [[Vector3(.44, -.5, -.5), Vector3(.5, .5, .5)]]
+				2: return [[Vector3(-.5, -.5, -.5), Vector3(.5, .5, -.44)]]
+			return [[Vector3(-.5, -.5, -.5), Vector3(-.44, .5, .5)]]
+		"pot":
+			return [[Vector3(-.19, -.5, -.19), Vector3(.19, -.12, .19)]]
 		"campfire":
 			return [[Vector3(-.5, -.5, -.5), Vector3(.5, -.3, .5)], [Vector3(-.22, -.3, -.22), Vector3(.22, .15, .22)]]
 		"anvil":

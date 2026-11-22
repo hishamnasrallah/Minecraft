@@ -1283,6 +1283,7 @@ var _test_move := Vector2.ZERO
 # ---------------------------------------------------------------- signs, compass, enchanting
 var _sign_labels := {}               # Vector3i -> Label3D
 var _compass_on := false
+var _shown := {}                     # item frame / flower pot -> Sprite3D of what is in it
 var _campfires := {}                 # campfire -> [[raw item, seconds left], ...]
 
 
@@ -1375,6 +1376,24 @@ var _sign_t := 0.0
 var _sign_edit: Control
 var _sign_line: LineEdit
 var _sign_pos := Vector3i.ZERO
+
+
+## An item frame or flower pot: put the held item in (one of it), or take back what is in it.
+func _display(pos: Vector3i) -> void:
+	var st = world.settings.get(pos, {})
+	var shown := int(st.get("show", 0)) if st is Dictionary else 0
+	var item := inv.item_at(selected)
+	if shown != 0:
+		world.settings.erase(pos)
+		if not creative:
+			inv.add(shown, 1)
+	elif item != 0:
+		world.settings[pos] = {"show": item}
+		if not creative:
+			inv.use_one(selected)
+	Sfx.play("place", -2.0, 1.3)
+	_refresh_mode()
+	_sign_t = 1.0
 
 
 func _edit_sign(pos: Vector3i) -> void:
@@ -1470,6 +1489,37 @@ func _update_signs(delta: float) -> void:
 		if not seen.has(p):
 			_sign_labels[p].queue_free()
 			_sign_labels.erase(p)
+	# what is in item frames and flower pots
+	var shown_here := {}
+	for p in world.settings:
+		var st2 = world.settings[p]
+		if not (st2 is Dictionary and st2.has("show")):
+			continue
+		var bid := world.get_block(p.x, p.y, p.z)
+		if not Blocks.defs.get(bid, {}).get("display", false) or Vector3(p).distance_to(player.position) > 48.0:
+			continue
+		shown_here[p] = true
+		var sp: Sprite3D = _shown.get(p)
+		if sp == null:
+			sp = Sprite3D.new()
+			sp.pixel_size = 0.03
+			sp.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+			add_child(sp)
+			_shown[p] = sp
+		sp.texture = hud.icon_for(int(st2["show"]))
+		if bid == 1990:
+			sp.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y   # a flower in the pot
+			sp.position = Vector3(p) + Vector3(0, 0.05, 0)
+		else:
+			var wf := int(Blocks.facing[bid])
+			var out := -Vector3(Power.DIRS[wf])
+			sp.position = Vector3(p) - out * 0.43
+			sp.rotation = Vector3(0, atan2(out.x, out.z), 0)
+			sp.pixel_size = 0.022
+	for p in _shown.keys():
+		if not shown_here.has(p):
+			_shown[p].queue_free()
+			_shown.erase(p)
 	# the compass in your hand points home
 	if inv.item_at(selected) == int(Items.S["COMPASS"]):
 		var to := spawn_point - player.position
@@ -1673,6 +1723,7 @@ func _overlaps_player(p: Vector3i, id: int) -> bool:
 func _usable(id: int) -> bool:
 	var d: Dictionary = Blocks.defs.get(id, {})
 	return d.has("door") or d.get("container", false) or id == 62 or id == 47 or d.has("sign") or id in [1961, 1963, 1964] \
+		or d.get("display", false) \
 		or power.kind_of(id) in ["switch", "button", "not", "and", "or", "xor", "delay", "comparator", "crafter", "collector", "timer", "counter", "note"]
 
 
@@ -1697,6 +1748,9 @@ func use_block(pos: Vector3i) -> bool:
 		return true
 	if d.has("sign"):
 		_edit_sign(pos)
+		return true
+	if d.get("display", false):
+		_display(pos)
 		return true
 	if id == 1961:
 		_open_enchant()
@@ -2468,7 +2522,12 @@ func place_block(allow_use := true) -> void:
 	if item == 1750 or item == 1756:
 		id = _track_piece(pos, item == 1756)          # tracks join the ones around them
 	var n0: Vector3i = hit["normal"]
-	if d["shape"] == "sign" and not (n0.y == 0 and _solid_at(pos - n0)):
+	if d["shape"] == "painting":
+		if n0.y != 0 or not _solid_at(pos - n0):
+			return                                     # paintings and frames hang on a wall
+		var by_wall := {Vector2i(0, -1): 0, Vector2i(-1, 0): 1, Vector2i(0, 1): 2, Vector2i(1, 0): 3}
+		id = item + int(by_wall[Vector2i(n0.x, n0.z)])
+	elif d["shape"] == "sign" and not (n0.y == 0 and _solid_at(pos - n0)):
 		id = 1953 + (_facing() + 2) % 4                 # standing: the writing faces you
 	elif d["shape"] in ["torch", "ptorch", "lever", "button", "sign"] and n0.y == 0 and _solid_at(pos - n0):
 		# tapped the side of a block: a torch, switch or button goes on that wall
@@ -3441,6 +3500,9 @@ func _update_building() -> void:
 func _take_damage(damage: int, cause := "gloom") -> void:
 	if damage <= 0 or creative or health.dead:
 		return
+	if inv.item_at(selected) == int(Items.S["SHIELD"]) and not cause in ["fall", "lava", "void", "starved", "drowned"]:
+		damage = maxi(1, ceili(damage * 0.4))           # the shield takes most of the hit
+		Sfx.play("dig_wood", -2.0, 0.7)
 	if _spawn_shield > 0.0 and cause != "fall" and cause != "void":
 		return                                        # a few calm seconds after coming back
 	health.damage(damage, cause)
@@ -4152,7 +4214,25 @@ func _process_inner(delta: float) -> void:
 			e[o + Vector3i(-1, 0, -4)] = 1953 + 0        # a standing sign, writing toward +z (to you)
 			e[o + Vector3i(1, 1, -3)] = 1957 + 2         # a wall sign on the block's +z side (wall at -z)
 			e[o + Vector3i(3, 0, -4)] = 1961             # the enchanting table
+			for x in range(-4, 1):                      # a wall with two paintings and an item frame
+				for y in range(0, 3):
+					e[o + Vector3i(x, y, -7)] = 41
+			e[o + Vector3i(-4, 1, -6)] = 1970 + 2
+			e[o + Vector3i(-3, 1, -6)] = 1978 + 2
+			e[o + Vector3i(-1, 1, -6)] = 1986 + 2
+			e[o + Vector3i(-2, 0, -5)] = 1990             # a flower pot
 			_rebuild(world.bulk_set(e)[0])
+			inv.slots[selected] = [111, 1]
+			_display(o + Vector3i(-1, 1, -6))
+			inv.slots[selected] = [53, 1]
+			_display(o + Vector3i(-2, 0, -5))
+			set_mode(false)
+			inv.slots[selected] = [int(Items.S["SHIELD"]), 1]
+			var hp := health.health
+			_take_damage(10, "gloom")
+			_st["shield"] = hp - health.health
+			health.health = 20
+			set_mode(true)
 			_edit_sign(o + Vector3i(-1, 0, -4))
 			_sign_line.text = "HISHAM"
 			_sign_done()
@@ -4172,8 +4252,8 @@ func _process_inner(delta: float) -> void:
 			inv.slots[selected] = [int(Items.S["COMPASS"]), 1]
 			_st["en"] = en
 		if _st_frame == 40:
-			print("SIGN labels %d, texts %s, enchanted pickaxe: %s, compass says: %s" % [_sign_labels.size(),
-				_sign_labels.values().map(func(l): return l.text), _st["en"], hud.mode_label.text])
+			print("SIGN labels %d, texts %s, enchanted pickaxe: %s, compass says: %s, shown in frame/pot %d, a hit of 10 with the shield took %d" % [_sign_labels.size(),
+				_sign_labels.values().map(func(l): return l.text), _st["en"], hud.mode_label.text, _shown.size(), _st["shield"]])
 	if "--toolstest" in OS.get_cmdline_user_args() and spawned:
 		_st_frame += 1                                  # testing: bone meal, campfire, anvil, slime
 		if not _st.has("to"):

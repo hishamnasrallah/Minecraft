@@ -352,6 +352,16 @@ block(1963, "campfire", ("campfire_top", "campfire_side", "campfire_side"), FUNC
 block(1964, "anvil", ("anvil_top", "anvil_side", "anvil_side"), FUNCTIONAL, 5.0, "pickaxe", 1, shape="anvil")
 # a slime block: you bounce on it
 block(1965, "slime block", "slime_block", BUILDING, 0.0, translucent=True)
+# paintings (4 pictures, each on any wall side: 1970 + picture * 4 + wall side), an item frame
+# on a wall (1986 + wall side) and a flower pot: the last two show what you put in them
+for _a in range(4):
+    for _f in range(4):
+        block(1970 + _a * 4 + _f, "painting", f"painting_{_a}", FUNCTIONAL, 0.5, "axe", shape="painting", solid=False,
+              facing=_f, creative=_f == 0, drop=1970 + _a * 4)
+for _f in range(4):
+    block(1986 + _f, "item frame", "item_frame", FUNCTIONAL, 0.5, "axe", shape="painting", solid=False, facing=_f,
+          creative=_f == 0, drop=1986, display=True)
+block(1990, "flower pot", "flower_pot", FUNCTIONAL, 0.3, shape="pot", solid=False, display=True)
 block(1948, "glass pane", "glass", BUILDING, 0.3, drop=None, shape="pane")
 block(1949, "lantern", "lantern", FUNCTIONAL, 1.0, "pickaxe", shape="lantern", emit=15, solid=False)
 block(1950, "barrel", ("barrel_top", "barrel_side", "barrel_top"), FUNCTIONAL, 2.5, "axe", container=True)

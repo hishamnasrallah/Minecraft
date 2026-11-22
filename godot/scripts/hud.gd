@@ -329,6 +329,12 @@ func show_hotbar(inv: Inventory, selected: int, creative: bool) -> void:
 		style.set_corner_radius_all(6)
 		if i == selected:
 			style.bg_color = Color(0.25, 0.2, 0.05, 0.6)
+		var st = inv.slots[i]
+		if st != null and st.size() > 3:
+			style.bg_color = Color(0.35, 0.12, 0.5, 0.6)    # enchanted: a purple glow
+			if i != selected:
+				style.border_color = Color(0.8, 0.5, 1.0, 0.9)
+				style.set_border_width_all(2)
 		slots[i].add_theme_stylebox_override("panel", style)
 		slots[i].pivot_offset = Vector2(SLOT, SLOT) / 2
 		slots[i].scale = Vector2.ONE * (1.14 if i == selected else 1.0)

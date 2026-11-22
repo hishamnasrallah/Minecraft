@@ -29,6 +29,7 @@ SHEARS = 153
 BOW, ARROW, BOAT, FISHING_ROD, SADDLE = 154, 155, 156, 157, 158
 COMPASS, MAP_ITEM, PAPER = 168, 169, 170
 BONE_MEAL, SLIMEBALL = 171, 172
+SHIELD = 173
 # armour: item -> (slot, points); every point takes away 4% of the damage (at most 80%)
 ARMOR = {160: ("head", 2), 161: ("chest", 6), 162: ("legs", 5), 163: ("feet", 2),
          164: ("head", 3), 165: ("chest", 8), 166: ("legs", 6), 167: ("feet", 3)}
@@ -71,7 +72,7 @@ OTHER_ITEMS = {BUCKET: ("bucket", "bucket"), WATER_BUCKET: ("water bucket", "wat
                PUMPKIN: ("pumpkin", "pumpkin"), SHEARS: ("shears", "shears"),
                BOW: ("bow", "bow"), ARROW: ("arrow", "arrow"), BOAT: ("boat", "boat"),
                FISHING_ROD: ("fishing rod", "fishing_rod"), SADDLE: ("saddle", "saddle"), **ARMOR_NAMES,
-               BONE_MEAL: ("bone meal", "bone_meal"), SLIMEBALL: ("slimeball", "slimeball"),
+               SHIELD: ("shield", "shield"), BONE_MEAL: ("bone meal", "bone_meal"), SLIMEBALL: ("slimeball", "slimeball"),
                COMPASS: ("compass", "compass"), MAP_ITEM: ("map", "map_item"), PAPER: ("paper", "paper"), FIRE_STRIKER: ("fire striker", "fire_striker"),
                GLASS_BOTTLE: ("glass bottle", "glass_bottle"), WATER_BOTTLE: ("water bottle", "water_bottle"),
                **{p: (v[0], v[1]) for p, v in POTIONS.items()}}
@@ -181,7 +182,7 @@ def attack_damage(item):
 
 
 def max_stack(item):
-    return 1 if item in TOOLS or item in (WATER_BUCKET, LAVA_BUCKET, MILK_BUCKET, FIRE_STRIKER, SHEARS, BOW,
+    return 1 if item in TOOLS or item in (WATER_BUCKET, LAVA_BUCKET, MILK_BUCKET, FIRE_STRIKER, SHEARS, BOW, SHIELD,
                                          BOAT, FISHING_ROD, SADDLE, COMPASS, MAP_ITEM, *ARMOR) else 16 if item == BUCKET else STACK_SIZE
 
 
@@ -354,6 +355,11 @@ RECIPES = [
     ({"planks": 5}, (BOAT, 1)),
     ({"planks": 6, STICK: 1}, (1953, 3)),                # signs
     ({"planks": 7}, (1962, 1)),                            # composter
+    ({"planks": 6, IRON_INGOT: 1}, (SHIELD, 1)),
+    ({STICK: 8, "wool": 1}, (1970, 1)), ({STICK: 8, "flowers": 1}, (1974, 1)),   # paintings
+    ({STICK: 8, 121: 1}, (1978, 1)), ({STICK: 8, 123: 1}, (1982, 1)),
+    ({STICK: 8, 48: 1}, (1986, 1)),                        # item frame
+    ({8: 3}, (1990, 1)),                                   # flower pot from bricks
     ({STICK: 3, COAL: 1, "logs": 3}, (1963, 1)),           # campfire
     ({IRON_INGOT: 31}, (1964, 1)),                         # anvil: a lot of iron
     ({SLIMEBALL: 9}, (1965, 1)), ({1965: 1}, (SLIMEBALL, 9)),
