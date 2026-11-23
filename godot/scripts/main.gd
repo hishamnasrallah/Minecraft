@@ -177,6 +177,7 @@ func _ready() -> void:
 	add_child(carts)
 	far_land = FarTerrain.new()
 	far_land.world = world
+	Engine.max_fps = int(I18n.settings.get("max_fps", 60))     # 0 = no limit
 	far_land.color_of = func(id: int) -> Color: return hud.minimap._color_of(id)
 	far_land.distance = 0 if Boot.safe_mode else int(I18n.settings.get("far_distance", 512))
 	add_child(far_land)
@@ -379,6 +380,7 @@ func _ready() -> void:
 	settings.tutorial_pressed.connect(func(): close_settings(); start_tutorial())
 	settings.view_distance_changed.connect(func(v): chunks.render_distance = v; chunks.update_center(player.position, true))
 	settings.far_distance_changed.connect(func(v): far_land.distance = v)
+	settings.max_fps_changed.connect(func(v): Engine.max_fps = v)
 	settings.language_picked.connect(func(code):
 		save_game()
 		I18n.set_language(code)

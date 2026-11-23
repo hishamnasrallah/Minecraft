@@ -230,13 +230,15 @@ func is_ready_at(position: Vector3) -> bool:
 	return true
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	var t0 := Time.get_ticks_usec()
 	_collect()
 	_schedule()
-	# show a few finished meshes per frame: many at once would make the game stutter
+	# show a few finished meshes per frame: many at once would make the game stutter. At a
+	# lower frame rate a frame shows more, so the land appears just as fast per second.
+	var per_frame := clampi(roundi(APPLY_PER_FRAME * delta * 60.0), APPLY_PER_FRAME, APPLY_PER_FRAME * 3)
 	var n := 0
-	while not _pending.is_empty() and n < APPLY_PER_FRAME:
+	while not _pending.is_empty() and n < per_frame:
 		var r: Array = _pending.pop_front()
 		var key: Vector2i = r[1]
 		if _dist(key, _center) > render_distance + 1:

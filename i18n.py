@@ -301,7 +301,7 @@ UI = {
     "gate_short_xor": ("XOR", "وحدة بس"), "gate_short_delay": ("WAIT", "انتظار"),
     "panel_kind": ("Kind", "النوع"), "panel_wait": ("How long it waits", "قديش بيستنى"),
     "panel_turn": ("Turn", "لفّ"), "seconds": ("%s s", "%s ث"),
-    "far_distance": ("Far land", "الأرض البعيدة"), "off": ("off", "مطفية"), "blocks_n": ("%s blocks", "%s بلوك"),
+    "far_distance": ("Far land", "الأرض البعيدة"), "max_fps": ("Frame limit", "حد الفريمات"), "no_limit": ("no limit", "بدون حد"), "off": ("off", "مطفية"), "blocks_n": ("%s blocks", "%s بلوك"),
     "cause_void": ("You fell off the sky islands.", "وقعت عن جزر السما."),
     "wind_saved": ("The wind carried you back to the island.", "الريح رجّعتك عالجزيرة."),
     "cause_storm": ("The Storm Ray got you.", "رعّاد العاصفة قتلك."),

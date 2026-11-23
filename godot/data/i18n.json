@@ -1012,6 +1012,14 @@
    "en": "Far land",
    "ar": "الأرض البعيدة"
   },
+  "max_fps": {
+   "en": "Frame limit",
+   "ar": "حد الفريمات"
+  },
+  "no_limit": {
+   "en": "no limit",
+   "ar": "بدون حد"
+  },
   "off": {
    "en": "off",
    "ar": "مطفية"

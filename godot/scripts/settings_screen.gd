@@ -6,6 +6,7 @@ signal closed
 signal language_picked(code: String)
 signal view_distance_changed(value: int)
 signal far_distance_changed(value: int)
+signal max_fps_changed(value: int)
 signal exit_pressed
 signal tutorial_pressed
 signal touch_buttons_changed(on: bool)
@@ -18,6 +19,8 @@ var _panel: PanelContainer
 var _sens_label: Label
 var _dist_label: Label
 var _far_label: Label
+var _fps_label: Label
+const FPS_STEPS := [0, 60, 40, 30]         # 0 = no limit; 60, 40 and 30 divide a 120 Hz screen evenly
 var _scroll: ScrollContainer
 var _box: VBoxContainer
 var _log_panel: PanelContainer
@@ -94,6 +97,18 @@ func _ready() -> void:
 	far.custom_minimum_size.y = 40
 	far.value_changed.connect(func(v): I18n.settings["far_distance"] = int(v); _update_labels(); far_distance_changed.emit(int(v)))
 	box.add_child(far)
+
+	# frame limit: fewer frames keep the device cooler and leave more time for loading the land
+	_fps_label = _caption("", "")
+	box.add_child(_fps_label)
+	var cap := HSlider.new()
+	cap.min_value = 0
+	cap.max_value = FPS_STEPS.size() - 1
+	cap.step = 1
+	cap.value = float(maxi(0, FPS_STEPS.find(int(I18n.settings.get("max_fps", 60)))))
+	cap.custom_minimum_size.y = 40
+	cap.value_changed.connect(func(v): I18n.settings["max_fps"] = int(FPS_STEPS[int(v)]); _update_labels(); max_fps_changed.emit(int(FPS_STEPS[int(v)])))
+	box.add_child(cap)
 
 	var sound_label := _caption(I18n.t("sound"), "")
 	box.add_child(sound_label)
@@ -258,6 +273,8 @@ func _update_labels() -> void:
 	_dist_label.text = "%s: %d" % [I18n.t("view_distance"), d if d > 0 else Main.default_view_distance()]
 	var fd := int(I18n.settings.get("far_distance", 512))
 	_far_label.text = "%s: %s" % [I18n.t("far_distance"), I18n.t("off") if fd <= 0 else I18n.f("blocks_n", fd)]
+	var mf := int(I18n.settings.get("max_fps", 60))
+	_fps_label.text = "%s: %s" % [I18n.t("max_fps"), I18n.t("no_limit") if mf <= 0 else str(mf)]
 
 
 func _layout() -> void:
